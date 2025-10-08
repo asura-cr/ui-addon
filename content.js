@@ -1664,7 +1664,6 @@
         background: ${extensionSettings.sidebarColor};
         border-right: 1px solid rgba(255, 255, 255, 0.06);
         flex-shrink: 0;
-        padding: 15px 0;
         overflow-y: auto;
         position: fixed;
         top: 55px;
@@ -1674,7 +1673,7 @@
       }
 
       .sidebar-header {
-        padding: 0 20px 15px;
+        padding: 15px 20px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         margin-bottom: 15px;
       }
@@ -2817,7 +2816,7 @@
       }
 
       #game-sidebar.collapsed .sidebar-header {
-        padding: 15px 10px !important;
+        padding: 10px !important;
         text-align: center;
         position: relative;
       }
@@ -2846,7 +2845,7 @@
       }
 
       #game-sidebar.collapsed .sidebar-menu li a {
-        padding: 12px 10px !important;
+        padding: 10px !important;
         justify-content: center !important;
         display: flex !important;
         align-items: center !important;
