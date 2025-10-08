@@ -3365,10 +3365,10 @@
             <div class="settings-content">
               <div class="settings-grid">
                 <!-- Sidebar Color Section -->
-                <div class="settings-section expanded">
+                <div class="settings-section">
                   <div class="settings-section-header" onclick="toggleSection(this)">
                     <h3>🎨 Sidebar Color</h3>
-                    <span class="expand-icon">−</span>
+                    <span class="expand-icon">+</span>
             </div>
             <div class="settings-section-content">
                     <p class="section-description">Choose a color theme for your side panel navigation.</p>
@@ -3380,10 +3380,10 @@
           </div>
 
                 <!-- Background Color Section -->
-                <div class="settings-section expanded">
+                <div class="settings-section">
                   <div class="settings-section-header" onclick="toggleSection(this)">
                     <h3>🌅 Background Color</h3>
-                    <span class="expand-icon">−</span>
+                    <span class="expand-icon">+</span>
             </div>
                   <div class="settings-section-content">
                     <p class="section-description">Set the main background color for your application.</p>
