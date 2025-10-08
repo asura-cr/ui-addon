@@ -9299,6 +9299,13 @@
       
       // Start the interval
       autoSlashInterval = setInterval(() => {
+        const modal = document.querySelector("#endModal");
+        const isShowingEndModal = modal && modal.style.display !== 'none';
+
+        if (isShowingEndModal) {
+          clearInterval(autoSlashInterval);
+        }
+
         if (autoSlashEnabled && slashBtn && !slashBtn.disabled) {
           slashBtn.click();
         }
