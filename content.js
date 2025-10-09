@@ -1673,7 +1673,7 @@
       }
 
       .sidebar-header {
-        padding: 15px 20px 15px;
+        padding: 15px 0 20px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         margin-bottom: 15px;
       }
@@ -2816,7 +2816,7 @@
       }
 
       #game-sidebar.collapsed .sidebar-header {
-        padding: 10px !important;
+        padding: 15px 10px !important;
         text-align: center;
         position: relative;
       }
@@ -2845,7 +2845,7 @@
       }
 
       #game-sidebar.collapsed .sidebar-menu li a {
-        padding: 10px !important;
+        padding: 12px 10px !important;
         justify-content: center !important;
         display: flex !important;
         align-items: center !important;
@@ -3365,10 +3365,10 @@
             <div class="settings-content">
               <div class="settings-grid">
                 <!-- Sidebar Color Section -->
-                <div class="settings-section">
+                <div class="settings-section expanded">
                   <div class="settings-section-header" onclick="toggleSection(this)">
                     <h3>🎨 Sidebar Color</h3>
-                    <span class="expand-icon">+</span>
+                    <span class="expand-icon">−</span>
             </div>
             <div class="settings-section-content">
                     <p class="section-description">Choose a color theme for your side panel navigation.</p>
@@ -3380,10 +3380,10 @@
           </div>
 
                 <!-- Background Color Section -->
-                <div class="settings-section">
+                <div class="settings-section expanded">
                   <div class="settings-section-header" onclick="toggleSection(this)">
                     <h3>🌅 Background Color</h3>
-                    <span class="expand-icon">+</span>
+                    <span class="expand-icon">−</span>
             </div>
                   <div class="settings-section-content">
                     <p class="section-description">Set the main background color for your application.</p>
@@ -6472,10 +6472,8 @@
         safeExecute(() => applyCustomBackgrounds(), 'Background Images');
     }, 200);
     
-    // Initialize stamina per hour calculation after a delay to ensure sidebar is ready
-    setTimeout(() => {
-        safeExecute(() => initStaminaPerHourCalculation(), 'Stamina Per Hour Calculation');
-    }, 2000);
+    // Initialize stamina per hour calculation immediately (no delay needed)
+    safeExecute(() => initStaminaPerHourCalculation(), 'Stamina Per Hour Calculation');
     
     console.log('Demon Game Enhancement v3.0 - Initialization Complete!');
     console.log('Type debugExtension() in console for debug info');
@@ -10363,34 +10361,31 @@
   window.autoClickShowMore = autoClickShowMore;
   window.getAllConsumableItems = getAllConsumableItems;
   window.findItemByName = findItemByName;
-  window.calculateStaminaPerHour = calculateStaminaPerHour;
+  window.getStaminaPerHourFromTitle = getStaminaPerHourFromTitle;
   window.updateStaminaTimerDisplay = updateStaminaTimerDisplay;
   
   // Debug function to test stamina calculation
   window.debugStaminaCalculation = function() {
     console.log('=== Debug Stamina Calculation ===');
-    const level = document.querySelector('.gtb-level')?.textContent || 'Not found';
-    const attack = document.getElementById('sidebar-attack')?.textContent || 'Not found';
-    const defense = document.getElementById('sidebar-defense')?.textContent || 'Not found';
-    const calculatedStamina = calculateStaminaPerHour();
-    
-    console.log('Level element text:', level);
-    console.log('Attack element text:', attack);
-    console.log('Defense element text:', defense);
-    console.log('Calculated stamina per hour:', calculatedStamina);
-    
     const staminaTimer = document.getElementById('stamina_timer');
-    if (staminaTimer) {
-      console.log('Stamina timer title:', staminaTimer.getAttribute('title'));
+    const title = staminaTimer ? staminaTimer.getAttribute('title') : 'Element not found';
+    const extractedValue = getStaminaPerHourFromTitle();
+    
+    console.log('Stamina timer element:', staminaTimer ? 'Found' : 'Not found');
+    console.log('Title attribute:', title);
+    console.log('Extracted stamina per hour:', extractedValue);
+    
+    const staminaRateElement = document.getElementById('stamina-rate-display');
+    if (staminaRateElement) {
+      console.log('Rate display element text:', staminaRateElement.textContent);
     } else {
-      console.log('Stamina timer element not found');
+      console.log('Rate display element not found');
     }
     
     return {
-      level: level,
-      attack: attack,
-      defense: defense,
-      calculatedStamina: calculatedStamina
+      title: title,
+      extractedStamina: extractedValue,
+      hasRateElement: !!staminaRateElement
     };
   };
 
@@ -10450,6 +10445,24 @@
       return [];
     }
   };
+
+  // Function to extract stamina per hour from the server-calculated title
+  function getStaminaPerHourFromTitle() {
+    try {
+      const staminaTimer = document.getElementById('stamina_timer');
+      if (staminaTimer) {
+        const title = staminaTimer.getAttribute('title') || '';
+        const match = title.match(/Next \+(\d+)/);
+        if (match) {
+          return parseInt(match[1]);
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error extracting stamina from title:', error);
+      return null;
+    }
+  }
 
   // Function to calculate stamina per hour based on the formula: 40 + (level/50) + ((attack + defense)/100)
   async function calculateStaminaPerHour() {
@@ -10551,47 +10564,39 @@
     }
   }
 
-  // Function to update the stamina timer display with the calculated amount
-  async function updateStaminaTimerDisplay() {
+  // Function to update the stamina timer display with the server-calculated amount
+  function updateStaminaTimerDisplay() {
     try {
       const staminaTimer = document.getElementById('stamina_timer');
       if (staminaTimer) {
-        const result = await calculateStaminaPerHour();
-        const { level, attack, defense, staminaPerHour } = result;
+        const staminaPerHour = getStaminaPerHourFromTitle();
         
-        // Check if values have changed since last update
-        const lastValues = updateStaminaTimerDisplay.lastValues || {};
-        const hasChanged = lastValues.level !== level || 
-                          lastValues.attack !== attack || 
-                          lastValues.defense !== defense ||
-                          lastValues.staminaPerHour !== staminaPerHour;
-        
-        if (hasChanged) {
-          // Update the title to show the calculated amount
-          const currentTitle = staminaTimer.getAttribute('title') || '';
-          const newTitle = currentTitle.replace(/Next \+\d+/, `Next +${staminaPerHour}`);
-          staminaTimer.setAttribute('title', newTitle);
+        if (staminaPerHour) {
+          // Check if value has changed since last update
+          const lastValue = updateStaminaTimerDisplay.lastValue || 0;
           
-          // Find or create the stamina rate display element
-          let staminaRateElement = document.getElementById('stamina-rate-display');
-          
-          if (!staminaRateElement) {
-            // Create the new element if it doesn't exist
-            staminaRateElement = document.createElement('span');
-            staminaRateElement.id = 'stamina-rate-display';
-            staminaRateElement.className = 'gtb-timer';
-            staminaRateElement.style.marginRight = '5px'; // Add some spacing
+          if (lastValue !== staminaPerHour) {
+            // Find or create the stamina rate display element
+            let staminaRateElement = document.getElementById('stamina-rate-display');
             
-            // Insert it before the existing stamina timer
-            staminaTimer.parentNode.insertBefore(staminaRateElement, staminaTimer);
+            if (!staminaRateElement) {
+              // Create the new element if it doesn't exist
+              staminaRateElement = document.createElement('span');
+              staminaRateElement.id = 'stamina-rate-display';
+              staminaRateElement.className = 'gtb-timer';
+              staminaRateElement.style.marginRight = '5px'; // Add some spacing
+              
+              // Insert it before the existing stamina timer
+              staminaTimer.parentNode.insertBefore(staminaRateElement, staminaTimer);
+            }
+            
+            // Update the stamina rate display
+            staminaRateElement.textContent = `+${staminaPerHour}/h`;
+            
+            // Store current value and log the update
+            updateStaminaTimerDisplay.lastValue = staminaPerHour;
+            console.log(`Updated stamina per hour: +${staminaPerHour}/h (from server calculation)`);
           }
-          
-          // Update the stamina rate display
-          staminaRateElement.textContent = `+${staminaPerHour}/h`;
-          
-          // Store current values and log the update
-          updateStaminaTimerDisplay.lastValues = { level, attack, defense, staminaPerHour };
-          console.log(`Updated stamina per hour: +${staminaPerHour}/h (Level: ${level}, Attack: ${attack}, Defense: ${defense})`);
         }
       }
     } catch (error) {
@@ -10604,36 +10609,37 @@
     // Update stamina display immediately
     updateStaminaTimerDisplay();
     
-    // Set up interval to update every 30 seconds (reduced frequency)
+    // Set up interval to update every 60 seconds (less frequent since it rarely changes)
     setInterval(() => {
       updateStaminaTimerDisplay();
-    }, 30000);
+    }, 60000);
     
-    // Debounced update function to prevent spam
-    let updateTimeout = null;
-    const debouncedUpdate = () => {
-      if (updateTimeout) clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        updateStaminaTimerDisplay();
-      }, 1000); // Wait 1 second after last change
-    };
-    
-    // Set up mutation observer to watch only the specific elements
+    // Simple mutation observer to watch only for title attribute changes
     const observer = new MutationObserver(() => {
-      debouncedUpdate();
+      updateStaminaTimerDisplay();
     });
     
-    // Observe only the level element and the sidebar stats container
-    const levelElement = document.querySelector('.gtb-level');
-    const sidebarStatsContainer = document.querySelector('.sidebar-menu-expandable');
+    // Observe only the stamina timer element for title attribute changes
+    const staminaTimer = document.getElementById('stamina_timer');
     
-    if (levelElement) {
-      observer.observe(levelElement, { characterData: true, subtree: true });
+    if (staminaTimer) {
+      observer.observe(staminaTimer, { 
+        attributes: true, 
+        attributeFilter: ['title'] 
+      });
+      console.log('Stamina per hour calculation initialized - watching server values');
+    } else {
+      // If element not found immediately, try again in 1 second
+      setTimeout(() => {
+        const retryTimer = document.getElementById('stamina_timer');
+        if (retryTimer) {
+          observer.observe(retryTimer, { 
+            attributes: true, 
+            attributeFilter: ['title'] 
+          });
+          updateStaminaTimerDisplay();
+          console.log('Stamina per hour calculation initialized (retry) - watching server values');
+        }
+      }, 1000);
     }
-    
-    if (sidebarStatsContainer) {
-      observer.observe(sidebarStatsContainer, { characterData: true, subtree: true });
-    }
-    
-    console.log('Stamina per hour calculation initialized - observing level and sidebar stats');
   }
