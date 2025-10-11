@@ -126,6 +126,8 @@
     '/merchant.php': initMerchantMods,
     '/orc_cull_event.php': initEventMods,
     '/weekly.php': initLeaderboardMods,
+    '/collections.php': initCollectionsMods,
+    '/achievements.php': initAchievementsMods,
   };
 
   // Automatic retrieval of userId from cookie
@@ -7019,6 +7021,337 @@
       showNotification(`Removed "${removedItem?.name || 'item'}" from merchant quick access`, 'info');
   }
 
+  function addCollectionsDivider() {
+      if (!window.location.pathname.includes('collections.php')) return;
+      
+      let attempts = 0;
+      const maxAttempts = 50;
+      
+      const checkAndAddDivider = () => {
+          attempts++;
+          
+          // Find the collections grid
+          const grid = document.querySelector('.panel .grid');
+          
+          if (!grid) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Check if divider already exists
+          if (grid.querySelector('.collection-divider')) {
+              return;
+          }
+          
+          // Get all collection cards
+          const cards = Array.from(grid.querySelectorAll('.card[data-col-id]'));
+          
+          if (cards.length === 0) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Separate completed and incomplete collections
+          const completedCards = [];
+          const incompleteCards = [];
+          
+          cards.forEach(card => {
+              const claimButton = card.querySelector('button');
+              const isCompleted = claimButton && claimButton.textContent.trim().toLowerCase() === 'claimed';
+              
+              if (isCompleted) {
+                  completedCards.push(card);
+              } else {
+                  incompleteCards.push(card);
+              }
+          });
+          
+          // Only add divider if we have both types
+          if (completedCards.length === 0 || incompleteCards.length === 0) {
+              return;
+          }
+          
+          console.log(`Found ${incompleteCards.length} incomplete and ${completedCards.length} completed collections`);
+          
+          // Remove all cards from grid
+          cards.forEach(card => card.remove());
+          
+          // Add incomplete collections first
+          incompleteCards.forEach(card => grid.appendChild(card));
+          
+          // Create and add divider
+          const divider = document.createElement('div');
+          divider.className = 'collection-divider';
+          divider.style.cssText = `
+              grid-column: 1 / -1;
+              margin: 20px 0;
+              padding: 15px;
+              background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+              border: 2px solid #444;
+              border-radius: 8px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+          `;
+          
+          divider.innerHTML = `
+              <div style="
+                  font-size: 18px;
+                  font-weight: bold;
+                  color: #4CAF50;
+                  margin-bottom: 8px;
+                  text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+              ">
+                  COMPLETED COLLECTIONS
+              </div>
+              <div style="
+                  font-size: 14px;
+                  color: #888;
+                  font-style: italic;
+              ">
+                  Collections below have been claimed and completed
+              </div>
+              <div style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background: linear-gradient(45deg, transparent 45%, rgba(76, 175, 80, 0.1) 50%, transparent 55%);
+                  pointer-events: none;
+              "></div>
+          `;
+          
+          grid.appendChild(divider);
+          
+          // Add completed collections after divider
+          completedCards.forEach(card => {
+              // Modify completed cards for simplified display
+              const title = card.querySelector('.title');
+              const rewardDiv = card.querySelector('.reward');
+              const claimButton = card.querySelector('button');
+              
+              // Hide progress bar, requirements list, claim button, and other details
+              const reqList = card.querySelector('.req-list');
+              const progressRow = card.querySelector('.row');
+              const progressBar = card.querySelector('.bar');
+              
+              if (reqList) reqList.style.display = 'none';
+              if (progressRow && !progressRow.querySelector('.reward')) progressRow.style.display = 'none';
+              if (progressBar) progressBar.style.display = 'none';
+              if (claimButton) claimButton.style.display = 'none';
+              
+              // Style the card to look more subdued
+              card.style.cssText += `
+                  opacity: 0.8;
+                  border: 2px solid #4CAF50;
+                  background: linear-gradient(135deg, #1a4a1a 0%, #0d2a0d 100%);
+              `;
+              
+              // Add completed indicator
+              if (title && !title.querySelector('.completed-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'completed-badge';
+                  badge.style.cssText = `
+                      margin-left: 10px;
+                      padding: 2px 8px;
+                      background: #4CAF50;
+                      color: white;
+                      border-radius: 12px;
+                      font-size: 10px;
+                      font-weight: bold;
+                      text-transform: uppercase;
+                  `;
+                  badge.textContent = 'CLAIMED';
+                  title.appendChild(badge);
+              }
+              
+              grid.appendChild(card);
+          });
+          
+          console.log('Collections divider added successfully');
+      };
+      
+      checkAndAddDivider();
+  }
+
+  function addAchievementsDivider() {
+      if (!window.location.pathname.includes('achievements.php')) return;
+      
+      let attempts = 0;
+      const maxAttempts = 50;
+      
+      const checkAndAddDivider = () => {
+          attempts++;
+          
+          // Find the achievements grid
+          const grid = document.querySelector('.panel .grid');
+          
+          if (!grid) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Check if divider already exists
+          if (grid.querySelector('.achievement-divider')) {
+              return;
+          }
+          
+          // Get all achievement cards
+          const cards = Array.from(grid.querySelectorAll('.card[data-ach-id]'));
+          
+          if (cards.length === 0) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Separate completed and incomplete achievements
+          const completedCards = [];
+          const incompleteCards = [];
+          
+          cards.forEach(card => {
+              const claimButton = card.querySelector('button');
+              const isCompleted = claimButton && claimButton.textContent.trim().toLowerCase() === 'claimed';
+              
+              if (isCompleted) {
+                  completedCards.push(card);
+              } else {
+                  incompleteCards.push(card);
+              }
+          });
+          
+          // Only add divider if we have both types
+          if (completedCards.length === 0 || incompleteCards.length === 0) {
+              return;
+          }
+          
+          console.log(`Found ${incompleteCards.length} incomplete and ${completedCards.length} completed achievements`);
+          
+          // Remove all cards from grid
+          cards.forEach(card => card.remove());
+          
+          // Add incomplete achievements first
+          incompleteCards.forEach(card => grid.appendChild(card));
+          
+          // Create and add divider
+          const divider = document.createElement('div');
+          divider.className = 'achievement-divider';
+          divider.style.cssText = `
+              grid-column: 1 / -1;
+              margin: 20px 0;
+              padding: 15px;
+              background: linear-gradient(135deg, #2a2a1f 0%, #1a1a0f 100%);
+              border: 2px solid #d4af37;
+              border-radius: 8px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+          `;
+          
+          divider.innerHTML = `
+              <div style="
+                  font-size: 18px;
+                  font-weight: bold;
+                  color: #FFD700;
+                  margin-bottom: 8px;
+                  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+              ">
+                  COMPLETED ACHIEVEMENTS
+              </div>
+              <div style="
+                  font-size: 14px;
+                  color: #baa76a;
+                  font-style: italic;
+              ">
+                  Achievements below have been claimed and completed
+              </div>
+              <div style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background: linear-gradient(45deg, transparent 45%, rgba(255, 215, 0, 0.1) 50%, transparent 55%);
+                  pointer-events: none;
+              "></div>
+          `;
+          
+          grid.appendChild(divider);
+          
+          // Add completed achievements after divider
+          completedCards.forEach(card => {
+              const title = card.querySelector('.title');
+              const rewardDiv = card.querySelector('.desc');
+              const claimButton = card.querySelector('button');
+              
+              // Hide description, progress bar, progress row details, and claim button for cleaner look
+              const descriptionDiv = card.querySelector('.desc');
+              const progressRows = card.querySelectorAll('.row');
+              const progressBar = card.querySelector('.bar');
+              
+              // Hide the achievement description (first .desc element)
+              if (descriptionDiv && !descriptionDiv.textContent.includes('Rewards:')) {
+                  descriptionDiv.style.display = 'none';
+              }
+              
+              // Hide progress rows except the one containing rewards
+              progressRows.forEach(row => {
+                  if (!row.querySelector('.desc')) {
+                      row.style.display = 'none';
+                  }
+              });
+              
+              // Hide progress bar and claim button
+              if (progressBar) {
+                  progressBar.style.display = 'none';
+              }
+              if (claimButton) {
+                  claimButton.style.display = 'none';
+              }
+              
+              // Style the card to look more subdued with golden theme
+              card.style.cssText += `
+                  opacity: 0.8;
+                  border: 2px solid #FFD700;
+                  background: linear-gradient(135deg, #2a2a1f 0%, #1a1a0f 100%);
+              `;
+              
+              // Add completed indicator
+              if (title && !title.querySelector('.completed-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'completed-badge';
+                  badge.style.cssText = `
+                      margin-left: 10px;
+                      padding: 2px 8px;
+                      background: #FFD700;
+                      color: #000;
+                      border-radius: 12px;
+                      font-size: 10px;
+                      font-weight: bold;
+                      text-transform: uppercase;
+                      box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+                  `;
+                  badge.textContent = 'CLAIMED';
+                  title.appendChild(badge);
+              }
+              
+              grid.appendChild(card);
+          });
+          
+          console.log('Achievements divider added successfully');
+      };
+      
+      checkAndAddDivider();
+  }
+
   // UNIVERSAL MERCHANT BUY - Works from any page
   async function executeMerchantBuy(itemData, quantity = 1) {
       try {
@@ -8856,6 +9189,16 @@
   function initMerchantMods() {
     addMerchantQuickAccessButtons()
       applyCustomBackgrounds()
+  }
+
+  function initCollectionsMods() {
+    addCollectionsDivider()
+    applyCustomBackgrounds()
+  }
+
+  function initAchievementsMods() {
+    addAchievementsDivider()
+    applyCustomBackgrounds()
   }
 
 
