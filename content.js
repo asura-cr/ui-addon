@@ -7799,10 +7799,22 @@
       });
     }
 
+    // Initialize loot filter by populating dropdown and restoring settings
+    if (settings.lootFilter && Array.isArray(settings.lootFilter) && settings.lootFilter.length > 0) {
+      // Populate the loot filter dropdown immediately so we can restore the settings
+      populateLootFilterDropdown().then(() => {
+        // After dropdown is populated, apply the filters
+        applyMonsterFilters();
+      });
+    }
+
     // Apply filters if any are set
     if (settings.nameFilter || (settings.monsterTypeFilter && settings.monsterTypeFilter.length > 0) || settings.hpFilter || settings.playerCountFilter || settings.hideImg || settings.battleLimitAlarm) {
       applyMonsterFilters();
     }
+    
+    // Special case: if we have loot filters but didn't populate the dropdown yet, 
+    // we'll apply filters again after the dropdown is populated (see above)
   }
 
   async function populateLootFilterDropdown() {
@@ -7889,6 +7901,29 @@
     dropdown.dataset.loaded = 'true';
   }
 
+  // Track looted monsters to exclude from counts
+  const lootedMonsters = new Set();
+
+  function updateSectionHeaderCounts(continueCount, lootCount, joinCount) {
+    // Find all monster sections and update their headers based on content
+    const allSections = document.querySelectorAll('.monster-section');
+    
+    allSections.forEach(section => {
+      const header = section.querySelector('h3');
+      if (header) {
+        const headerText = header.textContent;
+        
+        if (headerText.includes('Continue Battle')) {
+          header.textContent = `⚔️ Continue Battle (${continueCount})`;
+        } else if (headerText.includes('Available Loot')) {
+          header.textContent = `💰 Available Loot (${lootCount})`;
+        } else if (headerText.includes('Join a Battle')) {
+          header.textContent = `🆕 Join a Battle (${joinCount})`;
+        }
+      }
+    });
+  }
+
   function applyMonsterFilters() {
     const nameFilter = document.getElementById('monster-name-filter').value.toLowerCase();
     const hpFilter = document.getElementById('hp-filter').value;
@@ -7936,6 +7971,11 @@
 
     const monsters = document.querySelectorAll('.monster-card');
     var limitBattleCount = 0;
+    
+    // Track visible monsters by category
+    let visibleContinueCount = 0;
+    let visibleLootCount = 0;
+    let visibleJoinCount = 0;
 
     monsters.forEach(monster => {
       const monsterNameElement = monster.querySelector('h3');
@@ -8033,6 +8073,25 @@
 
       // Apply visibility
       monster.style.display = shouldShow ? '' : 'none';
+      
+      // Count visible monsters by category (only if monster is visible)
+      if (shouldShow) {
+        const monsterText = monster.textContent;
+        const monsterId = monster.getAttribute('data-monster-id');
+        
+        // Skip counting if this monster was already looted
+        if (lootedMonsters.has(monsterId)) {
+          return; // Skip this monster from counting
+        }
+        
+        if (monsterText.includes('Continue the Battle')) {
+          visibleContinueCount++;
+        } else if (monsterText.includes('Loot')) {
+          visibleLootCount++;
+        } else {
+          visibleJoinCount++;
+        }
+      }
 
       // Handle image visibility and loot preview
       const lootPreview = monster.querySelector('.loot-preview-grid');
@@ -8053,6 +8112,9 @@
         limitBattleCount++;
       }
     });
+    
+    // Update section header counts
+    updateSectionHeaderCounts(visibleContinueCount, visibleLootCount, visibleJoinCount);
 
     if (battleLimitAlarm && limitBattleCount < 3) {
       showNotification('🔔 Battle limit alarm: Less than 3 battles!', 'success');
@@ -8301,14 +8363,54 @@
     const lootAllBtn = document.getElementById('loot-all-btn');
     if (!lootAllBtn) return;
     
-    // Find all available loot buttons to get count
-    const lootButtons = document.querySelectorAll('.join-btn');
-    const availableLootButtons = Array.from(lootButtons).filter(btn => 
-      btn.innerText.includes('💰 Loot Instantly') && !btn.disabled
-    );
+    // Make sure filters are applied before we check for visible monsters
+    console.log('Re-applying filters before loot all...');
+    applyMonsterFilters();
+    
+    // Wait a moment for the DOM to update
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Find all available loot buttons from VISIBLE monsters only
+    const allMonsters = document.querySelectorAll('.monster-card');
+    const availableLootButtons = [];
+    
+    let visibleMonsterCount = 0;
+    
+    allMonsters.forEach((monster, index) => {
+      // Check if monster is actually visible (not hidden by filters)
+      // The applyMonsterFilters function sets display to '' for visible and 'none' for hidden
+      const isVisible = monster.style.display !== 'none';
+
+      if (isVisible) {
+        visibleMonsterCount++;
+        const lootButtons = monster.querySelectorAll('.join-btn');
+        
+        // Find the best loot button for this monster (prefer "Loot Instantly" if available)
+        let bestLootButton = null;
+        lootButtons.forEach(btn => {
+          if ((btn.innerText.includes('💰 Loot Instantly') || btn.innerText.includes('Loot')) && 
+              !btn.disabled && 
+              !btn.innerText.includes('Looted') &&
+              !btn.style.display.includes('none')) {
+            
+            // Prefer "Loot Instantly" over regular "Loot"
+            if (btn.innerText.includes('💰 Loot Instantly')) {
+              bestLootButton = btn;
+            } else if (!bestLootButton && btn.innerText.includes('💰 Loot')) {
+              bestLootButton = btn;
+            }
+          }
+        });
+        
+        // Only add one button per monster
+        if (bestLootButton) {
+          availableLootButtons.push(bestLootButton);
+        }
+      }
+    });
     
     if (availableLootButtons.length === 0) {
-      showNotification('No loot available to claim!', 'info');
+      showNotification('No loot available to claim from filtered monsters!', 'info');
       return;
     }
     
@@ -8373,15 +8475,24 @@
       // Wait for all requests to complete
       const results = await Promise.all(promises);
       
-      // Collect all successful loot
+      // Collect all successful loot and manually update the UI
       let allLootItems = [];
       let successCount = 0;
       let errorCount = 0;
       
-      results.forEach(data => {
+      results.forEach((data, index) => {
         if (data.status === 'success' && data.items) {
           successCount++;
           allLootItems = allLootItems.concat(data.items);
+          
+          // Track this monster as looted so it won't be counted anymore
+          const lootButton = availableLootButtons[index];
+          if (lootButton) {
+            const monsterId = lootButton.getAttribute('data-monster-id');
+            if (monsterId) {
+              lootedMonsters.add(monsterId);
+            }
+          }
         } else {
           errorCount++;
         }
@@ -8422,6 +8533,12 @@
         }
         
         showNotification(`Successfully claimed loot from ${successCount} monsters! Got ${allLootItems.length} items!`, 'success');
+        
+        // Update section header counts after looting - give more time for page to update
+        setTimeout(() => {
+          console.log('Updating monster counts after looting...');
+          applyMonsterFilters(); // This will recount and update all section headers
+        }, 1500); // Increased delay to ensure page updates
         
         // Remove the button after successful looting
         setTimeout(() => {
