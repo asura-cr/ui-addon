@@ -1,11 +1,12 @@
 'use strict';
 
-// Global variables
+  // Global variables
   var alarmInterval = null;
   var waveRefreshInterval = null;
-  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":""}
-
-  // Enhanced settings management
+  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":"", "lootFilter":[]}
+  
+  // Monster loot cache for performance optimization
+  const lootCache = new Map(); // Cache loot data by monster name  // Enhanced settings management
   var extensionSettings = {
     sidebarColor: '#1e1e1e',
     backgroundColor: '#000000',
@@ -7575,6 +7576,24 @@
           </div>
         </div>
         
+        <div style="position: relative; display: inline-block;">
+          <button id="loot-filter-toggle" style="padding: 5px 10px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; cursor: pointer; min-width: 120px; text-align: left;">
+            Loot Filter ▼
+          </button>
+          <div id="loot-filter-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 250px; max-height: 300px; overflow-y: auto;">
+            <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Filter by Loot</div>
+            <div id="loot-items-list">
+              <div style="color: #89b4fa; font-size: 12px; text-align: center; padding: 10px;">
+                Loading loot items...
+              </div>
+            </div>
+            <div style="margin-top: 8px; padding-top: 5px; border-top: 1px solid #45475a;">
+              <button id="select-all-loot" style="padding: 3px 8px; background: #a6e3a1; color: #1e1e2e; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">Select All</button>
+              <button id="clear-loot" style="padding: 3px 8px; background: #f38ba8; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">Clear</button>
+            </div>
+          </div>
+        </div>
+        
         <select id="hp-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
           <option value="">All HP</option>
           <option value="low">Low HP (&lt;50%)</option>
@@ -7689,6 +7708,9 @@
     // Close dropdown when clicking outside
     document.addEventListener('click', () => {
       monsterTypeDropdown.style.display = 'none';
+      if (lootFilterDropdown) {
+        lootFilterDropdown.style.display = 'none';
+      }
     });
     
     // Monster type checkbox listeners
@@ -7706,6 +7728,41 @@
     
     document.getElementById('clear-monsters').addEventListener('click', () => {
       document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      applyMonsterFilters();
+    });
+
+    // Loot filter dropdown functionality
+    const lootFilterToggle = document.getElementById('loot-filter-toggle');
+    const lootFilterDropdown = document.getElementById('loot-filter-dropdown');
+    
+    lootFilterToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = lootFilterDropdown.style.display === 'block';
+      lootFilterDropdown.style.display = isVisible ? 'none' : 'block';
+      
+      // Load loot items if dropdown is being opened and not loaded yet
+      if (!isVisible && !lootFilterDropdown.dataset.loaded) {
+        populateLootFilterDropdown();
+      }
+    });
+    
+    // Close loot dropdown when clicking outside
+    lootFilterDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    // Select all and clear buttons for loot
+    document.getElementById('select-all-loot').addEventListener('click', () => {
+      document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+      });
+      applyMonsterFilters();
+    });
+    
+    document.getElementById('clear-loot').addEventListener('click', () => {
+      document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
         checkbox.checked = false;
       });
       applyMonsterFilters();
@@ -7748,6 +7805,90 @@
     }
   }
 
+  async function populateLootFilterDropdown() {
+    const lootItemsList = document.getElementById('loot-items-list');
+    const dropdown = document.getElementById('loot-filter-dropdown');
+    
+    if (!lootItemsList || dropdown.dataset.loaded) return;
+    
+    // Show loading state
+    lootItemsList.innerHTML = '<div style="color: #89b4fa; font-size: 12px; text-align: center; padding: 10px;">Loading loot items...</div>';
+    
+    // Collect all unique loot items from cached data
+    const allLootItems = new Set();
+    
+    // If we have cached loot data, use it
+    for (const [monsterName, lootData] of lootCache) {
+      lootData.forEach(item => {
+        allLootItems.add(item.name);
+      });
+    }
+    
+    // If no cached data yet, try to load from visible monsters
+    if (allLootItems.size === 0) {
+      const monsterCards = document.querySelectorAll('.monster-card');
+      const loadPromises = [];
+      
+      // Load loot for a few monsters to get some items
+      for (let i = 0; i < Math.min(3, monsterCards.length); i++) {
+        const card = monsterCards[i];
+        const monsterId = card.getAttribute('data-monster-id');
+        const monsterName = getMonsterNameFromCard(card);
+        
+        if (monsterId && monsterName && !lootCache.has(monsterName)) {
+          loadPromises.push(
+            fetch(`battle.php?id=${monsterId}`)
+              .then(response => response.text())
+              .then(html => {
+                const lootData = parseLootFromBattlePage(html);
+                lootCache.set(monsterName, lootData);
+                lootData.forEach(item => allLootItems.add(item.name));
+              })
+              .catch(error => console.error('Error loading loot for filter:', error))
+          );
+        }
+      }
+      
+      if (loadPromises.length > 0) {
+        await Promise.all(loadPromises);
+      }
+    }
+    
+    // Convert to sorted array
+    const sortedLootItems = Array.from(allLootItems).sort();
+    
+    if (sortedLootItems.length === 0) {
+      lootItemsList.innerHTML = '<div style="color: #f38ba8; font-size: 12px; text-align: center; padding: 10px;">No loot data available</div>';
+      return;
+    }
+    
+    // Generate checkboxes for each loot item
+    const lootHTML = sortedLootItems.map(itemName => `
+      <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px; cursor: pointer;">
+        <input type="checkbox" value="${itemName}" class="loot-filter-checkbox cyberpunk-checkbox" style="margin-right: 5px;">
+        ${itemName}
+      </label>
+    `).join('');
+    
+    lootItemsList.innerHTML = lootHTML;
+    
+    // Add event listeners to new checkboxes
+    document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', applyMonsterFilters);
+    });
+    
+    // Restore saved filter state
+    const savedSettings = JSON.parse(localStorage.getItem('demonGameFilterSettings') || '{}');
+    if (savedSettings.lootFilter && Array.isArray(savedSettings.lootFilter)) {
+      savedSettings.lootFilter.forEach(lootName => {
+        const checkbox = document.querySelector(`.loot-filter-checkbox[value="${lootName}"]`);
+        if (checkbox) checkbox.checked = true;
+      });
+    }
+    
+    dropdown.dataset.loaded = 'true';
+  }
+
   function applyMonsterFilters() {
     const nameFilter = document.getElementById('monster-name-filter').value.toLowerCase();
     const hpFilter = document.getElementById('hp-filter').value;
@@ -7760,6 +7901,9 @@
     // Get selected monster types
     const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value);
     
+    // Get selected loot items
+    const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value);
+    
     // Update monster type button text
     const monsterTypeToggle = document.getElementById('monster-type-toggle');
     if (selectedMonsterTypes.length === 0) {
@@ -7768,6 +7912,18 @@
       monsterTypeToggle.textContent = `${selectedMonsterTypes[0]} ▼`;
     } else {
       monsterTypeToggle.textContent = `${selectedMonsterTypes.length} Types ▼`;
+    }
+    
+    // Update loot filter button text
+    const lootFilterToggle = document.getElementById('loot-filter-toggle');
+    if (lootFilterToggle) {
+      if (selectedLootItems.length === 0) {
+        lootFilterToggle.textContent = 'Loot Filter ▼';
+      } else if (selectedLootItems.length === 1) {
+        lootFilterToggle.textContent = `${selectedLootItems[0]} ▼`;
+      } else {
+        lootFilterToggle.textContent = `${selectedLootItems.length} Items ▼`;
+      }
     }
 
     if (battleLimitAlarm) {
@@ -7782,7 +7938,9 @@
     var limitBattleCount = 0;
 
     monsters.forEach(monster => {
-      const monsterName = monster.querySelector('h3').textContent.toLowerCase();
+      const monsterNameElement = monster.querySelector('h3');
+      const monsterName = monsterNameElement ? monsterNameElement.textContent.toLowerCase() : '';
+      const originalMonsterName = monsterNameElement ? monsterNameElement.textContent.trim() : '';
       const monsterImg = monster.querySelector('img');
       
       // Get HP information
@@ -7816,6 +7974,23 @@
           monsterName.includes(type.toLowerCase())
         );
         if (!matchesType) {
+          shouldShow = false;
+        }
+      }
+
+      // Loot filter (multiple selection) - use original monster name for cache lookup
+      if (selectedLootItems.length > 0 && shouldShow) {
+        const monsterLoot = lootCache.get(originalMonsterName);
+        if (monsterLoot && monsterLoot.length > 0) {
+          // Check if monster has any of the selected loot items
+          const hasSelectedLoot = selectedLootItems.some(lootName => 
+            monsterLoot.some(lootItem => lootItem.name === lootName)
+          );
+          if (!hasSelectedLoot) {
+            shouldShow = false;
+          }
+        } else {
+          // If no loot data available for this monster, hide it when loot filter is active
           shouldShow = false;
         }
       }
@@ -7859,11 +8034,18 @@
       // Apply visibility
       monster.style.display = shouldShow ? '' : 'none';
 
-      // Handle image visibility
+      // Handle image visibility and loot preview
+      const lootPreview = monster.querySelector('.loot-preview-grid');
       if (hideImg && monsterImg) {
         monsterImg.style.display = 'none';
+        if (lootPreview) {
+          lootPreview.style.display = 'none';
+        }
       } else if (monsterImg) {
         monsterImg.style.removeProperty('display');
+        if (lootPreview) {
+          lootPreview.style.removeProperty('display');
+        }
       }
 
       // Count battles for alarm
@@ -7885,6 +8067,7 @@
     const settings = {
       nameFilter: document.getElementById('monster-name-filter').value,
       monsterTypeFilter: selectedMonsterTypes,
+      lootFilter: selectedLootItems,
       hpFilter: document.getElementById('hp-filter').value,
       playerCountFilter: document.getElementById('player-count-filter').value,
       hideImg: document.getElementById('hide-img-monsters').checked,
@@ -7952,6 +8135,11 @@
     
     // Clear all monster type checkboxes
     document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    
+    // Clear all loot filter checkboxes
+    document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
       checkbox.checked = false;
     });
     
@@ -9014,6 +9202,488 @@
       });
   }
 
+  // Monster Loot Preview System
+  async function initMonsterLootPreview() {
+    // Only run on active wave pages
+    if (!window.location.pathname.includes('active_wave.php')) return;
+    
+    const monsterCards = document.querySelectorAll('.monster-card');
+    
+    // Add CSS for loot preview
+    addLootPreviewStyles();
+    
+    // Group monster cards by type to optimize loot fetching
+    const monstersByType = new Map();
+    
+    // Process each monster card and group by name
+    monsterCards.forEach(card => {
+      const monsterName = getMonsterNameFromCard(card);
+      if (monsterName) {
+        if (!monstersByType.has(monsterName)) {
+          monstersByType.set(monsterName, []);
+        }
+        monstersByType.get(monsterName).push(card);
+      }
+      
+      addLootPreviewToCard(card);
+      enhanceMonsterCardDisplay(card);
+    });
+    
+    // Fetch loot data once per monster type
+    for (const [monsterName, cards] of monstersByType) {
+      if (!lootCache.has(monsterName)) {
+        // Pick the first card of this type to fetch loot data
+        const firstCard = cards[0];
+        const monsterId = firstCard.getAttribute('data-monster-id');
+        if (monsterId) {
+          await fetchMonsterLootByType(monsterId, monsterName, cards);
+        }
+      } else {
+        // Use cached data for all cards of this type
+        const cachedLoot = lootCache.get(monsterName);
+        cards.forEach(card => {
+          const cardMonsterId = card.getAttribute('data-monster-id');
+          if (cardMonsterId) {
+            displayLootPreview(cardMonsterId, cachedLoot);
+          }
+        });
+      }
+    }
+  }
+
+  function getMonsterNameFromCard(card) {
+    const nameElement = card.querySelector('h3');
+    return nameElement ? nameElement.textContent.trim() : null;
+  }
+
+  function enhanceMonsterCardDisplay(card) {
+    // Add HP numbers to health bar
+    addHPNumbersToHealthBar(card);
+    
+    // Add player count to join button
+    addPlayerCountToJoinButton(card);
+    
+    // Hide redundant text elements
+    hideRedundantTextElements(card);
+  }
+
+  function addHPNumbersToHealthBar(card) {
+    const hpBar = card.querySelector('.hp-bar');
+    const hpText = Array.from(card.querySelectorAll('div')).find(div => 
+      div.textContent.includes('❤️') && div.textContent.includes('HP')
+    );
+    
+    if (hpBar && hpText && !hpBar.querySelector('.hp-numbers')) {
+      // Extract current and max HP from text
+      const hpMatch = hpText.textContent.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
+      if (hpMatch) {
+        const currentHP = hpMatch[1];
+        const maxHP = hpMatch[2];
+        
+        // Create HP numbers overlay
+        const hpNumbers = document.createElement('div');
+        hpNumbers.className = 'hp-numbers';
+        hpNumbers.textContent = `${currentHP} / ${maxHP}`;
+        
+        // Make sure hp-bar is positioned relatively
+        hpBar.style.position = 'relative';
+        hpBar.appendChild(hpNumbers);
+      }
+    }
+  }
+
+  function addPlayerCountToJoinButton(card) {
+    const joinButtons = card.querySelectorAll('.join-btn');
+    const playerText = Array.from(card.querySelectorAll('div')).find(div => 
+      div.textContent.includes('Players Joined') || div.textContent.includes('👥')
+    );
+    
+    if (joinButtons.length > 0 && playerText) {
+      // Extract player count from text
+      const playerMatch = playerText.textContent.match(/👥\s*Players Joined\s*(\d+)\/(\d+)/);
+      if (playerMatch) {
+        const currentPlayers = playerMatch[1];
+        const maxPlayers = playerMatch[2];
+        
+        // Update all join buttons
+        joinButtons.forEach(button => {
+          if (!button.dataset.enhanced) {
+            const originalText = button.textContent.trim();
+            if (originalText.includes('⚔️ Join')) {
+              button.innerHTML = `⚔️ Join (${currentPlayers}/${maxPlayers})`;
+            }
+            
+            // Mark as enhanced to avoid duplicate processing
+            button.dataset.enhanced = 'true';
+          }
+        });
+      }
+    }
+  }
+
+  function hideRedundantTextElements(card) {
+    // Hide the standalone HP text div
+    const hpTextDiv = Array.from(card.querySelectorAll('div')).find(div => 
+      div.textContent.includes('❤️') && div.textContent.includes('HP') && 
+      !div.classList.contains('hp-bar') && !div.classList.contains('hp-numbers')
+    );
+    
+    if (hpTextDiv) {
+      hpTextDiv.style.display = 'none';
+    }
+    
+    // Hide the standalone player count text div
+    const playerTextDiv = Array.from(card.querySelectorAll('div')).find(div => 
+      (div.textContent.includes('Players Joined') || div.textContent.includes('👥')) &&
+      !div.classList.contains('join-btn')
+    );
+    
+    if (playerTextDiv) {
+      playerTextDiv.style.display = 'none';
+    }
+    
+    // Remove <br> elements between buttons and other content
+    const brElements = card.querySelectorAll('br');
+    brElements.forEach(br => {
+      br.remove();
+    });
+    
+    // Add consistent spacing by adding a class to the card for CSS styling
+    card.classList.add('enhanced-monster-card');
+  }
+
+  function addLootPreviewStyles() {
+    if (document.getElementById('loot-preview-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'loot-preview-styles';
+    style.textContent = `
+      .loot-preview-container {
+        margin-top: 10px;
+        padding-top: 8px;
+      }
+      
+      .loot-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        margin-top: 8px;
+      }
+      
+      .loot-preview-grid.hidden-with-images {
+        display: none;
+      }
+      
+      /* Hide loot preview when monster images are hidden */
+      body.monster-images-hidden .loot-preview-grid {
+        display: none;
+      }
+      
+      /* Enhanced HP bar styling */
+      .hp-bar {
+        position: relative !important;
+        min-height: 16px;
+      }
+      
+      .hp-numbers {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: bold;
+        font-size: 11px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        pointer-events: none;
+        z-index: 10;
+      }
+      
+      /* Enhanced join button styling */
+      .join-btn {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      /* Enhanced monster card spacing */
+      .enhanced-monster-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .enhanced-monster-card h3 {
+        margin-bottom: 8px !important;
+      }
+      
+      .enhanced-monster-card .hp-bar {
+        margin: 8px 0 !important;
+      }
+      
+      .enhanced-monster-card .join-btn,
+      .enhanced-monster-card [style*="display: flex"] {
+        margin-top: 8px !important;
+      }
+      
+      .loot-preview-item {
+        position: relative;
+        border-radius: 4px;
+        overflow: hidden;
+        background: rgba(30, 30, 46, 0.6);
+        border: 1px solid rgba(69, 71, 90, 0.5);
+        aspect-ratio: 1;
+      }
+      
+      .loot-preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .loot-preview-item .tier-indicator {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #666;
+      }
+      
+      .loot-preview-item .tier-indicator.legendary {
+        background: linear-gradient(90deg, #ff6b35, #f7931e);
+      }
+      
+      .loot-preview-item .tier-indicator.epic {
+        background: linear-gradient(90deg, #9b59b6, #8e44ad);
+      }
+      
+      .loot-preview-item .tier-indicator.rare {
+        background: linear-gradient(90deg, #3498db, #2980b9);
+      }
+      
+      .loot-preview-item .tier-indicator.common {
+        background: linear-gradient(90deg, #95a5a6, #7f8c8d);
+      }
+      
+      .loot-preview-item .drop-rate {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        font-size: 8px;
+        padding: 1px 3px;
+        border-radius: 2px;
+        font-weight: bold;
+      }
+      
+      .loot-loading {
+        text-align: center;
+        color: #89b4fa;
+        font-size: 10px;
+        padding: 8px;
+      }
+      
+      .loot-error {
+        text-align: center;
+        color: #f38ba8;
+        font-size: 10px;
+        padding: 8px;
+      }
+    `;
+    
+    document.head.appendChild(style);
+  }
+
+  function addLootPreviewToCard(card) {
+    const monsterId = card.getAttribute('data-monster-id');
+    if (!monsterId) return;
+    
+    // Find the monster image to insert loot after it
+    const monsterImg = card.querySelector('.monster-img');
+    if (!monsterImg) return;
+    
+    // Create loot preview container - no header, just the grid
+    const lootContainer = document.createElement('div');
+    lootContainer.className = 'loot-preview-container';
+    lootContainer.innerHTML = `
+      <div class="loot-preview-grid" id="loot-grid-${monsterId}">
+        <div class="loot-loading">Loading loot...</div>
+      </div>
+    `;
+    
+    // Insert after the monster image
+    monsterImg.insertAdjacentElement('afterend', lootContainer);
+    
+    // Note: Loot will be fetched and displayed by the main initialization function
+    // This avoids duplicate fetching for monsters of the same type
+  }
+
+  async function fetchMonsterLootByType(monsterId, monsterName, allCardsOfType) {
+    try {
+      const response = await fetch(`battle.php?id=${monsterId}`);
+      const html = await response.text();
+      
+      // Parse loot from the battle page
+      const lootData = parseLootFromBattlePage(html);
+      
+      // Cache the loot data for this monster type
+      lootCache.set(monsterName, lootData);
+      
+      // Display loot for all cards of this type
+      allCardsOfType.forEach(card => {
+        const cardMonsterId = card.getAttribute('data-monster-id');
+        if (cardMonsterId) {
+          displayLootPreview(cardMonsterId, lootData);
+        }
+      });
+      
+      // Reapply filters now that we have new loot data
+      // Check if there are any active loot filters
+      const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value);
+      if (selectedLootItems.length > 0) {
+        // Small delay to ensure DOM updates are complete
+        setTimeout(() => {
+          if (typeof applyMonsterFilters === 'function') {
+            applyMonsterFilters();
+          }
+        }, 100);
+      }
+      
+    } catch (error) {
+      console.error(`Error fetching loot for monster type ${monsterName}:`, error);
+      
+      // Show error for all cards of this type
+      allCardsOfType.forEach(card => {
+        const cardMonsterId = card.getAttribute('data-monster-id');
+        if (cardMonsterId) {
+          const grid = document.getElementById(`loot-grid-${cardMonsterId}`);
+          if (grid) {
+            grid.innerHTML = '<div class="loot-error">Failed to load loot</div>';
+          }
+        }
+      });
+    }
+  }
+
+  async function fetchMonsterLoot(monsterId) {
+    // This function is now deprecated in favor of fetchMonsterLootByType
+    // Kept for backward compatibility, but should not be used
+    console.warn('fetchMonsterLoot is deprecated, use fetchMonsterLootByType instead');
+    
+    try {
+      const response = await fetch(`battle.php?id=${monsterId}`);
+      const html = await response.text();
+      const lootData = parseLootFromBattlePage(html);
+      displayLootPreview(monsterId, lootData);
+    } catch (error) {
+      console.error('Error fetching monster loot:', error);
+      const grid = document.getElementById(`loot-grid-${monsterId}`);
+      if (grid) {
+        grid.innerHTML = '<div class="loot-error">Failed to load loot</div>';
+      }
+    }
+  }
+
+  function parseLootFromBattlePage(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Look for the loot panel - the one containing "🎁 Possible Loot"
+    let lootContainer = null;
+    
+    // Find the panel that contains "Possible Loot" text
+    const panels = doc.querySelectorAll('.panel');
+    for (let panel of panels) {
+      const strongText = panel.querySelector('strong');
+      if (strongText && strongText.textContent.includes('Possible Loot')) {
+        lootContainer = panel.querySelector('.loot-grid');
+        break;
+      }
+    }
+    
+    if (!lootContainer) {
+      // Fallback: try to find .loot-grid directly
+      lootContainer = doc.querySelector('.loot-grid');
+    }
+    
+    if (!lootContainer) {
+      return [];
+    }
+    
+    const lootCards = lootContainer.querySelectorAll('.loot-card');
+    
+    return parseLootCards(lootCards);
+  }
+
+  function parseLootCards(lootCards) {
+    const lootData = [];
+    
+    lootCards.forEach((card, index) => {
+      if (lootData.length >= 8) return; // Limit to 8 items
+      
+      const img = card.querySelector('img');
+      const name = card.querySelector('.loot-name');
+      const stats = card.querySelectorAll('.loot-stats .chip, .chip');
+      
+      if (img && name) {
+        let dropRate = '';
+        let tier = 'common';
+        
+        stats.forEach(stat => {
+          const text = stat.textContent.trim();
+          if (text.includes('Drop:')) {
+            dropRate = text.replace('Drop:', '').trim();
+          }
+          
+          // Check for tier classes
+          if (stat.classList.contains('legendary')) tier = 'legendary';
+          else if (stat.classList.contains('epic')) tier = 'epic';
+          else if (stat.classList.contains('rare')) tier = 'rare';
+          else if (stat.classList.contains('common')) tier = 'common';
+          
+          // Also check for tier in text content
+          const lowerText = text.toLowerCase();
+          if (lowerText.includes('legendary')) tier = 'legendary';
+          else if (lowerText.includes('epic')) tier = 'epic';
+          else if (lowerText.includes('rare')) tier = 'rare';
+        });
+        
+        const itemData = {
+          name: name.textContent.trim(),
+          image: img.src,
+          dropRate: dropRate,
+          tier: tier
+        };
+        
+        lootData.push(itemData);
+      }
+    });
+    
+    return lootData;
+  }
+
+  function displayLootPreview(monsterId, lootData) {
+    const grid = document.getElementById(`loot-grid-${monsterId}`);
+    if (!grid) return;
+    
+    if (lootData.length === 0) {
+      grid.innerHTML = '<div class="loot-error">No loot data found</div>';
+      return;
+    }
+    
+    // Create loot items
+    const lootHTML = lootData.map(item => `
+      <div class="loot-preview-item" title="${item.name}">
+        <img src="${item.image}" alt="${item.name}">
+        <div class="tier-indicator ${item.tier}"></div>
+        <div class="drop-rate">${item.dropRate}</div>
+      </div>
+    `).join('');
+    
+    grid.innerHTML = lootHTML;
+  }
+
   // Page initialization functions
   function initWaveMods() {
     initGateCollapse()
@@ -9023,6 +9693,7 @@
     initImprovedWaveButtons()
     initMonsterSorting()
     initWaveAutoRefresh()
+    initMonsterLootPreview()
   }
 
   function initPvPHistoryCollapse() {
@@ -10776,6 +11447,24 @@
   window.findItemByName = findItemByName;
   window.getStaminaPerHourFromTitle = getStaminaPerHourFromTitle;
   window.updateStaminaTimerDisplay = updateStaminaTimerDisplay;
+  
+  
+  // Force apply filters function for testing - multiple ways to access
+  const forceApplyFiltersFunction = function() {
+    if (typeof applyMonsterFilters === 'function') {
+      applyMonsterFilters();
+      console.log('Filters reapplied');
+    } else {
+      console.log('applyMonsterFilters function not found');
+    }
+  };
+  
+  // Make it available in multiple ways
+  window.forceApplyFilters = forceApplyFiltersFunction;
+  if (typeof unsafeWindow !== 'undefined') {
+    unsafeWindow.forceApplyFilters = forceApplyFiltersFunction;
+  }
+  console.forceApplyFilters = forceApplyFiltersFunction;
   
   // Debug function to test stamina calculation
   window.debugStaminaCalculation = function() {
