@@ -7174,6 +7174,41 @@
           });
           
           console.log('Collections divider added successfully');
+          
+          // Set up mutation observer to watch for button text changes
+          const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                  if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                      const target = mutation.target;
+                      // Check if a button's text changed to "Claimed"
+                      if (target.tagName === 'BUTTON' || target.parentElement?.tagName === 'BUTTON') {
+                          const button = target.tagName === 'BUTTON' ? target : target.parentElement;
+                          if (button && button.textContent.trim().toLowerCase() === 'claimed') {
+                              console.log('Button changed to "Claimed", reorganizing collections...');
+                              // Wait a bit for any other changes, then reorganize
+                              setTimeout(() => {
+                                  // Remove existing divider first
+                                  const existingDivider = grid.querySelector('.collection-divider');
+                                  if (existingDivider) {
+                                      existingDivider.remove();
+                                  }
+                                  // Re-run the divider function
+                                  checkAndAddDivider();
+                              }, 500);
+                          }
+                      }
+                  }
+              });
+          });
+          
+          // Observe button changes in the grid
+          if (grid) {
+              observer.observe(grid, {
+                  childList: true,
+                  subtree: true,
+                  characterData: true
+              });
+          }
       };
       
       checkAndAddDivider();
@@ -7347,6 +7382,41 @@
           });
           
           console.log('Achievements divider added successfully');
+          
+          // Set up mutation observer to watch for button text changes
+          const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                  if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                      const target = mutation.target;
+                      // Check if a button's text changed to "Claimed"
+                      if (target.tagName === 'BUTTON' || target.parentElement?.tagName === 'BUTTON') {
+                          const button = target.tagName === 'BUTTON' ? target : target.parentElement;
+                          if (button && button.textContent.trim().toLowerCase() === 'claimed') {
+                              console.log('Button changed to "Claimed", reorganizing achievements...');
+                              // Wait a bit for any other changes, then reorganize
+                              setTimeout(() => {
+                                  // Remove existing divider first
+                                  const existingDivider = grid.querySelector('.achievement-divider');
+                                  if (existingDivider) {
+                                      existingDivider.remove();
+                                  }
+                                  // Re-run the divider function
+                                  checkAndAddDivider();
+                              }, 500);
+                          }
+                      }
+                  }
+              });
+          });
+          
+          // Observe button changes in the grid
+          if (grid) {
+              observer.observe(grid, {
+                  childList: true,
+                  subtree: true,
+                  characterData: true
+              });
+          }
       };
       
       checkAndAddDivider();
