@@ -9799,6 +9799,16 @@
     `).join('');
     
     grid.innerHTML = lootHTML;
+    
+    if (lootData.length < 5) {
+      const lootContainer = grid.parentElement;
+      if (lootContainer && lootContainer.classList.contains('loot-preview-container')) {
+        const missingRows = lootData.length <= 4 ? 1 : 0;
+        const extraSpace = missingRows * 64; // height of one row of loot items
+        
+        lootContainer.style.marginBottom = `${extraSpace}px`;
+      }
+    }
   }
 
   // Page initialization functions
