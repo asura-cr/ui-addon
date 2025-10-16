@@ -15,6 +15,7 @@
     statsExpanded: false,
     petsExpanded: false,
     blacksmithExpanded: false,
+    battlePassExpanded: false,
     continueBattlesExpanded: true,
     lootExpanded: true,
     merchantExpanded: false,
@@ -96,8 +97,9 @@
       { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
       { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
       { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 4 },
-      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 5 },
+      { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
+      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 5 },
+      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 6 },
       { id: 'stats', name: 'Stats', visible: true, order: 7 },
       { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
       { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
@@ -129,6 +131,7 @@
     '/weekly.php': initLeaderboardMods,
     '/collections.php': initCollectionsMods,
     '/achievements.php': initAchievementsMods,
+    '/battle_pass.php': initBattlePassMods,
   };
 
   // Automatic retrieval of userId from cookie
@@ -223,8 +226,9 @@
         { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
         { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
         { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 4 },
-        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 5 },
+        { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
+        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 5 },
+        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 6 },
         { id: 'stats', name: 'Stats', visible: true, order: 7 },
         { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
         { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
@@ -236,8 +240,33 @@
         { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
         { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
         { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 },
-        { id: 'settings', name: 'Settings', visible: true, order: 18 }
       ];
+    } else {
+      // Add battle_pass to existing users if it doesn't exist
+      const hasBattlePass = extensionSettings.menuItems.some(item => item.id === 'battle_pass');
+      if (!hasBattlePass) {
+        // Find the insertion point (after gate_grakthar)
+        const gateIndex = extensionSettings.menuItems.findIndex(item => item.id === 'gate_grakthar');
+        const insertOrder = gateIndex >= 0 ? extensionSettings.menuItems[gateIndex].order + 1 : 4;
+        
+        // Add the new battle_pass item
+        extensionSettings.menuItems.push({
+          id: 'battle_pass',
+          name: 'Battle Pass',
+          visible: true,
+          order: insertOrder
+        });
+        
+        // Reorder subsequent items if needed
+        extensionSettings.menuItems.forEach(item => {
+          if (item.order >= insertOrder && item.id !== 'battle_pass') {
+            item.order += 1;
+          }
+        });
+        
+        // Save the updated settings
+        saveSettings();
+      }
     }
 
     // Ensure background image settings exist
@@ -1184,6 +1213,25 @@
         case 'gate_grakthar':
           menuHTML += `<li><a href="active_wave.php?gate=3&wave=${extensionSettings.gateGraktharWave}"><img src="images/gates/gate_688e438aba7f24.99262397.webp" alt="Gate"> Gate Grakthar</a></li>`;
           break;
+        case 'battle_pass':
+          menuHTML += `
+        <li>
+          <div class="sidebar-menu-expandable">
+            <a href="battle_pass.php"><img src="images/battle%20pass/enternal%20season/enternal_season_banner.webp" alt="Battle Pass"> Battle Pass</a>
+            <button class="expand-btn" id="battle-pass-expand-btn" draggable="false">${extensionSettings.battlePassExpanded ? '–' : '+'}</button>
+          </div>
+          <div id="battle-pass-expanded" class="sidebar-submenu ${extensionSettings.battlePassExpanded ? '' : 'collapsed'}">
+            <div class="battle-pass-section">
+              <div class="battle-pass-header">
+                <span>Daily Quests</span>
+              </div>
+              <div id="battle-pass-quests" class="battle-pass-quests-container">
+                <div class="loading-text">Loading quests...</div>
+              </div>
+            </div>
+          </div>
+        </li>`;
+          break;
         case 'inventory':
           menuHTML += `<li><a href="inventory.php"><img src="images/menu/compressed_chest.webp" alt="Inventory"> Inventory & Equipment</a></li>`;
           break;
@@ -1245,7 +1293,7 @@
                 </div>
               </div>
                   <div style="text-align: center; margin-top: 8px; color: #888;">
-                    Points Available: <span id="sidebar-points-available">-</span>
+                    Points Available: <span id="sidebar-points">-</span>
             </div>
           </div>
               </div>
@@ -1806,6 +1854,115 @@
         text-align: center;
         margin-top: 10px;
         font-style: italic;
+      }
+
+      /* Battle Pass Styles */
+      .battle-pass-section {
+        color: #e0e0e0;
+      }
+
+      .battle-pass-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-weight: bold;
+        font-size: 13px;
+      }
+
+      .battle-pass-quests-container {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .sidebar-quest {
+        background: rgba(255, 255, 255, 0.05);
+        border-left: 3px solid #89b4fa;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .sidebar-quest.completed {
+        border-left-color: #a6e3a1;
+        background: rgba(166, 227, 161, 0.1);
+      }
+
+      .sidebar-quest:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .quest-title {
+        font-size: 11px;
+        font-weight: bold;
+        color: #cdd6f4;
+        margin-bottom: 4px;
+      }
+
+      .quest-details {
+        font-size: 10px;
+        color: #a6adc8;
+        margin-bottom: 6px;
+      }
+
+      .quest-progress-bar {
+        background: rgba(0, 0, 0, 0.3);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 4px;
+      }
+
+      .quest-progress-fill {
+        background: linear-gradient(90deg, #89b4fa, #74c7ec);
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+
+      .sidebar-quest.completed .quest-progress-fill {
+        background: linear-gradient(90deg, #a6e3a1, #94e2d5);
+      }
+
+      .quest-status {
+        font-size: 10px;
+        color: #a6adc8;
+      }
+
+      .sidebar-quest.completed .quest-status {
+        color: #a6e3a1;
+      }
+
+      .quest-empty,
+      .quest-error,
+      .loading-text {
+        color: #a6adc8;
+        font-size: 11px;
+        text-align: center;
+        padding: 15px;
+        font-style: italic;
+      }
+
+      .quest-error {
+        color: #f38ba8;
+      }
+
+      .refresh-btn {
+        background: transparent;
+        border: none;
+        color: #89b4fa;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .refresh-btn:hover {
+        background: rgba(137, 180, 250, 0.2);
+        transform: rotate(90deg);
       }
 
       .sidebar-menu {
@@ -3344,6 +3501,109 @@
         inventoryExpandBtn.textContent = '–';
       }
       updateSidebarInventorySection();
+    }
+
+    // Battle Pass expand/collapse handler
+    const battlePassExpandBtn = document.getElementById('battle-pass-expand-btn');
+    const battlePassExpanded = document.getElementById('battle-pass-expanded');
+
+    if (battlePassExpandBtn && battlePassExpanded) {
+      battlePassExpandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isCollapsed = battlePassExpanded.classList.contains('collapsed');
+
+        if (isCollapsed) {
+          battlePassExpanded.classList.remove('collapsed');
+          battlePassExpandBtn.textContent = '–';
+          extensionSettings.battlePassExpanded = true;
+          // Load quests when expanded
+          loadBattlePassQuests();
+        } else {
+          battlePassExpanded.classList.add('collapsed');
+          battlePassExpandBtn.textContent = '+';
+          extensionSettings.battlePassExpanded = false;
+        }
+
+        saveSettings();
+      });
+
+      // Load quests if already expanded
+      if (extensionSettings.battlePassExpanded) {
+        loadBattlePassQuests();
+      }
+    }
+  }
+
+  // Function to load and display battle pass daily quests
+  async function loadBattlePassQuests() {
+    const questsContainer = document.getElementById('battle-pass-quests');
+    if (!questsContainer) return;
+
+    try {
+      questsContainer.innerHTML = '<div class="loading-text">Loading quests...</div>';
+      
+      const response = await fetch('battle_pass.php');
+      const html = await response.text();
+      
+      // Parse the HTML to extract quest information
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Find the daily quests card
+      const questCards = doc.querySelectorAll('.card');
+      let dailyQuestsCard = null;
+      
+      for (const card of questCards) {
+        const title = card.querySelector('.title');
+        if (title && title.textContent.includes('Daily Quests')) {
+          dailyQuestsCard = card;
+          break;
+        }
+      }
+      
+      if (!dailyQuestsCard) {
+        questsContainer.innerHTML = '<div class="quest-empty">No daily quests found</div>';
+        return;
+      }
+      
+      // Extract all quests
+      const quests = dailyQuestsCard.querySelectorAll('.quest');
+      
+      if (quests.length === 0) {
+        questsContainer.innerHTML = '<div class="quest-empty">No active quests</div>';
+        return;
+      }
+      
+      let questsHTML = '';
+      
+      quests.forEach(quest => {
+        const titleElement = quest.querySelector('strong');
+        const mutedElements = quest.querySelectorAll('.muted');
+        const progressBar = quest.querySelector('.progress > div');
+        
+        const questTitle = titleElement ? titleElement.textContent : 'Unknown Quest';
+        const questDetails = mutedElements[0] ? mutedElements[0].textContent.trim() : '';
+        const questProgress = mutedElements[1] ? mutedElements[1].textContent.trim() : '';
+        const progressWidth = progressBar ? progressBar.style.width : '0%';
+        const isCompleted = questProgress.includes('✅');
+        
+        questsHTML += `
+          <div class="sidebar-quest ${isCompleted ? 'completed' : ''}">
+            <div class="quest-title">${questTitle}</div>
+            <div class="quest-details">${questDetails}</div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width: ${progressWidth}"></div>
+            </div>
+            <div class="quest-status">${questProgress}</div>
+          </div>
+        `;
+      });
+      
+      questsContainer.innerHTML = questsHTML;
+      
+    } catch (error) {
+      console.error('Error loading battle pass quests:', error);
+      questsContainer.innerHTML = '<div class="quest-error">Failed to load quests</div>';
     }
   }
 
@@ -10067,6 +10327,23 @@
   function initAchievementsMods() {
     addAchievementsDivider()
     applyCustomBackgrounds()
+  }
+
+  function initBattlePassMods() {
+    // Move battle pass hero to content area and reduce margin
+    const contentArea = document.querySelector('.content-area');
+    const bpHero = document.querySelector('.bp-hero');
+    
+    if (bpHero && contentArea) {
+      bpHero.style.marginTop = "0px";
+      contentArea.prepend(bpHero);
+      
+      // Remove any extra br tags
+      const br = document.querySelector('br');
+      if (br) br.remove();
+    }
+    
+    applyCustomBackgrounds();
   }
 
 
