@@ -1293,7 +1293,7 @@
                 </div>
               </div>
                   <div style="text-align: center; margin-top: 8px; color: #888;">
-                    Points Available: <span id="sidebar-points">-</span>
+                    Points Available: <span id="sidebar-points-alloc">-</span>
             </div>
           </div>
               </div>
