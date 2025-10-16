@@ -3540,19 +3540,57 @@
           extensionSettings.battlePassExpanded = true;
           // Load quests when expanded
           loadBattlePassQuests();
+          // Start auto-refresh
+          startBattlePassAutoRefresh();
         } else {
           battlePassExpanded.classList.add('collapsed');
           battlePassExpandBtn.textContent = '+';
           extensionSettings.battlePassExpanded = false;
+          // Stop auto-refresh when collapsed
+          stopBattlePassAutoRefresh();
         }
 
         saveSettings();
       });
 
+      // Refresh battle pass button
+      const refreshBtn = document.getElementById('battle-pass-refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+          showNotification('Refreshing daily quests...', 'info');
+          loadBattlePassQuests();
+        });
+      }
+
       // Load quests if already expanded
       if (extensionSettings.battlePassExpanded) {
         loadBattlePassQuests();
+        // Start auto-refresh
+        startBattlePassAutoRefresh();
       }
+    }
+  }
+
+  // Battle pass auto-refresh interval ID
+  let battlePassRefreshInterval = null;
+
+  function startBattlePassAutoRefresh() {
+    // Clear any existing interval
+    stopBattlePassAutoRefresh();
+    
+    // Refresh every 30 seconds
+    battlePassRefreshInterval = setInterval(() => {
+      loadBattlePassQuests();
+    }, 30000);
+    
+    console.log('Battle pass auto-refresh started (30 seconds interval)');
+  }
+
+  function stopBattlePassAutoRefresh() {
+    if (battlePassRefreshInterval) {
+      clearInterval(battlePassRefreshInterval);
+      battlePassRefreshInterval = null;
+      console.log('Battle pass auto-refresh stopped');
     }
   }
 
