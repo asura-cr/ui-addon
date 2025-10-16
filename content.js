@@ -98,19 +98,21 @@
       { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
       { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
       { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
-      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 5 },
-      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 6 },
-      { id: 'stats', name: 'Stats', visible: true, order: 7 },
-      { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
-      { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
-      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 10 },
-      { id: 'achievements', name: 'Achievements', visible: true, order: 11 },
-      { id: 'collections', name: 'Collections', visible: true, order: 12 },
-      { id: 'guide', name: 'How To Play', visible: true, order: 13 },
-      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 14 },
-      { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
-      { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
-      { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 }
+      { id: 'guild', name: 'Guild', visible: true, order: 5 },
+      { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 6 },
+      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 7 },
+      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 8 },
+      { id: 'stats', name: 'Stats', visible: true, order: 9 },
+      { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 10 },
+      { id: 'merchant', name: 'Merchant', visible: true, order: 11 },
+      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 12 },
+      { id: 'achievements', name: 'Achievements', visible: true, order: 13 },
+      { id: 'collections', name: 'Collections', visible: true, order: 14 },
+      { id: 'guide', name: 'How To Play', visible: true, order: 15 },
+      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 16 },
+      { id: 'chat', name: 'Global Chat', visible: true, order: 17 },
+      { id: 'patches', name: 'Patch Notes', visible: true, order: 18 },
+      { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 19 }
     ]
   };
 
@@ -227,44 +229,58 @@
         { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
         { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
         { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
-        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 5 },
-        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 6 },
-        { id: 'stats', name: 'Stats', visible: true, order: 7 },
-        { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
-        { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
-        { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 10 },
-        { id: 'achievements', name: 'Achievements', visible: true, order: 11 },
-        { id: 'collections', name: 'Collections', visible: true, order: 12 },
-        { id: 'guide', name: 'How To Play', visible: true, order: 13 },
-        { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 14 },
-        { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
-        { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
-        { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 },
+        { id: 'guild', name: 'Guild', visible: true, order: 5 },
+        { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 6 },
+        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 7 },
+        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 8 },
+        { id: 'stats', name: 'Stats', visible: true, order: 9 },
+        { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 10 },
+        { id: 'merchant', name: 'Merchant', visible: true, order: 11 },
+        { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 12 },
+        { id: 'achievements', name: 'Achievements', visible: true, order: 13 },
+        { id: 'collections', name: 'Collections', visible: true, order: 14 },
+        { id: 'guide', name: 'How To Play', visible: true, order: 15 },
+        { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 16 },
+        { id: 'chat', name: 'Global Chat', visible: true, order: 17 },
+        { id: 'patches', name: 'Patch Notes', visible: true, order: 18 },
+        { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 19 },
       ];
     } else {
-      // Add battle_pass to existing users if it doesn't exist
-      const hasBattlePass = extensionSettings.menuItems.some(item => item.id === 'battle_pass');
-      if (!hasBattlePass) {
-        // Find the insertion point (after gate_grakthar)
-        const gateIndex = extensionSettings.menuItems.findIndex(item => item.id === 'gate_grakthar');
-        const insertOrder = gateIndex >= 0 ? extensionSettings.menuItems[gateIndex].order + 1 : 4;
-        
-        // Add the new battle_pass item
-        extensionSettings.menuItems.push({
-          id: 'battle_pass',
-          name: 'Battle Pass',
-          visible: true,
-          order: insertOrder
-        });
-        
-        // Reorder subsequent items if needed
-        extensionSettings.menuItems.forEach(item => {
-          if (item.order >= insertOrder && item.id !== 'battle_pass') {
-            item.order += 1;
-          }
-        });
-        
-        // Save the updated settings
+      // Add new menu items to existing users if they don't exist
+      const newMenuItems = [
+        { id: 'battle_pass', name: 'Battle Pass', afterId: 'gate_grakthar', defaultOrder: 4 },
+        { id: 'guild', name: 'Guild', afterId: 'battle_pass', defaultOrder: 5 },
+        { id: 'legendary_forge', name: 'Legendary Forge', afterId: 'guild', defaultOrder: 6 }
+      ];
+
+      newMenuItems.forEach(newItem => {
+        const exists = extensionSettings.menuItems.some(item => item.id === newItem.id);
+        if (!exists) {
+          // Find the insertion point
+          const afterIndex = extensionSettings.menuItems.findIndex(item => item.id === newItem.afterId);
+          const insertOrder = afterIndex >= 0 ? extensionSettings.menuItems[afterIndex].order + 1 : newItem.defaultOrder;
+          
+          // Add the new item
+          extensionSettings.menuItems.push({
+            id: newItem.id,
+            name: newItem.name,
+            visible: true,
+            order: insertOrder
+          });
+          
+          // Reorder subsequent items if needed
+          extensionSettings.menuItems.forEach(item => {
+            if (item.order >= insertOrder && item.id !== newItem.id) {
+              item.order += 1;
+            }
+          });
+          
+          console.log(`Added new menu item: ${newItem.name}`);
+        }
+      });
+
+      // Save the updated settings if any changes were made
+      if (newMenuItems.some(newItem => !extensionSettings.menuItems.some(item => item.id === newItem.id))) {
         saveSettings();
       }
     }
@@ -1231,6 +1247,12 @@
             </div>
           </div>
         </li>`;
+          break;
+        case 'guild':
+          menuHTML += `<li><a href="guild_dash.php"><img src="images/menu/compressed_guilds.webp" alt="Guild">Guild</a></li>`;
+          break;
+        case 'legendary_forge':
+          menuHTML += `<li><a href="legendary_forge.php"><img src="images/menu/compressed_legendary_forge.webp" alt="Legendary Forge">Legendary Forge</a></li>`;
           break;
         case 'inventory':
           menuHTML += `<li><a href="inventory.php"><img src="images/menu/compressed_chest.webp" alt="Inventory"> Inventory & Equipment</a></li>`;
