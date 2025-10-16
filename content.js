@@ -1240,6 +1240,7 @@
             <div class="battle-pass-section">
               <div class="battle-pass-header">
                 <span>Daily Quests</span>
+                <button class="refresh-btn" id="battle-pass-refresh-btn" title="Refresh Daily Quests">🔄</button>
               </div>
               <div id="battle-pass-quests" class="battle-pass-quests-container">
                 <div class="loading-text">Loading quests...</div>
@@ -3540,14 +3541,10 @@
           extensionSettings.battlePassExpanded = true;
           // Load quests when expanded
           loadBattlePassQuests();
-          // Start auto-refresh
-          startBattlePassAutoRefresh();
         } else {
           battlePassExpanded.classList.add('collapsed');
           battlePassExpandBtn.textContent = '+';
           extensionSettings.battlePassExpanded = false;
-          // Stop auto-refresh when collapsed
-          stopBattlePassAutoRefresh();
         }
 
         saveSettings();
@@ -3565,32 +3562,7 @@
       // Load quests if already expanded
       if (extensionSettings.battlePassExpanded) {
         loadBattlePassQuests();
-        // Start auto-refresh
-        startBattlePassAutoRefresh();
       }
-    }
-  }
-
-  // Battle pass auto-refresh interval ID
-  let battlePassRefreshInterval = null;
-
-  function startBattlePassAutoRefresh() {
-    // Clear any existing interval
-    stopBattlePassAutoRefresh();
-    
-    // Refresh every 30 seconds
-    battlePassRefreshInterval = setInterval(() => {
-      loadBattlePassQuests();
-    }, 30000);
-    
-    console.log('Battle pass auto-refresh started (30 seconds interval)');
-  }
-
-  function stopBattlePassAutoRefresh() {
-    if (battlePassRefreshInterval) {
-      clearInterval(battlePassRefreshInterval);
-      battlePassRefreshInterval = null;
-      console.log('Battle pass auto-refresh stopped');
     }
   }
 
