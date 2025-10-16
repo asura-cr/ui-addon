@@ -10208,6 +10208,81 @@
 
   function initDashboardTools() {
     console.log("Initializing dashboard tools");
+    consolidateEventSections();
+    removeDashboardClutter();
+  }
+
+  function removeDashboardClutter() {
+    // Remove "User Dashboard" h1
+    const h1Elements = document.querySelectorAll('h1');
+    h1Elements.forEach(h1 => {
+      if (h1.textContent.includes('User Dashboard') || h1.textContent.includes('🏠')) {
+        h1.remove();
+      }
+    });
+
+    // Remove "How to Play" section
+    const howtoInfo = document.querySelector('.howto-info');
+    if (howtoInfo) {
+      howtoInfo.remove();
+    }
+
+    // Remove password reset message
+    const h3Elements = document.querySelectorAll('h3');
+    h3Elements.forEach(h3 => {
+      if (h3.textContent.includes('forgot your password') || h3.textContent.includes('demonicscans@proton.me')) {
+        h3.remove();
+      }
+    });
+  }
+
+  function consolidateEventSections() {
+    // Find all events-section panels
+    const eventSections = document.querySelectorAll('.events-section.panel');
+    
+    if (eventSections.length === 0) {
+      console.log('No event sections found');
+      return;
+    }
+    
+    // Create a new consolidated events section
+    const consolidatedSection = document.createElement('section');
+    consolidatedSection.className = 'events-section panel';
+    consolidatedSection.setAttribute('aria-label', 'Live Events');
+    consolidatedSection.style.cssText = 'background-color: transparent; border-width: 0px; box-shadow: none;';
+    
+    // Create the header
+    const header = document.createElement('div');
+    header.className = 'events-header';
+    header.textContent = 'Live Events';
+    consolidatedSection.appendChild(header);
+    
+    // Create the grid container
+    const grid = document.createElement('div');
+    grid.className = 'events-grid';
+    consolidatedSection.appendChild(grid);
+    
+    // Collect all event cards from all sections
+    eventSections.forEach((section, index) => {
+      const eventCards = section.querySelectorAll('.event-card');
+      
+      // Move each event card to the consolidated grid
+      eventCards.forEach(card => {
+        grid.appendChild(card.cloneNode(true));
+      });
+      
+      // Remove the original section if it's not the first one
+      if (index > 0) {
+        section.remove();
+      }
+    });
+    
+    // Replace the first section with our consolidated section
+    if (eventSections.length > 0) {
+      eventSections[0].replaceWith(consolidatedSection);
+    }
+    
+    console.log(`Consolidated ${eventSections.length} event sections into one`);
   }
 
   function initBattleLayoutSideBySide() {
