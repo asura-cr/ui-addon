@@ -1218,7 +1218,7 @@
     sortedItems.forEach(item => {
       switch(item.id) {
         case 'pvp':
-          menuHTML += `<li><a href="pvp.php"><img src="/images/pvp/season_1/compressed_menu_pvp_season_1.webp" alt="PvP Arena"> PvP Arena</a></li>`;
+          menuHTML += `<li><a href="pvp.php"><img src="images/pvp/season_2/compressed_pvp_season_2.webp" alt="PvP Arena"> PvP Arena</a></li>`;
           break;
         case 'orc_cull':
           menuHTML += `<li><a href="orc_cull_event.php"><img src="/images/events/orc_cull/banner.webp" alt="Goblin Feast"> 🪓 ⚔️ War Drums of GRAKTHAR</a></li>`;
@@ -7354,7 +7354,31 @@
           
           cards.forEach(card => {
               const claimButton = card.querySelector('button');
-              const isCompleted = claimButton && claimButton.textContent.trim().toLowerCase() === 'claimed';
+              const progressBar = card.querySelector('.bar');
+              
+              // Check button text
+              const buttonText = claimButton ? claimButton.textContent.trim().toLowerCase() : '';
+              
+              // Check progress bar - the width is on .fill inside .bar
+              let progressWidth = '0%';
+              if (progressBar) {
+                  const progressFill = progressBar.querySelector('.fill');
+                  if (progressFill && progressFill.style.width) {
+                      progressWidth = progressFill.style.width;
+                  }
+              }
+              
+              const isFullProgress = progressWidth === '100%';
+              
+              // A collection is completed and claimed if:
+              // 1. Progress is 100% AND button says "claimed"
+              // 2. Button is disabled AND says "claimed" (button is disabled after claiming)
+              // 3. No button exists AND progress is 100% (already claimed in past)
+              const isClaimed = buttonText === 'claimed';
+              const isDisabled = claimButton ? claimButton.disabled : false;
+              const hasNoButton = !claimButton;
+              
+              const isCompleted = (isFullProgress && isClaimed) || (hasNoButton && isFullProgress) || (isClaimed && isDisabled);
               
               if (isCompleted) {
                   completedCards.push(card);
@@ -7363,8 +7387,8 @@
               }
           });
           
-          // Only add divider if we have both types
-          if (completedCards.length === 0 || incompleteCards.length === 0) {
+          // Only add divider if we have completed collections
+          if (completedCards.length === 0) {
               return;
           }
           
@@ -7547,7 +7571,31 @@
           
           cards.forEach(card => {
               const claimButton = card.querySelector('button');
-              const isCompleted = claimButton && claimButton.textContent.trim().toLowerCase() === 'claimed';
+              const progressBar = card.querySelector('.bar');
+              
+              // Check button text
+              const buttonText = claimButton ? claimButton.textContent.trim().toLowerCase() : '';
+              
+              // Check progress bar - the width is on .fill inside .bar
+              let progressWidth = '0%';
+              if (progressBar) {
+                  const progressFill = progressBar.querySelector('.fill');
+                  if (progressFill && progressFill.style.width) {
+                      progressWidth = progressFill.style.width;
+                  }
+              }
+              
+              const isFullProgress = progressWidth === '100%';
+              
+              // An achievement is completed and claimed if:
+              // 1. Progress is 100% AND button says "claimed"
+              // 2. Button is disabled AND says "claimed" (button is disabled after claiming)
+              // 3. No button exists AND progress is 100% (already claimed in past)
+              const isClaimed = buttonText === 'claimed';
+              const isDisabled = claimButton ? claimButton.disabled : false;
+              const hasNoButton = !claimButton;
+              
+              const isCompleted = (isFullProgress && isClaimed) || (hasNoButton && isFullProgress) || (isClaimed && isDisabled);
               
               if (isCompleted) {
                   completedCards.push(card);
@@ -7556,12 +7604,10 @@
               }
           });
           
-          // Only add divider if we have both types
-          if (completedCards.length === 0 || incompleteCards.length === 0) {
+          // Only add divider if we have completed achievements
+          if (completedCards.length === 0) {
               return;
           }
-          
-          console.log(`Found ${incompleteCards.length} incomplete and ${completedCards.length} completed achievements`);
           
           // Remove all cards from grid
           cards.forEach(card => card.remove());
