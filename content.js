@@ -1,11 +1,12 @@
 'use strict';
 
-// Global variables
+  // Global variables
   var alarmInterval = null;
   var waveRefreshInterval = null;
-  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":""}
-
-  // Enhanced settings management
+  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":"", "lootFilter":[]}
+  
+  // Monster loot cache for performance optimization
+  const lootCache = new Map(); // Cache loot data by monster name  // Enhanced settings management
   var extensionSettings = {
     sidebarColor: '#1e1e1e',
     backgroundColor: '#000000',
@@ -14,6 +15,7 @@
     statsExpanded: false,
     petsExpanded: false,
     blacksmithExpanded: false,
+    battlePassExpanded: false,
     continueBattlesExpanded: true,
     lootExpanded: true,
     merchantExpanded: false,
@@ -95,19 +97,22 @@
       { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
       { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
       { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 4 },
-      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 5 },
-      { id: 'stats', name: 'Stats', visible: true, order: 7 },
-      { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
-      { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
-      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 10 },
-      { id: 'achievements', name: 'Achievements', visible: true, order: 11 },
-      { id: 'collections', name: 'Collections', visible: true, order: 12 },
-      { id: 'guide', name: 'How To Play', visible: true, order: 13 },
-      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 14 },
-      { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
-      { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
-      { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 }
+      { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
+      { id: 'guild', name: 'Guild', visible: true, order: 5 },
+      { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 6 },
+      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 7 },
+      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 8 },
+      { id: 'stats', name: 'Stats', visible: true, order: 9 },
+      { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 10 },
+      { id: 'merchant', name: 'Merchant', visible: true, order: 11 },
+      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 12 },
+      { id: 'achievements', name: 'Achievements', visible: true, order: 13 },
+      { id: 'collections', name: 'Collections', visible: true, order: 14 },
+      { id: 'guide', name: 'How To Play', visible: true, order: 15 },
+      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 16 },
+      { id: 'chat', name: 'Global Chat', visible: true, order: 17 },
+      { id: 'patches', name: 'Patch Notes', visible: true, order: 18 },
+      { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 19 }
     ]
   };
 
@@ -126,6 +131,9 @@
     '/merchant.php': initMerchantMods,
     '/orc_cull_event.php': initEventMods,
     '/weekly.php': initLeaderboardMods,
+    '/collections.php': initCollectionsMods,
+    '/achievements.php': initAchievementsMods,
+    '/battle_pass.php': initBattlePassMods,
   };
 
   // Automatic retrieval of userId from cookie
@@ -220,21 +228,61 @@
         { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
         { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
         { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 4 },
-        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 5 },
-        { id: 'stats', name: 'Stats', visible: true, order: 7 },
-        { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
-        { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
-        { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 10 },
-        { id: 'achievements', name: 'Achievements', visible: true, order: 11 },
-        { id: 'collections', name: 'Collections', visible: true, order: 12 },
-        { id: 'guide', name: 'How To Play', visible: true, order: 13 },
-        { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 14 },
-        { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
-        { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
-        { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 },
-        { id: 'settings', name: 'Settings', visible: true, order: 18 }
+        { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
+        { id: 'guild', name: 'Guild', visible: true, order: 5 },
+        { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 6 },
+        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 7 },
+        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 8 },
+        { id: 'stats', name: 'Stats', visible: true, order: 9 },
+        { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 10 },
+        { id: 'merchant', name: 'Merchant', visible: true, order: 11 },
+        { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 12 },
+        { id: 'achievements', name: 'Achievements', visible: true, order: 13 },
+        { id: 'collections', name: 'Collections', visible: true, order: 14 },
+        { id: 'guide', name: 'How To Play', visible: true, order: 15 },
+        { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 16 },
+        { id: 'chat', name: 'Global Chat', visible: true, order: 17 },
+        { id: 'patches', name: 'Patch Notes', visible: true, order: 18 },
+        { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 19 },
       ];
+    } else {
+      // Add new menu items to existing users if they don't exist
+      const newMenuItems = [
+        { id: 'battle_pass', name: 'Battle Pass', afterId: 'gate_grakthar', defaultOrder: 4 },
+        { id: 'guild', name: 'Guild', afterId: 'battle_pass', defaultOrder: 5 },
+        { id: 'legendary_forge', name: 'Legendary Forge', afterId: 'guild', defaultOrder: 6 }
+      ];
+
+      newMenuItems.forEach(newItem => {
+        const exists = extensionSettings.menuItems.some(item => item.id === newItem.id);
+        if (!exists) {
+          // Find the insertion point
+          const afterIndex = extensionSettings.menuItems.findIndex(item => item.id === newItem.afterId);
+          const insertOrder = afterIndex >= 0 ? extensionSettings.menuItems[afterIndex].order + 1 : newItem.defaultOrder;
+          
+          // Add the new item
+          extensionSettings.menuItems.push({
+            id: newItem.id,
+            name: newItem.name,
+            visible: true,
+            order: insertOrder
+          });
+          
+          // Reorder subsequent items if needed
+          extensionSettings.menuItems.forEach(item => {
+            if (item.order >= insertOrder && item.id !== newItem.id) {
+              item.order += 1;
+            }
+          });
+          
+          console.log(`Added new menu item: ${newItem.name}`);
+        }
+      });
+
+      // Save the updated settings if any changes were made
+      if (newMenuItems.some(newItem => !extensionSettings.menuItems.some(item => item.id === newItem.id))) {
+        saveSettings();
+      }
     }
 
     // Ensure background image settings exist
@@ -1170,7 +1218,7 @@
     sortedItems.forEach(item => {
       switch(item.id) {
         case 'pvp':
-          menuHTML += `<li><a href="pvp.php"><img src="/images/pvp/season_1/compressed_menu_pvp_season_1.webp" alt="PvP Arena"> PvP Arena</a></li>`;
+          menuHTML += `<li><a href="pvp.php"><img src="images/pvp/season_2/compressed_pvp_season_2.webp" alt="PvP Arena"> PvP Arena</a></li>`;
           break;
         case 'orc_cull':
           menuHTML += `<li><a href="orc_cull_event.php"><img src="/images/events/orc_cull/banner.webp" alt="Goblin Feast"> 🪓 ⚔️ War Drums of GRAKTHAR</a></li>`;
@@ -1180,6 +1228,32 @@
           break;
         case 'gate_grakthar':
           menuHTML += `<li><a href="active_wave.php?gate=3&wave=${extensionSettings.gateGraktharWave}"><img src="images/gates/gate_688e438aba7f24.99262397.webp" alt="Gate"> Gate Grakthar</a></li>`;
+          break;
+        case 'battle_pass':
+          menuHTML += `
+        <li>
+          <div class="sidebar-menu-expandable">
+            <a href="battle_pass.php"><img src="images/battle%20pass/enternal%20season/enternal_season_banner.webp" alt="Battle Pass"> Battle Pass</a>
+            <button class="expand-btn" id="battle-pass-expand-btn" draggable="false">${extensionSettings.battlePassExpanded ? '–' : '+'}</button>
+          </div>
+          <div id="battle-pass-expanded" class="sidebar-submenu ${extensionSettings.battlePassExpanded ? '' : 'collapsed'}">
+            <div class="battle-pass-section">
+              <div class="battle-pass-header">
+                <span>Daily Quests</span>
+                <button class="refresh-btn" id="battle-pass-refresh-btn" title="Refresh Daily Quests">🔄</button>
+              </div>
+              <div id="battle-pass-quests" class="battle-pass-quests-container">
+                <div class="loading-text">Loading quests...</div>
+              </div>
+            </div>
+          </div>
+        </li>`;
+          break;
+        case 'guild':
+          menuHTML += `<li><a href="guild_dash.php"><img src="images/menu/compressed_guilds.webp" alt="Guild">Guild</a></li>`;
+          break;
+        case 'legendary_forge':
+          menuHTML += `<li><a href="legendary_forge.php"><img src="images/menu/compressed_legendary_forge.webp" alt="Legendary Forge">Legendary Forge</a></li>`;
           break;
         case 'inventory':
           menuHTML += `<li><a href="inventory.php"><img src="images/menu/compressed_chest.webp" alt="Inventory"> Inventory & Equipment</a></li>`;
@@ -1242,7 +1316,7 @@
                 </div>
               </div>
                   <div style="text-align: center; margin-top: 8px; color: #888;">
-                    Points Available: <span id="sidebar-points-available">-</span>
+                    Points Available: <span id="sidebar-points-alloc">-</span>
             </div>
           </div>
               </div>
@@ -1664,7 +1738,6 @@
         background: ${extensionSettings.sidebarColor};
         border-right: 1px solid rgba(255, 255, 255, 0.06);
         flex-shrink: 0;
-        padding: 15px 0;
         overflow-y: auto;
         position: fixed;
         top: 55px;
@@ -1674,7 +1747,7 @@
       }
 
       .sidebar-header {
-        padding: 0 20px 15px;
+        padding: 15px 0 20px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         margin-bottom: 15px;
       }
@@ -1804,6 +1877,115 @@
         text-align: center;
         margin-top: 10px;
         font-style: italic;
+      }
+
+      /* Battle Pass Styles */
+      .battle-pass-section {
+        color: #e0e0e0;
+      }
+
+      .battle-pass-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-weight: bold;
+        font-size: 13px;
+      }
+
+      .battle-pass-quests-container {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .sidebar-quest {
+        background: rgba(255, 255, 255, 0.05);
+        border-left: 3px solid #89b4fa;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .sidebar-quest.completed {
+        border-left-color: #a6e3a1;
+        background: rgba(166, 227, 161, 0.1);
+      }
+
+      .sidebar-quest:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .quest-title {
+        font-size: 11px;
+        font-weight: bold;
+        color: #cdd6f4;
+        margin-bottom: 4px;
+      }
+
+      .quest-details {
+        font-size: 10px;
+        color: #a6adc8;
+        margin-bottom: 6px;
+      }
+
+      .quest-progress-bar {
+        background: rgba(0, 0, 0, 0.3);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 4px;
+      }
+
+      .quest-progress-fill {
+        background: linear-gradient(90deg, #89b4fa, #74c7ec);
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+
+      .sidebar-quest.completed .quest-progress-fill {
+        background: linear-gradient(90deg, #a6e3a1, #94e2d5);
+      }
+
+      .quest-status {
+        font-size: 10px;
+        color: #a6adc8;
+      }
+
+      .sidebar-quest.completed .quest-status {
+        color: #a6e3a1;
+      }
+
+      .quest-empty,
+      .quest-error,
+      .loading-text {
+        color: #a6adc8;
+        font-size: 11px;
+        text-align: center;
+        padding: 15px;
+        font-style: italic;
+      }
+
+      .quest-error {
+        color: #f38ba8;
+      }
+
+      .refresh-btn {
+        background: transparent;
+        border: none;
+        color: #89b4fa;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .refresh-btn:hover {
+        background: rgba(137, 180, 250, 0.2);
+        transform: rotate(90deg);
       }
 
       .sidebar-menu {
@@ -3342,6 +3524,118 @@
         inventoryExpandBtn.textContent = '–';
       }
       updateSidebarInventorySection();
+    }
+
+    // Battle Pass expand/collapse handler
+    const battlePassExpandBtn = document.getElementById('battle-pass-expand-btn');
+    const battlePassExpanded = document.getElementById('battle-pass-expanded');
+
+    if (battlePassExpandBtn && battlePassExpanded) {
+      battlePassExpandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isCollapsed = battlePassExpanded.classList.contains('collapsed');
+
+        if (isCollapsed) {
+          battlePassExpanded.classList.remove('collapsed');
+          battlePassExpandBtn.textContent = '–';
+          extensionSettings.battlePassExpanded = true;
+          // Load quests when expanded
+          loadBattlePassQuests();
+        } else {
+          battlePassExpanded.classList.add('collapsed');
+          battlePassExpandBtn.textContent = '+';
+          extensionSettings.battlePassExpanded = false;
+        }
+
+        saveSettings();
+      });
+
+      // Refresh battle pass button
+      const refreshBtn = document.getElementById('battle-pass-refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+          showNotification('Refreshing daily quests...', 'info');
+          loadBattlePassQuests();
+        });
+      }
+
+      // Load quests if already expanded
+      if (extensionSettings.battlePassExpanded) {
+        loadBattlePassQuests();
+      }
+    }
+  }
+
+  // Function to load and display battle pass daily quests
+  async function loadBattlePassQuests() {
+    const questsContainer = document.getElementById('battle-pass-quests');
+    if (!questsContainer) return;
+
+    try {
+      questsContainer.innerHTML = '<div class="loading-text">Loading quests...</div>';
+      
+      const response = await fetch('battle_pass.php');
+      const html = await response.text();
+      
+      // Parse the HTML to extract quest information
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Find the daily quests card
+      const questCards = doc.querySelectorAll('.card');
+      let dailyQuestsCard = null;
+      
+      for (const card of questCards) {
+        const title = card.querySelector('.title');
+        if (title && title.textContent.includes('Daily Quests')) {
+          dailyQuestsCard = card;
+          break;
+        }
+      }
+      
+      if (!dailyQuestsCard) {
+        questsContainer.innerHTML = '<div class="quest-empty">No daily quests found</div>';
+        return;
+      }
+      
+      // Extract all quests
+      const quests = dailyQuestsCard.querySelectorAll('.quest');
+      
+      if (quests.length === 0) {
+        questsContainer.innerHTML = '<div class="quest-empty">No active quests</div>';
+        return;
+      }
+      
+      let questsHTML = '';
+      
+      quests.forEach(quest => {
+        const titleElement = quest.querySelector('strong');
+        const mutedElements = quest.querySelectorAll('.muted');
+        const progressBar = quest.querySelector('.progress > div');
+        
+        const questTitle = titleElement ? titleElement.textContent : 'Unknown Quest';
+        const questDetails = mutedElements[0] ? mutedElements[0].textContent.trim() : '';
+        const questProgress = mutedElements[1] ? mutedElements[1].textContent.trim() : '';
+        const progressWidth = progressBar ? progressBar.style.width : '0%';
+        const isCompleted = questProgress.includes('✅');
+        
+        questsHTML += `
+          <div class="sidebar-quest ${isCompleted ? 'completed' : ''}">
+            <div class="quest-title">${questTitle}</div>
+            <div class="quest-details">${questDetails}</div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width: ${progressWidth}"></div>
+            </div>
+            <div class="quest-status">${questProgress}</div>
+          </div>
+        `;
+      });
+      
+      questsContainer.innerHTML = questsHTML;
+      
+    } catch (error) {
+      console.error('Error loading battle pass quests:', error);
+      questsContainer.innerHTML = '<div class="quest-error">Failed to load quests</div>';
     }
   }
 
@@ -6473,10 +6767,8 @@
         safeExecute(() => applyCustomBackgrounds(), 'Background Images');
     }, 200);
     
-    // Initialize stamina per hour calculation after a delay to ensure sidebar is ready
-    setTimeout(() => {
-        safeExecute(() => initStaminaPerHourCalculation(), 'Stamina Per Hour Calculation');
-    }, 2000);
+    // Initialize stamina per hour calculation immediately (no delay needed)
+    safeExecute(() => initStaminaPerHourCalculation(), 'Stamina Per Hour Calculation');
     
     console.log('Demon Game Enhancement v3.0 - Initialization Complete!');
     console.log('Type debugExtension() in console for debug info');
@@ -7022,6 +7314,453 @@
       showNotification(`Removed "${removedItem?.name || 'item'}" from merchant quick access`, 'info');
   }
 
+  function addCollectionsDivider() {
+      if (!window.location.pathname.includes('collections.php')) return;
+      
+      let attempts = 0;
+      const maxAttempts = 50;
+      
+      const checkAndAddDivider = () => {
+          attempts++;
+          
+          // Find the collections grid
+          const grid = document.querySelector('.panel .grid');
+          
+          if (!grid) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Check if divider already exists
+          if (grid.querySelector('.collection-divider')) {
+              return;
+          }
+          
+          // Get all collection cards
+          const cards = Array.from(grid.querySelectorAll('.card[data-col-id]'));
+          
+          if (cards.length === 0) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Separate completed and incomplete collections
+          const completedCards = [];
+          const incompleteCards = [];
+          
+          cards.forEach(card => {
+              const claimButton = card.querySelector('button');
+              const progressBar = card.querySelector('.bar');
+              
+              // Check button text
+              const buttonText = claimButton ? claimButton.textContent.trim().toLowerCase() : '';
+              
+              // Check progress bar - the width is on .fill inside .bar
+              let progressWidth = '0%';
+              if (progressBar) {
+                  const progressFill = progressBar.querySelector('.fill');
+                  if (progressFill && progressFill.style.width) {
+                      progressWidth = progressFill.style.width;
+                  }
+              }
+              
+              const isFullProgress = progressWidth === '100%';
+              
+              // A collection is completed and claimed if:
+              // 1. Progress is 100% AND button says "claimed"
+              // 2. Button is disabled AND says "claimed" (button is disabled after claiming)
+              // 3. No button exists AND progress is 100% (already claimed in past)
+              const isClaimed = buttonText === 'claimed';
+              const isDisabled = claimButton ? claimButton.disabled : false;
+              const hasNoButton = !claimButton;
+              
+              const isCompleted = (isFullProgress && isClaimed) || (hasNoButton && isFullProgress) || (isClaimed && isDisabled);
+              
+              if (isCompleted) {
+                  completedCards.push(card);
+              } else {
+                  incompleteCards.push(card);
+              }
+          });
+          
+          // Only add divider if we have completed collections
+          if (completedCards.length === 0) {
+              return;
+          }
+          
+          console.log(`Found ${incompleteCards.length} incomplete and ${completedCards.length} completed collections`);
+          
+          // Remove all cards from grid
+          cards.forEach(card => card.remove());
+          
+          // Add incomplete collections first
+          incompleteCards.forEach(card => grid.appendChild(card));
+          
+          // Create and add divider
+          const divider = document.createElement('div');
+          divider.className = 'collection-divider';
+          divider.style.cssText = `
+              grid-column: 1 / -1;
+              margin: 20px 0;
+              padding: 15px;
+              background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+              border: 2px solid #444;
+              border-radius: 8px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+          `;
+          
+          divider.innerHTML = `
+              <div style="
+                  font-size: 18px;
+                  font-weight: bold;
+                  color: #4CAF50;
+                  margin-bottom: 8px;
+                  text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+              ">
+                  COMPLETED COLLECTIONS
+              </div>
+              <div style="
+                  font-size: 14px;
+                  color: #888;
+                  font-style: italic;
+              ">
+                  Collections below have been claimed and completed
+              </div>
+              <div style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background: linear-gradient(45deg, transparent 45%, rgba(76, 175, 80, 0.1) 50%, transparent 55%);
+                  pointer-events: none;
+              "></div>
+          `;
+          
+          grid.appendChild(divider);
+          
+          // Add completed collections after divider
+          completedCards.forEach(card => {
+              // Modify completed cards for simplified display
+              const title = card.querySelector('.title');
+              const rewardDiv = card.querySelector('.reward');
+              const claimButton = card.querySelector('button');
+              
+              // Hide progress bar, requirements list, claim button, and other details
+              const reqList = card.querySelector('.req-list');
+              const progressRow = card.querySelector('.row');
+              const progressBar = card.querySelector('.bar');
+              
+              if (reqList) reqList.style.display = 'none';
+              if (progressRow && !progressRow.querySelector('.reward')) progressRow.style.display = 'none';
+              if (progressBar) progressBar.style.display = 'none';
+              if (claimButton) claimButton.style.display = 'none';
+              
+              // Style the card to look more subdued
+              card.style.cssText += `
+                  opacity: 0.8;
+                  border: 2px solid #4CAF50;
+                  background: linear-gradient(135deg, #1a4a1a 0%, #0d2a0d 100%);
+              `;
+              
+              // Add completed indicator
+              if (title && !title.querySelector('.completed-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'completed-badge';
+                  badge.style.cssText = `
+                      margin-left: 10px;
+                      padding: 2px 8px;
+                      background: #4CAF50;
+                      color: white;
+                      border-radius: 12px;
+                      font-size: 10px;
+                      font-weight: bold;
+                      text-transform: uppercase;
+                  `;
+                  badge.textContent = 'CLAIMED';
+                  title.appendChild(badge);
+              }
+              
+              grid.appendChild(card);
+          });
+          
+          console.log('Collections divider added successfully');
+          
+          // Set up mutation observer to watch for button text changes
+          const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                  if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                      const target = mutation.target;
+                      // Check if a button's text changed to "Claimed"
+                      if (target.tagName === 'BUTTON' || target.parentElement?.tagName === 'BUTTON') {
+                          const button = target.tagName === 'BUTTON' ? target : target.parentElement;
+                          if (button && button.textContent.trim().toLowerCase() === 'claimed') {
+                              console.log('Button changed to "Claimed", reorganizing collections...');
+                              // Wait a bit for any other changes, then reorganize
+                              setTimeout(() => {
+                                  // Remove existing divider first
+                                  const existingDivider = grid.querySelector('.collection-divider');
+                                  if (existingDivider) {
+                                      existingDivider.remove();
+                                  }
+                                  // Re-run the divider function
+                                  checkAndAddDivider();
+                              }, 500);
+                          }
+                      }
+                  }
+              });
+          });
+          
+          // Observe button changes in the grid
+          if (grid) {
+              observer.observe(grid, {
+                  childList: true,
+                  subtree: true,
+                  characterData: true
+              });
+          }
+      };
+      
+      checkAndAddDivider();
+  }
+
+  function addAchievementsDivider() {
+      if (!window.location.pathname.includes('achievements.php')) return;
+      
+      let attempts = 0;
+      const maxAttempts = 50;
+      
+      const checkAndAddDivider = () => {
+          attempts++;
+          
+          // Find the achievements grid
+          const grid = document.querySelector('.panel .grid');
+          
+          if (!grid) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Check if divider already exists
+          if (grid.querySelector('.achievement-divider')) {
+              return;
+          }
+          
+          // Get all achievement cards
+          const cards = Array.from(grid.querySelectorAll('.card[data-ach-id]'));
+          
+          if (cards.length === 0) {
+              if (attempts < maxAttempts) {
+                  setTimeout(checkAndAddDivider, 100);
+              }
+              return;
+          }
+          
+          // Separate completed and incomplete achievements
+          const completedCards = [];
+          const incompleteCards = [];
+          
+          cards.forEach(card => {
+              const claimButton = card.querySelector('button');
+              const progressBar = card.querySelector('.bar');
+              
+              // Check button text
+              const buttonText = claimButton ? claimButton.textContent.trim().toLowerCase() : '';
+              
+              // Check progress bar - the width is on .fill inside .bar
+              let progressWidth = '0%';
+              if (progressBar) {
+                  const progressFill = progressBar.querySelector('.fill');
+                  if (progressFill && progressFill.style.width) {
+                      progressWidth = progressFill.style.width;
+                  }
+              }
+              
+              const isFullProgress = progressWidth === '100%';
+              
+              // An achievement is completed and claimed if:
+              // 1. Progress is 100% AND button says "claimed"
+              // 2. Button is disabled AND says "claimed" (button is disabled after claiming)
+              // 3. No button exists AND progress is 100% (already claimed in past)
+              const isClaimed = buttonText === 'claimed';
+              const isDisabled = claimButton ? claimButton.disabled : false;
+              const hasNoButton = !claimButton;
+              
+              const isCompleted = (isFullProgress && isClaimed) || (hasNoButton && isFullProgress) || (isClaimed && isDisabled);
+              
+              if (isCompleted) {
+                  completedCards.push(card);
+              } else {
+                  incompleteCards.push(card);
+              }
+          });
+          
+          // Only add divider if we have completed achievements
+          if (completedCards.length === 0) {
+              return;
+          }
+          
+          // Remove all cards from grid
+          cards.forEach(card => card.remove());
+          
+          // Add incomplete achievements first
+          incompleteCards.forEach(card => grid.appendChild(card));
+          
+          // Create and add divider
+          const divider = document.createElement('div');
+          divider.className = 'achievement-divider';
+          divider.style.cssText = `
+              grid-column: 1 / -1;
+              margin: 20px 0;
+              padding: 15px;
+              background: linear-gradient(135deg, #2a2a1f 0%, #1a1a0f 100%);
+              border: 2px solid #d4af37;
+              border-radius: 8px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+          `;
+          
+          divider.innerHTML = `
+              <div style="
+                  font-size: 18px;
+                  font-weight: bold;
+                  color: #FFD700;
+                  margin-bottom: 8px;
+                  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+              ">
+                  COMPLETED ACHIEVEMENTS
+              </div>
+              <div style="
+                  font-size: 14px;
+                  color: #baa76a;
+                  font-style: italic;
+              ">
+                  Achievements below have been claimed and completed
+              </div>
+              <div style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  background: linear-gradient(45deg, transparent 45%, rgba(255, 215, 0, 0.1) 50%, transparent 55%);
+                  pointer-events: none;
+              "></div>
+          `;
+          
+          grid.appendChild(divider);
+          
+          // Add completed achievements after divider
+          completedCards.forEach(card => {
+              const title = card.querySelector('.title');
+              const rewardDiv = card.querySelector('.desc');
+              const claimButton = card.querySelector('button');
+              
+              // Hide description, progress bar, progress row details, and claim button for cleaner look
+              const descriptionDiv = card.querySelector('.desc');
+              const progressRows = card.querySelectorAll('.row');
+              const progressBar = card.querySelector('.bar');
+              
+              // Hide the achievement description (first .desc element)
+              if (descriptionDiv && !descriptionDiv.textContent.includes('Rewards:')) {
+                  descriptionDiv.style.display = 'none';
+              }
+              
+              // Hide progress rows except the one containing rewards
+              progressRows.forEach(row => {
+                  if (!row.querySelector('.desc')) {
+                      row.style.display = 'none';
+                  }
+              });
+              
+              // Hide progress bar and claim button
+              if (progressBar) {
+                  progressBar.style.display = 'none';
+              }
+              if (claimButton) {
+                  claimButton.style.display = 'none';
+              }
+              
+              // Style the card to look more subdued with golden theme
+              card.style.cssText += `
+                  opacity: 0.8;
+                  border: 2px solid #FFD700;
+                  background: linear-gradient(135deg, #2a2a1f 0%, #1a1a0f 100%);
+              `;
+              
+              // Add completed indicator
+              if (title && !title.querySelector('.completed-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'completed-badge';
+                  badge.style.cssText = `
+                      margin-left: 10px;
+                      padding: 2px 8px;
+                      background: #FFD700;
+                      color: #000;
+                      border-radius: 12px;
+                      font-size: 10px;
+                      font-weight: bold;
+                      text-transform: uppercase;
+                      box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+                  `;
+                  badge.textContent = 'CLAIMED';
+                  title.appendChild(badge);
+              }
+              
+              grid.appendChild(card);
+          });
+          
+          console.log('Achievements divider added successfully');
+          
+          // Set up mutation observer to watch for button text changes
+          const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                  if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                      const target = mutation.target;
+                      // Check if a button's text changed to "Claimed"
+                      if (target.tagName === 'BUTTON' || target.parentElement?.tagName === 'BUTTON') {
+                          const button = target.tagName === 'BUTTON' ? target : target.parentElement;
+                          if (button && button.textContent.trim().toLowerCase() === 'claimed') {
+                              console.log('Button changed to "Claimed", reorganizing achievements...');
+                              // Wait a bit for any other changes, then reorganize
+                              setTimeout(() => {
+                                  // Remove existing divider first
+                                  const existingDivider = grid.querySelector('.achievement-divider');
+                                  if (existingDivider) {
+                                      existingDivider.remove();
+                                  }
+                                  // Re-run the divider function
+                                  checkAndAddDivider();
+                              }, 500);
+                          }
+                      }
+                  }
+              });
+          });
+          
+          // Observe button changes in the grid
+          if (grid) {
+              observer.observe(grid, {
+                  childList: true,
+                  subtree: true,
+                  characterData: true
+              });
+          }
+      };
+      
+      checkAndAddDivider();
+  }
+
   // UNIVERSAL MERCHANT BUY - Works from any page
   async function executeMerchantBuy(itemData, quantity = 1) {
       try {
@@ -7175,6 +7914,24 @@
           </div>
         </div>
         
+        <div style="position: relative; display: inline-block;">
+          <button id="loot-filter-toggle" style="padding: 5px 10px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; cursor: pointer; min-width: 120px; text-align: left;">
+            Loot Filter ▼
+          </button>
+          <div id="loot-filter-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 250px; max-height: 300px; overflow-y: auto;">
+            <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Filter by Loot</div>
+            <div id="loot-items-list">
+              <div style="color: #89b4fa; font-size: 12px; text-align: center; padding: 10px;">
+                Loading loot items...
+              </div>
+            </div>
+            <div style="margin-top: 8px; padding-top: 5px; border-top: 1px solid #45475a;">
+              <button id="select-all-loot" style="padding: 3px 8px; background: #a6e3a1; color: #1e1e2e; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">Select All</button>
+              <button id="clear-loot" style="padding: 3px 8px; background: #f38ba8; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">Clear</button>
+            </div>
+          </div>
+        </div>
+        
         <select id="hp-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
           <option value="">All HP</option>
           <option value="low">Low HP (&lt;50%)</option>
@@ -7289,6 +8046,9 @@
     // Close dropdown when clicking outside
     document.addEventListener('click', () => {
       monsterTypeDropdown.style.display = 'none';
+      if (lootFilterDropdown) {
+        lootFilterDropdown.style.display = 'none';
+      }
     });
     
     // Monster type checkbox listeners
@@ -7306,6 +8066,41 @@
     
     document.getElementById('clear-monsters').addEventListener('click', () => {
       document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      applyMonsterFilters();
+    });
+
+    // Loot filter dropdown functionality
+    const lootFilterToggle = document.getElementById('loot-filter-toggle');
+    const lootFilterDropdown = document.getElementById('loot-filter-dropdown');
+    
+    lootFilterToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = lootFilterDropdown.style.display === 'block';
+      lootFilterDropdown.style.display = isVisible ? 'none' : 'block';
+      
+      // Load loot items if dropdown is being opened and not loaded yet
+      if (!isVisible && !lootFilterDropdown.dataset.loaded) {
+        populateLootFilterDropdown();
+      }
+    });
+    
+    // Close loot dropdown when clicking outside
+    lootFilterDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    // Select all and clear buttons for loot
+    document.getElementById('select-all-loot').addEventListener('click', () => {
+      document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+      });
+      applyMonsterFilters();
+    });
+    
+    document.getElementById('clear-loot').addEventListener('click', () => {
+      document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
         checkbox.checked = false;
       });
       applyMonsterFilters();
@@ -7342,10 +8137,129 @@
       });
     }
 
+    // Initialize loot filter by populating dropdown and restoring settings
+    if (settings.lootFilter && Array.isArray(settings.lootFilter) && settings.lootFilter.length > 0) {
+      // Populate the loot filter dropdown immediately so we can restore the settings
+      populateLootFilterDropdown().then(() => {
+        // After dropdown is populated, apply the filters
+        applyMonsterFilters();
+      });
+    }
+
     // Apply filters if any are set
     if (settings.nameFilter || (settings.monsterTypeFilter && settings.monsterTypeFilter.length > 0) || settings.hpFilter || settings.playerCountFilter || settings.hideImg || settings.battleLimitAlarm) {
       applyMonsterFilters();
     }
+    
+    // Special case: if we have loot filters but didn't populate the dropdown yet, 
+    // we'll apply filters again after the dropdown is populated (see above)
+  }
+
+  async function populateLootFilterDropdown() {
+    const lootItemsList = document.getElementById('loot-items-list');
+    const dropdown = document.getElementById('loot-filter-dropdown');
+    
+    if (!lootItemsList || dropdown.dataset.loaded) return;
+    
+    // Show loading state
+    lootItemsList.innerHTML = '<div style="color: #89b4fa; font-size: 12px; text-align: center; padding: 10px;">Loading loot items...</div>';
+    
+    // Collect all unique loot items from cached data
+    const allLootItems = new Set();
+    
+    // If we have cached loot data, use it
+    for (const [monsterName, lootData] of lootCache) {
+      lootData.forEach(item => {
+        allLootItems.add(item.name);
+      });
+    }
+    
+    // If no cached data yet, try to load from visible monsters
+    if (allLootItems.size === 0) {
+      const monsterCards = document.querySelectorAll('.monster-card');
+      const loadPromises = [];
+      
+      // Load loot for a few monsters to get some items
+      for (let i = 0; i < Math.min(3, monsterCards.length); i++) {
+        const card = monsterCards[i];
+        const monsterId = card.getAttribute('data-monster-id');
+        const monsterName = getMonsterNameFromCard(card);
+        
+        if (monsterId && monsterName && !lootCache.has(monsterName)) {
+          loadPromises.push(
+            fetch(`battle.php?id=${monsterId}`)
+              .then(response => response.text())
+              .then(html => {
+                const lootData = parseLootFromBattlePage(html);
+                lootCache.set(monsterName, lootData);
+                lootData.forEach(item => allLootItems.add(item.name));
+              })
+              .catch(error => console.error('Error loading loot for filter:', error))
+          );
+        }
+      }
+      
+      if (loadPromises.length > 0) {
+        await Promise.all(loadPromises);
+      }
+    }
+    
+    // Convert to sorted array
+    const sortedLootItems = Array.from(allLootItems).sort();
+    
+    if (sortedLootItems.length === 0) {
+      lootItemsList.innerHTML = '<div style="color: #f38ba8; font-size: 12px; text-align: center; padding: 10px;">No loot data available</div>';
+      return;
+    }
+    
+    // Generate checkboxes for each loot item
+    const lootHTML = sortedLootItems.map(itemName => `
+      <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px; cursor: pointer;">
+        <input type="checkbox" value="${itemName}" class="loot-filter-checkbox cyberpunk-checkbox" style="margin-right: 5px;">
+        ${itemName}
+      </label>
+    `).join('');
+    
+    lootItemsList.innerHTML = lootHTML;
+    
+    // Add event listeners to new checkboxes
+    document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', applyMonsterFilters);
+    });
+    
+    // Restore saved filter state
+    const savedSettings = JSON.parse(localStorage.getItem('demonGameFilterSettings') || '{}');
+    if (savedSettings.lootFilter && Array.isArray(savedSettings.lootFilter)) {
+      savedSettings.lootFilter.forEach(lootName => {
+        const checkbox = document.querySelector(`.loot-filter-checkbox[value="${lootName}"]`);
+        if (checkbox) checkbox.checked = true;
+      });
+    }
+    
+    dropdown.dataset.loaded = 'true';
+  }
+
+  // Track looted monsters to exclude from counts
+  const lootedMonsters = new Set();
+
+  function updateSectionHeaderCounts(continueCount, lootCount, joinCount) {
+    // Find all monster sections and update their headers based on content
+    const allSections = document.querySelectorAll('.monster-section');
+    
+    allSections.forEach(section => {
+      const header = section.querySelector('h3');
+      if (header) {
+        const headerText = header.textContent;
+        
+        if (headerText.includes('Continue Battle')) {
+          header.textContent = `⚔️ Continue Battle (${continueCount})`;
+        } else if (headerText.includes('Available Loot')) {
+          header.textContent = `💰 Available Loot (${lootCount})`;
+        } else if (headerText.includes('Join a Battle')) {
+          header.textContent = `🆕 Join a Battle (${joinCount})`;
+        }
+      }
+    });
   }
 
   function applyMonsterFilters() {
@@ -7360,6 +8274,9 @@
     // Get selected monster types
     const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value);
     
+    // Get selected loot items
+    const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value);
+    
     // Update monster type button text
     const monsterTypeToggle = document.getElementById('monster-type-toggle');
     if (selectedMonsterTypes.length === 0) {
@@ -7368,6 +8285,18 @@
       monsterTypeToggle.textContent = `${selectedMonsterTypes[0]} ▼`;
     } else {
       monsterTypeToggle.textContent = `${selectedMonsterTypes.length} Types ▼`;
+    }
+    
+    // Update loot filter button text
+    const lootFilterToggle = document.getElementById('loot-filter-toggle');
+    if (lootFilterToggle) {
+      if (selectedLootItems.length === 0) {
+        lootFilterToggle.textContent = 'Loot Filter ▼';
+      } else if (selectedLootItems.length === 1) {
+        lootFilterToggle.textContent = `${selectedLootItems[0]} ▼`;
+      } else {
+        lootFilterToggle.textContent = `${selectedLootItems.length} Items ▼`;
+      }
     }
 
     if (battleLimitAlarm) {
@@ -7380,9 +8309,16 @@
 
     const monsters = document.querySelectorAll('.monster-card');
     var limitBattleCount = 0;
+    
+    // Track visible monsters by category
+    let visibleContinueCount = 0;
+    let visibleLootCount = 0;
+    let visibleJoinCount = 0;
 
     monsters.forEach(monster => {
-      const monsterName = monster.querySelector('h3').textContent.toLowerCase();
+      const monsterNameElement = monster.querySelector('h3');
+      const monsterName = monsterNameElement ? monsterNameElement.textContent.toLowerCase() : '';
+      const originalMonsterName = monsterNameElement ? monsterNameElement.textContent.trim() : '';
       const monsterImg = monster.querySelector('img');
       
       // Get HP information
@@ -7416,6 +8352,23 @@
           monsterName.includes(type.toLowerCase())
         );
         if (!matchesType) {
+          shouldShow = false;
+        }
+      }
+
+      // Loot filter (multiple selection) - use original monster name for cache lookup
+      if (selectedLootItems.length > 0 && shouldShow) {
+        const monsterLoot = lootCache.get(originalMonsterName);
+        if (monsterLoot && monsterLoot.length > 0) {
+          // Check if monster has any of the selected loot items
+          const hasSelectedLoot = selectedLootItems.some(lootName => 
+            monsterLoot.some(lootItem => lootItem.name === lootName)
+          );
+          if (!hasSelectedLoot) {
+            shouldShow = false;
+          }
+        } else {
+          // If no loot data available for this monster, hide it when loot filter is active
           shouldShow = false;
         }
       }
@@ -7458,12 +8411,38 @@
 
       // Apply visibility
       monster.style.display = shouldShow ? '' : 'none';
+      
+      // Count visible monsters by category (only if monster is visible)
+      if (shouldShow) {
+        const monsterText = monster.textContent;
+        const monsterId = monster.getAttribute('data-monster-id');
+        
+        // Skip counting if this monster was already looted
+        if (lootedMonsters.has(monsterId)) {
+          return; // Skip this monster from counting
+        }
+        
+        if (monsterText.includes('Continue the Battle')) {
+          visibleContinueCount++;
+        } else if (monsterText.includes('Loot')) {
+          visibleLootCount++;
+        } else {
+          visibleJoinCount++;
+        }
+      }
 
-      // Handle image visibility
+      // Handle image visibility and loot preview
+      const lootPreview = monster.querySelector('.loot-preview-grid');
       if (hideImg && monsterImg) {
         monsterImg.style.display = 'none';
+        if (lootPreview) {
+          lootPreview.style.display = 'none';
+        }
       } else if (monsterImg) {
         monsterImg.style.removeProperty('display');
+        if (lootPreview) {
+          lootPreview.style.removeProperty('display');
+        }
       }
 
       // Count battles for alarm
@@ -7471,6 +8450,9 @@
         limitBattleCount++;
       }
     });
+    
+    // Update section header counts
+    updateSectionHeaderCounts(visibleContinueCount, visibleLootCount, visibleJoinCount);
 
     if (battleLimitAlarm && limitBattleCount < 3) {
       showNotification('🔔 Battle limit alarm: Less than 3 battles!', 'success');
@@ -7485,6 +8467,7 @@
     const settings = {
       nameFilter: document.getElementById('monster-name-filter').value,
       monsterTypeFilter: selectedMonsterTypes,
+      lootFilter: selectedLootItems,
       hpFilter: document.getElementById('hp-filter').value,
       playerCountFilter: document.getElementById('player-count-filter').value,
       hideImg: document.getElementById('hide-img-monsters').checked,
@@ -7552,6 +8535,11 @@
     
     // Clear all monster type checkboxes
     document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    
+    // Clear all loot filter checkboxes
+    document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
       checkbox.checked = false;
     });
     
@@ -7713,14 +8701,54 @@
     const lootAllBtn = document.getElementById('loot-all-btn');
     if (!lootAllBtn) return;
     
-    // Find all available loot buttons to get count
-    const lootButtons = document.querySelectorAll('.join-btn');
-    const availableLootButtons = Array.from(lootButtons).filter(btn => 
-      btn.innerText.includes('💰 Loot Instantly') && !btn.disabled
-    );
+    // Make sure filters are applied before we check for visible monsters
+    console.log('Re-applying filters before loot all...');
+    applyMonsterFilters();
+    
+    // Wait a moment for the DOM to update
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Find all available loot buttons from VISIBLE monsters only
+    const allMonsters = document.querySelectorAll('.monster-card');
+    const availableLootButtons = [];
+    
+    let visibleMonsterCount = 0;
+    
+    allMonsters.forEach((monster, index) => {
+      // Check if monster is actually visible (not hidden by filters)
+      // The applyMonsterFilters function sets display to '' for visible and 'none' for hidden
+      const isVisible = monster.style.display !== 'none';
+
+      if (isVisible) {
+        visibleMonsterCount++;
+        const lootButtons = monster.querySelectorAll('.join-btn');
+        
+        // Find the best loot button for this monster (prefer "Loot Instantly" if available)
+        let bestLootButton = null;
+        lootButtons.forEach(btn => {
+          if ((btn.innerText.includes('💰 Loot Instantly') || btn.innerText.includes('Loot')) && 
+              !btn.disabled && 
+              !btn.innerText.includes('Looted') &&
+              !btn.style.display.includes('none')) {
+            
+            // Prefer "Loot Instantly" over regular "Loot"
+            if (btn.innerText.includes('💰 Loot Instantly')) {
+              bestLootButton = btn;
+            } else if (!bestLootButton && btn.innerText.includes('💰 Loot')) {
+              bestLootButton = btn;
+            }
+          }
+        });
+        
+        // Only add one button per monster
+        if (bestLootButton) {
+          availableLootButtons.push(bestLootButton);
+        }
+      }
+    });
     
     if (availableLootButtons.length === 0) {
-      showNotification('No loot available to claim!', 'info');
+      showNotification('No loot available to claim from filtered monsters!', 'info');
       return;
     }
     
@@ -7785,15 +8813,24 @@
       // Wait for all requests to complete
       const results = await Promise.all(promises);
       
-      // Collect all successful loot
+      // Collect all successful loot and manually update the UI
       let allLootItems = [];
       let successCount = 0;
       let errorCount = 0;
       
-      results.forEach(data => {
+      results.forEach((data, index) => {
         if (data.status === 'success' && data.items) {
           successCount++;
           allLootItems = allLootItems.concat(data.items);
+          
+          // Track this monster as looted so it won't be counted anymore
+          const lootButton = availableLootButtons[index];
+          if (lootButton) {
+            const monsterId = lootButton.getAttribute('data-monster-id');
+            if (monsterId) {
+              lootedMonsters.add(monsterId);
+            }
+          }
         } else {
           errorCount++;
         }
@@ -7834,6 +8871,12 @@
         }
         
         showNotification(`Successfully claimed loot from ${successCount} monsters! Got ${allLootItems.length} items!`, 'success');
+        
+        // Update section header counts after looting - give more time for page to update
+        setTimeout(() => {
+          console.log('Updating monster counts after looting...');
+          applyMonsterFilters(); // This will recount and update all section headers
+        }, 1500); // Increased delay to ensure page updates
         
         // Remove the button after successful looting
         setTimeout(() => {
@@ -8614,6 +9657,498 @@
       });
   }
 
+  // Monster Loot Preview System
+  async function initMonsterLootPreview() {
+    // Only run on active wave pages
+    if (!window.location.pathname.includes('active_wave.php')) return;
+    
+    const monsterCards = document.querySelectorAll('.monster-card');
+    
+    // Add CSS for loot preview
+    addLootPreviewStyles();
+    
+    // Group monster cards by type to optimize loot fetching
+    const monstersByType = new Map();
+    
+    // Process each monster card and group by name
+    monsterCards.forEach(card => {
+      const monsterName = getMonsterNameFromCard(card);
+      if (monsterName) {
+        if (!monstersByType.has(monsterName)) {
+          monstersByType.set(monsterName, []);
+        }
+        monstersByType.get(monsterName).push(card);
+      }
+      
+      addLootPreviewToCard(card);
+      enhanceMonsterCardDisplay(card);
+    });
+    
+    // Fetch loot data once per monster type
+    for (const [monsterName, cards] of monstersByType) {
+      if (!lootCache.has(monsterName)) {
+        // Pick the first card of this type to fetch loot data
+        const firstCard = cards[0];
+        const monsterId = firstCard.getAttribute('data-monster-id');
+        if (monsterId) {
+          await fetchMonsterLootByType(monsterId, monsterName, cards);
+        }
+      } else {
+        // Use cached data for all cards of this type
+        const cachedLoot = lootCache.get(monsterName);
+        cards.forEach(card => {
+          const cardMonsterId = card.getAttribute('data-monster-id');
+          if (cardMonsterId) {
+            displayLootPreview(cardMonsterId, cachedLoot);
+          }
+        });
+      }
+    }
+  }
+
+  function getMonsterNameFromCard(card) {
+    const nameElement = card.querySelector('h3');
+    return nameElement ? nameElement.textContent.trim() : null;
+  }
+
+  function enhanceMonsterCardDisplay(card) {
+    // Add HP numbers to health bar
+    addHPNumbersToHealthBar(card);
+    
+    // Add player count to join button
+    addPlayerCountToJoinButton(card);
+    
+    // Hide redundant text elements
+    hideRedundantTextElements(card);
+  }
+
+  function addHPNumbersToHealthBar(card) {
+    const hpBar = card.querySelector('.hp-bar');
+    const hpText = Array.from(card.querySelectorAll('div')).find(div => 
+      div.textContent.includes('❤️') && div.textContent.includes('HP')
+    );
+    
+    if (hpBar && hpText && !hpBar.querySelector('.hp-numbers')) {
+      // Extract current and max HP from text
+      const hpMatch = hpText.textContent.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
+      if (hpMatch) {
+        const currentHP = hpMatch[1];
+        const maxHP = hpMatch[2];
+        
+        // Create HP numbers overlay
+        const hpNumbers = document.createElement('div');
+        hpNumbers.className = 'hp-numbers';
+        hpNumbers.textContent = `${currentHP} / ${maxHP}`;
+        
+        // Make sure hp-bar is positioned relatively
+        hpBar.style.position = 'relative';
+        hpBar.appendChild(hpNumbers);
+      }
+    }
+  }
+
+  function addPlayerCountToJoinButton(card) {
+    const joinButtons = card.querySelectorAll('.join-btn');
+    const playerText = Array.from(card.querySelectorAll('div')).find(div => 
+      div.textContent.includes('Players Joined') || div.textContent.includes('👥')
+    );
+    
+    if (joinButtons.length > 0 && playerText) {
+      // Extract player count from text
+      const playerMatch = playerText.textContent.match(/👥\s*Players Joined\s*(\d+)\/(\d+)/);
+      if (playerMatch) {
+        const currentPlayers = playerMatch[1];
+        const maxPlayers = playerMatch[2];
+        
+        // Update all join buttons
+        joinButtons.forEach(button => {
+          if (!button.dataset.enhanced) {
+            const originalText = button.textContent.trim();
+            if (originalText.includes('⚔️ Join')) {
+              button.innerHTML = `⚔️ Join (${currentPlayers}/${maxPlayers})`;
+            }
+            
+            // Mark as enhanced to avoid duplicate processing
+            button.dataset.enhanced = 'true';
+          }
+        });
+      }
+    }
+  }
+
+  function hideRedundantTextElements(card) {
+    // Hide the standalone HP text div
+    const hpTextDiv = Array.from(card.querySelectorAll('div')).find(div => 
+      div.textContent.includes('❤️') && div.textContent.includes('HP') && 
+      !div.classList.contains('hp-bar') && !div.classList.contains('hp-numbers')
+    );
+    
+    if (hpTextDiv) {
+      hpTextDiv.style.display = 'none';
+    }
+    
+    // Hide the standalone player count text div
+    const playerTextDiv = Array.from(card.querySelectorAll('div')).find(div => 
+      (div.textContent.includes('Players Joined') || div.textContent.includes('👥')) &&
+      !div.classList.contains('join-btn')
+    );
+    
+    if (playerTextDiv) {
+      playerTextDiv.style.display = 'none';
+    }
+    
+    // Remove <br> elements between buttons and other content
+    const brElements = card.querySelectorAll('br');
+    brElements.forEach(br => {
+      br.remove();
+    });
+    
+    // Add consistent spacing by adding a class to the card for CSS styling
+    card.classList.add('enhanced-monster-card');
+  }
+
+  function addLootPreviewStyles() {
+    if (document.getElementById('loot-preview-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'loot-preview-styles';
+    style.textContent = `
+      .loot-preview-container {
+        margin-top: 10px;
+        padding-top: 8px;
+      }
+      
+      .loot-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        margin-top: 8px;
+      }
+      
+      .loot-preview-grid.hidden-with-images {
+        display: none;
+      }
+      
+      /* Hide loot preview when monster images are hidden */
+      body.monster-images-hidden .loot-preview-grid {
+        display: none;
+      }
+      
+      /* Enhanced HP bar styling */
+      .hp-bar {
+        position: relative !important;
+        min-height: 16px;
+      }
+      
+      .hp-numbers {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: bold;
+        font-size: 11px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        pointer-events: none;
+        z-index: 10;
+      }
+      
+      /* Enhanced join button styling */
+      .join-btn {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      /* Enhanced monster card spacing */
+      .enhanced-monster-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .enhanced-monster-card h3 {
+        margin-bottom: 8px !important;
+      }
+      
+      .enhanced-monster-card .hp-bar {
+        margin: 8px 0 !important;
+      }
+      
+      .enhanced-monster-card .join-btn,
+      .enhanced-monster-card [style*="display: flex"] {
+        margin-top: 8px !important;
+      }
+      
+      .loot-preview-item {
+        position: relative;
+        border-radius: 4px;
+        overflow: hidden;
+        background: rgba(30, 30, 46, 0.6);
+        border: 1px solid rgba(69, 71, 90, 0.5);
+        aspect-ratio: 1;
+      }
+      
+      .loot-preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .loot-preview-item .tier-indicator {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #666;
+      }
+      
+      .loot-preview-item .tier-indicator.legendary {
+        background: linear-gradient(90deg, #ff6b35, #f7931e);
+      }
+      
+      .loot-preview-item .tier-indicator.epic {
+        background: linear-gradient(90deg, #9b59b6, #8e44ad);
+      }
+      
+      .loot-preview-item .tier-indicator.rare {
+        background: linear-gradient(90deg, #3498db, #2980b9);
+      }
+      
+      .loot-preview-item .tier-indicator.common {
+        background: linear-gradient(90deg, #95a5a6, #7f8c8d);
+      }
+      
+      .loot-preview-item .drop-rate {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        font-size: 8px;
+        padding: 1px 3px;
+        border-radius: 2px;
+        font-weight: bold;
+      }
+      
+      .loot-loading {
+        text-align: center;
+        color: #89b4fa;
+        font-size: 10px;
+        padding: 8px;
+      }
+      
+      .loot-error {
+        text-align: center;
+        color: #f38ba8;
+        font-size: 10px;
+        padding: 8px;
+      }
+    `;
+    
+    document.head.appendChild(style);
+  }
+
+  function addLootPreviewToCard(card) {
+    const monsterId = card.getAttribute('data-monster-id');
+    if (!monsterId) return;
+    
+    // Find the monster image to insert loot after it
+    const monsterImg = card.querySelector('.monster-img');
+    if (!monsterImg) return;
+    
+    // Create loot preview container - no header, just the grid
+    const lootContainer = document.createElement('div');
+    lootContainer.className = 'loot-preview-container';
+    lootContainer.innerHTML = `
+      <div class="loot-preview-grid" id="loot-grid-${monsterId}">
+        <div class="loot-loading">Loading loot...</div>
+      </div>
+    `;
+    
+    // Insert after the monster image
+    monsterImg.insertAdjacentElement('afterend', lootContainer);
+    
+    // Note: Loot will be fetched and displayed by the main initialization function
+    // This avoids duplicate fetching for monsters of the same type
+  }
+
+  async function fetchMonsterLootByType(monsterId, monsterName, allCardsOfType) {
+    try {
+      const response = await fetch(`battle.php?id=${monsterId}`);
+      const html = await response.text();
+      
+      // Parse loot from the battle page
+      const lootData = parseLootFromBattlePage(html);
+      
+      // Cache the loot data for this monster type
+      lootCache.set(monsterName, lootData);
+      
+      // Display loot for all cards of this type
+      allCardsOfType.forEach(card => {
+        const cardMonsterId = card.getAttribute('data-monster-id');
+        if (cardMonsterId) {
+          displayLootPreview(cardMonsterId, lootData);
+        }
+      });
+      
+      // Reapply filters now that we have new loot data
+      // Check if there are any active loot filters
+      const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value);
+      if (selectedLootItems.length > 0) {
+        // Small delay to ensure DOM updates are complete
+        setTimeout(() => {
+          if (typeof applyMonsterFilters === 'function') {
+            applyMonsterFilters();
+          }
+        }, 100);
+      }
+      
+    } catch (error) {
+      console.error(`Error fetching loot for monster type ${monsterName}:`, error);
+      
+      // Show error for all cards of this type
+      allCardsOfType.forEach(card => {
+        const cardMonsterId = card.getAttribute('data-monster-id');
+        if (cardMonsterId) {
+          const grid = document.getElementById(`loot-grid-${cardMonsterId}`);
+          if (grid) {
+            grid.innerHTML = '<div class="loot-error">Failed to load loot</div>';
+          }
+        }
+      });
+    }
+  }
+
+  async function fetchMonsterLoot(monsterId) {
+    // This function is now deprecated in favor of fetchMonsterLootByType
+    // Kept for backward compatibility, but should not be used
+    console.warn('fetchMonsterLoot is deprecated, use fetchMonsterLootByType instead');
+    
+    try {
+      const response = await fetch(`battle.php?id=${monsterId}`);
+      const html = await response.text();
+      const lootData = parseLootFromBattlePage(html);
+      displayLootPreview(monsterId, lootData);
+    } catch (error) {
+      console.error('Error fetching monster loot:', error);
+      const grid = document.getElementById(`loot-grid-${monsterId}`);
+      if (grid) {
+        grid.innerHTML = '<div class="loot-error">Failed to load loot</div>';
+      }
+    }
+  }
+
+  function parseLootFromBattlePage(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Look for the loot panel - the one containing "🎁 Possible Loot"
+    let lootContainer = null;
+    
+    // Find the panel that contains "Possible Loot" text
+    const panels = doc.querySelectorAll('.panel');
+    for (let panel of panels) {
+      const strongText = panel.querySelector('strong');
+      if (strongText && strongText.textContent.includes('Possible Loot')) {
+        lootContainer = panel.querySelector('.loot-grid');
+        break;
+      }
+    }
+    
+    if (!lootContainer) {
+      // Fallback: try to find .loot-grid directly
+      lootContainer = doc.querySelector('.loot-grid');
+    }
+    
+    if (!lootContainer) {
+      return [];
+    }
+    
+    const lootCards = lootContainer.querySelectorAll('.loot-card');
+    
+    return parseLootCards(lootCards);
+  }
+
+  function parseLootCards(lootCards) {
+    const lootData = [];
+    
+    lootCards.forEach((card, index) => {
+      if (lootData.length >= 8) return; // Limit to 8 items
+      
+      const img = card.querySelector('img');
+      const name = card.querySelector('.loot-name');
+      const stats = card.querySelectorAll('.loot-stats .chip, .chip');
+      
+      if (img && name) {
+        let dropRate = '';
+        let tier = 'common';
+        
+        stats.forEach(stat => {
+          const text = stat.textContent.trim();
+          if (text.includes('Drop:')) {
+            dropRate = text.replace('Drop:', '').trim();
+          }
+          
+          // Check for tier classes
+          if (stat.classList.contains('legendary')) tier = 'legendary';
+          else if (stat.classList.contains('epic')) tier = 'epic';
+          else if (stat.classList.contains('rare')) tier = 'rare';
+          else if (stat.classList.contains('common')) tier = 'common';
+          
+          // Also check for tier in text content
+          const lowerText = text.toLowerCase();
+          if (lowerText.includes('legendary')) tier = 'legendary';
+          else if (lowerText.includes('epic')) tier = 'epic';
+          else if (lowerText.includes('rare')) tier = 'rare';
+        });
+        
+        const itemData = {
+          name: name.textContent.trim(),
+          image: img.src,
+          dropRate: dropRate,
+          tier: tier
+        };
+        
+        lootData.push(itemData);
+      }
+    });
+    
+    return lootData;
+  }
+
+  function displayLootPreview(monsterId, lootData) {
+    const grid = document.getElementById(`loot-grid-${monsterId}`);
+    if (!grid) return;
+    
+    if (lootData.length === 0) {
+      grid.innerHTML = '<div class="loot-error">No loot data found</div>';
+      return;
+    }
+    
+    // Create loot items
+    const lootHTML = lootData.map(item => `
+      <div class="loot-preview-item" title="${item.name}">
+        <img src="${item.image}" alt="${item.name}">
+        <div class="tier-indicator ${item.tier}"></div>
+        <div class="drop-rate">${item.dropRate}</div>
+      </div>
+    `).join('');
+    
+    grid.innerHTML = lootHTML;
+    
+    if (lootData.length < 5) {
+      const lootContainer = grid.parentElement;
+      if (lootContainer && lootContainer.classList.contains('loot-preview-container')) {
+        const missingRows = lootData.length <= 4 ? 1 : 0;
+        const extraSpace = missingRows * 64; // height of one row of loot items
+        
+        lootContainer.style.marginBottom = `${extraSpace}px`;
+      }
+    }
+  }
+
   // Page initialization functions
   function initWaveMods() {
     initGateCollapse()
@@ -8623,6 +10158,7 @@
     initImprovedWaveButtons()
     initMonsterSorting()
     initWaveAutoRefresh()
+    initMonsterLootPreview()
   }
 
   function initPvPHistoryCollapse() {
@@ -8750,6 +10286,81 @@
 
   function initDashboardTools() {
     console.log("Initializing dashboard tools");
+    consolidateEventSections();
+    removeDashboardClutter();
+  }
+
+  function removeDashboardClutter() {
+    // Remove "User Dashboard" h1
+    const h1Elements = document.querySelectorAll('h1');
+    h1Elements.forEach(h1 => {
+      if (h1.textContent.includes('User Dashboard') || h1.textContent.includes('🏠')) {
+        h1.remove();
+      }
+    });
+
+    // Remove "How to Play" section
+    const howtoInfo = document.querySelector('.howto-info');
+    if (howtoInfo) {
+      howtoInfo.remove();
+    }
+
+    // Remove password reset message
+    const h3Elements = document.querySelectorAll('h3');
+    h3Elements.forEach(h3 => {
+      if (h3.textContent.includes('forgot your password') || h3.textContent.includes('demonicscans@proton.me')) {
+        h3.remove();
+      }
+    });
+  }
+
+  function consolidateEventSections() {
+    // Find all events-section panels
+    const eventSections = document.querySelectorAll('.events-section.panel');
+    
+    if (eventSections.length === 0) {
+      console.log('No event sections found');
+      return;
+    }
+    
+    // Create a new consolidated events section
+    const consolidatedSection = document.createElement('section');
+    consolidatedSection.className = 'events-section panel';
+    consolidatedSection.setAttribute('aria-label', 'Live Events');
+    consolidatedSection.style.cssText = 'background-color: transparent; border-width: 0px; box-shadow: none;';
+    
+    // Create the header
+    const header = document.createElement('div');
+    header.className = 'events-header';
+    header.textContent = 'Live Events';
+    consolidatedSection.appendChild(header);
+    
+    // Create the grid container
+    const grid = document.createElement('div');
+    grid.className = 'events-grid';
+    consolidatedSection.appendChild(grid);
+    
+    // Collect all event cards from all sections
+    eventSections.forEach((section, index) => {
+      const eventCards = section.querySelectorAll('.event-card');
+      
+      // Move each event card to the consolidated grid
+      eventCards.forEach(card => {
+        grid.appendChild(card.cloneNode(true));
+      });
+      
+      // Remove the original section if it's not the first one
+      if (index > 0) {
+        section.remove();
+      }
+    });
+    
+    // Replace the first section with our consolidated section
+    if (eventSections.length > 0) {
+      eventSections[0].replaceWith(consolidatedSection);
+    }
+    
+    console.log(`Consolidated ${eventSections.length} event sections into one`);
   }
 
   function initBattleLayoutSideBySide() {
@@ -8859,6 +10470,33 @@
   function initMerchantMods() {
     addMerchantQuickAccessButtons()
       applyCustomBackgrounds()
+  }
+
+  function initCollectionsMods() {
+    addCollectionsDivider()
+    applyCustomBackgrounds()
+  }
+
+  function initAchievementsMods() {
+    addAchievementsDivider()
+    applyCustomBackgrounds()
+  }
+
+  function initBattlePassMods() {
+    // Move battle pass hero to content area and reduce margin
+    const contentArea = document.querySelector('.content-area');
+    const bpHero = document.querySelector('.bp-hero');
+    
+    if (bpHero && contentArea) {
+      bpHero.style.marginTop = "0px";
+      contentArea.prepend(bpHero);
+      
+      // Remove any extra br tags
+      const br = document.querySelector('br');
+      if (br) br.remove();
+    }
+    
+    applyCustomBackgrounds();
   }
 
 
@@ -10364,34 +12002,49 @@
   window.autoClickShowMore = autoClickShowMore;
   window.getAllConsumableItems = getAllConsumableItems;
   window.findItemByName = findItemByName;
-  window.calculateStaminaPerHour = calculateStaminaPerHour;
+  window.getStaminaPerHourFromTitle = getStaminaPerHourFromTitle;
   window.updateStaminaTimerDisplay = updateStaminaTimerDisplay;
+  
+  
+  // Force apply filters function for testing - multiple ways to access
+  const forceApplyFiltersFunction = function() {
+    if (typeof applyMonsterFilters === 'function') {
+      applyMonsterFilters();
+      console.log('Filters reapplied');
+    } else {
+      console.log('applyMonsterFilters function not found');
+    }
+  };
+  
+  // Make it available in multiple ways
+  window.forceApplyFilters = forceApplyFiltersFunction;
+  if (typeof unsafeWindow !== 'undefined') {
+    unsafeWindow.forceApplyFilters = forceApplyFiltersFunction;
+  }
+  console.forceApplyFilters = forceApplyFiltersFunction;
   
   // Debug function to test stamina calculation
   window.debugStaminaCalculation = function() {
     console.log('=== Debug Stamina Calculation ===');
-    const level = document.querySelector('.gtb-level')?.textContent || 'Not found';
-    const attack = document.getElementById('sidebar-attack')?.textContent || 'Not found';
-    const defense = document.getElementById('sidebar-defense')?.textContent || 'Not found';
-    const calculatedStamina = calculateStaminaPerHour();
-    
-    console.log('Level element text:', level);
-    console.log('Attack element text:', attack);
-    console.log('Defense element text:', defense);
-    console.log('Calculated stamina per hour:', calculatedStamina);
-    
     const staminaTimer = document.getElementById('stamina_timer');
-    if (staminaTimer) {
-      console.log('Stamina timer title:', staminaTimer.getAttribute('title'));
+    const title = staminaTimer ? staminaTimer.getAttribute('title') : 'Element not found';
+    const extractedValue = getStaminaPerHourFromTitle();
+    
+    console.log('Stamina timer element:', staminaTimer ? 'Found' : 'Not found');
+    console.log('Title attribute:', title);
+    console.log('Extracted stamina per hour:', extractedValue);
+    
+    const staminaRateElement = document.getElementById('stamina-rate-display');
+    if (staminaRateElement) {
+      console.log('Rate display element text:', staminaRateElement.textContent);
     } else {
-      console.log('Stamina timer element not found');
+      console.log('Rate display element not found');
     }
     
     return {
-      level: level,
-      attack: attack,
-      defense: defense,
-      calculatedStamina: calculatedStamina
+      title: title,
+      extractedStamina: extractedValue,
+      hasRateElement: !!staminaRateElement
     };
   };
 
@@ -10451,6 +12104,24 @@
       return [];
     }
   };
+
+  // Function to extract stamina per hour from the server-calculated title
+  function getStaminaPerHourFromTitle() {
+    try {
+      const staminaTimer = document.getElementById('stamina_timer');
+      if (staminaTimer) {
+        const title = staminaTimer.getAttribute('title') || '';
+        const match = title.match(/Next \+(\d+)/);
+        if (match) {
+          return parseInt(match[1]);
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error extracting stamina from title:', error);
+      return null;
+    }
+  }
 
   // Function to calculate stamina per hour based on the formula: 40 + (level/50) + ((attack + defense)/100)
   async function calculateStaminaPerHour() {
@@ -10552,47 +12223,39 @@
     }
   }
 
-  // Function to update the stamina timer display with the calculated amount
-  async function updateStaminaTimerDisplay() {
+  // Function to update the stamina timer display with the server-calculated amount
+  function updateStaminaTimerDisplay() {
     try {
       const staminaTimer = document.getElementById('stamina_timer');
       if (staminaTimer) {
-        const result = await calculateStaminaPerHour();
-        const { level, attack, defense, staminaPerHour } = result;
+        const staminaPerHour = getStaminaPerHourFromTitle();
         
-        // Check if values have changed since last update
-        const lastValues = updateStaminaTimerDisplay.lastValues || {};
-        const hasChanged = lastValues.level !== level || 
-                          lastValues.attack !== attack || 
-                          lastValues.defense !== defense ||
-                          lastValues.staminaPerHour !== staminaPerHour;
-        
-        if (hasChanged) {
-          // Update the title to show the calculated amount
-          const currentTitle = staminaTimer.getAttribute('title') || '';
-          const newTitle = currentTitle.replace(/Next \+\d+/, `Next +${staminaPerHour}`);
-          staminaTimer.setAttribute('title', newTitle);
+        if (staminaPerHour) {
+          // Check if value has changed since last update
+          const lastValue = updateStaminaTimerDisplay.lastValue || 0;
           
-          // Find or create the stamina rate display element
-          let staminaRateElement = document.getElementById('stamina-rate-display');
-          
-          if (!staminaRateElement) {
-            // Create the new element if it doesn't exist
-            staminaRateElement = document.createElement('span');
-            staminaRateElement.id = 'stamina-rate-display';
-            staminaRateElement.className = 'gtb-timer';
-            staminaRateElement.style.marginRight = '5px'; // Add some spacing
+          if (lastValue !== staminaPerHour) {
+            // Find or create the stamina rate display element
+            let staminaRateElement = document.getElementById('stamina-rate-display');
             
-            // Insert it before the existing stamina timer
-            staminaTimer.parentNode.insertBefore(staminaRateElement, staminaTimer);
+            if (!staminaRateElement) {
+              // Create the new element if it doesn't exist
+              staminaRateElement = document.createElement('span');
+              staminaRateElement.id = 'stamina-rate-display';
+              staminaRateElement.className = 'gtb-timer';
+              staminaRateElement.style.marginRight = '5px'; // Add some spacing
+              
+              // Insert it before the existing stamina timer
+              staminaTimer.parentNode.insertBefore(staminaRateElement, staminaTimer);
+            }
+            
+            // Update the stamina rate display
+            staminaRateElement.textContent = `+${staminaPerHour}/h`;
+            
+            // Store current value and log the update
+            updateStaminaTimerDisplay.lastValue = staminaPerHour;
+            console.log(`Updated stamina per hour: +${staminaPerHour}/h (from server calculation)`);
           }
-          
-          // Update the stamina rate display
-          staminaRateElement.textContent = `+${staminaPerHour}/h`;
-          
-          // Store current values and log the update
-          updateStaminaTimerDisplay.lastValues = { level, attack, defense, staminaPerHour };
-          console.log(`Updated stamina per hour: +${staminaPerHour}/h (Level: ${level}, Attack: ${attack}, Defense: ${defense})`);
         }
       }
     } catch (error) {
@@ -10605,36 +12268,37 @@
     // Update stamina display immediately
     updateStaminaTimerDisplay();
     
-    // Set up interval to update every 30 seconds (reduced frequency)
+    // Set up interval to update every 60 seconds (less frequent since it rarely changes)
     setInterval(() => {
       updateStaminaTimerDisplay();
-    }, 30000);
+    }, 60000);
     
-    // Debounced update function to prevent spam
-    let updateTimeout = null;
-    const debouncedUpdate = () => {
-      if (updateTimeout) clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        updateStaminaTimerDisplay();
-      }, 1000); // Wait 1 second after last change
-    };
-    
-    // Set up mutation observer to watch only the specific elements
+    // Simple mutation observer to watch only for title attribute changes
     const observer = new MutationObserver(() => {
-      debouncedUpdate();
+      updateStaminaTimerDisplay();
     });
     
-    // Observe only the level element and the sidebar stats container
-    const levelElement = document.querySelector('.gtb-level');
-    const sidebarStatsContainer = document.querySelector('.sidebar-menu-expandable');
+    // Observe only the stamina timer element for title attribute changes
+    const staminaTimer = document.getElementById('stamina_timer');
     
-    if (levelElement) {
-      observer.observe(levelElement, { characterData: true, subtree: true });
+    if (staminaTimer) {
+      observer.observe(staminaTimer, { 
+        attributes: true, 
+        attributeFilter: ['title'] 
+      });
+      console.log('Stamina per hour calculation initialized - watching server values');
+    } else {
+      // If element not found immediately, try again in 1 second
+      setTimeout(() => {
+        const retryTimer = document.getElementById('stamina_timer');
+        if (retryTimer) {
+          observer.observe(retryTimer, { 
+            attributes: true, 
+            attributeFilter: ['title'] 
+          });
+          updateStaminaTimerDisplay();
+          console.log('Stamina per hour calculation initialized (retry) - watching server values');
+        }
+      }, 1000);
     }
-    
-    if (sidebarStatsContainer) {
-      observer.observe(sidebarStatsContainer, { characterData: true, subtree: true });
-    }
-    
-    console.log('Stamina per hour calculation initialized - observing level and sidebar stats');
   }
