@@ -68,13 +68,6 @@
       applyDelay: 350, // Delay between equipment applications (ms)
       showInSidebar: true // Show equip sets in sidebar
     },
-    potionHelper: {
-      enabled: true, // Enable potion helper functionality
-      showFloatingIcons: true, // Show floating potion icons
-      showInSidebar: true, // Show in sidebar
-      position: 'right', // Position: left or right
-      topOffset: '28%' // Vertical position
-    },
     questWidget: {
       enabled: true // Enable quest widget in sidebar
     },
@@ -237,10 +230,6 @@
               ...savedSettings.customBackgrounds?.backgrounds,
           }
         },
-          potionHelper: {
-            ...extensionSettings.potionHelper,
-            ...savedSettings.potionHelper,
-          },
           questWidget: {
             ...extensionSettings.questWidget,
             ...savedSettings.questWidget,
@@ -722,30 +711,6 @@
   }
 
   // ===== END BATTLE MODAL UTILITY FUNCTIONS =====
-
-  // ===== POTION AND PET TEAM CONSTANTS =====
-  
-  const POTIONS = [
-    {
-      key: 'small',
-      name: 'Small Stamina Potion',
-      icon: 'https://demonicscans.org/images/items/1755316144_small_stamina_potion.webp',
-      multi: true
-    },
-    {
-      key: 'full',
-      name: 'Full Stamina Potion',
-      icon: 'https://demonicscans.org/images/items/1755909636_full_stamina_potion.webp',
-      multi: false
-    },
-    {
-      key: 'exp',
-      name: 'Exp Potion S',
-      icon: 'https://demonicscans.org/images/items/1758633119_10_exp_potion.webp',
-      multi: false,
-      hasTimer: true
-    }
-  ];
 
   const POTION_STORAGE_KEY = 'expPotionTimerEnd';
   let potionExpTimer = null;
@@ -6389,70 +6354,6 @@
           if (extensionSettings.semiTransparent.enabled) {
             applySemiTransparentEffect();
           }
-        }
-      });
-    }
-  }
-
-  function setupPotionHelperSettings() {
-    const enabledCheckbox = document.getElementById('potion-helper-enabled');
-    const showFloatingCheckbox = document.getElementById('potion-helper-floating');
-    const showSidebarCheckbox = document.getElementById('potion-helper-sidebar');
-    const positionSelect = document.getElementById('potion-helper-position');
-    const topOffsetInput = document.getElementById('potion-helper-top-offset');
-    
-    if (enabledCheckbox) {
-      enabledCheckbox.checked = extensionSettings.potionHelper.enabled;
-      enabledCheckbox.addEventListener('change', (e) => {
-        extensionSettings.potionHelper.enabled = e.target.checked;
-        saveSettings();
-        if (e.target.checked) {
-          initFloatingPotionHelper();
-        } else {
-          const helper = document.getElementById('floating-potion-helper');
-          if (helper) helper.remove();
-        }
-        showNotification(`Potion Helper ${e.target.checked ? 'enabled' : 'disabled'}!`, 'success');
-      });
-    }
-    
-    if (showFloatingCheckbox) {
-      showFloatingCheckbox.checked = extensionSettings.potionHelper.showFloatingIcons;
-      showFloatingCheckbox.addEventListener('change', (e) => {
-        extensionSettings.potionHelper.showFloatingIcons = e.target.checked;
-        saveSettings();
-        if (extensionSettings.potionHelper.enabled) {
-          initFloatingPotionHelper();
-        }
-      });
-    }
-    
-    if (showSidebarCheckbox) {
-      showSidebarCheckbox.checked = extensionSettings.potionHelper.showInSidebar;
-      showSidebarCheckbox.addEventListener('change', (e) => {
-        extensionSettings.potionHelper.showInSidebar = e.target.checked;
-        saveSettings();
-      });
-    }
-    
-    if (positionSelect) {
-      positionSelect.value = extensionSettings.potionHelper.position;
-      positionSelect.addEventListener('change', (e) => {
-        extensionSettings.potionHelper.position = e.target.value;
-        saveSettings();
-        if (extensionSettings.potionHelper.enabled) {
-          initFloatingPotionHelper();
-        }
-      });
-    }
-    
-    if (topOffsetInput) {
-      topOffsetInput.value = extensionSettings.potionHelper.topOffset;
-      topOffsetInput.addEventListener('change', (e) => {
-        extensionSettings.potionHelper.topOffset = e.target.value;
-        saveSettings();
-        if (extensionSettings.potionHelper.enabled) {
-          initFloatingPotionHelper();
         }
       });
     }
@@ -12788,33 +12689,10 @@
     const seconds = Math.floor((remaining % 60000) / 1000);
     expTimerElem.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
-
-  // Initialize floating potion helper
-  function initFloatingPotionHelper() {
-    if (!extensionSettings.potionHelper.enabled || !extensionSettings.potionHelper.showFloatingIcons) return;
-    
-    const existing = document.getElementById('floating-potion-helper');
-    if (existing) existing.remove();
-    
-    const container = document.createElement('div');
-    container.id = 'floating-potion-helper';
-    container.style.cssText = `
-      position: fixed;
-      ${extensionSettings.potionHelper.position === 'left' ? 'left: 10px;' : 'right: 10px;'}
-      top: ${extensionSettings.potionHelper.topOffset};
-      z-index: 9998;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    `;
     
     POTIONS.forEach(p => {
       container.appendChild(createPotionBox(p));
     });
-    
-    document.body.appendChild(container);
-    resumePotionExpTimerIfActive();
-  }
 
   // Helper functions for potion UI
   function closeAllPotionPanels(exceptKey) {
@@ -12866,18 +12744,6 @@
         border-radius: 4px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.5);
       ">00:00</div>` : ''}
-      <div id="potion-panel-${p.key}" style="
-        display: none;
-        position: absolute;
-        ${extensionSettings.potionHelper.position === 'left' ? 'left: 70px;' : 'right: 70px;'}
-        top: 0;
-        background: #181825;
-        border: 2px solid #89b4fa;
-        border-radius: 8px;
-        padding: 12px;
-        min-width: 150px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-      ">
         <div style="color: #cdd6f4; font-size: 14px; font-weight: bold; margin-bottom: 8px;">${p.name}</div>
         <div style="color: #a6adc8; font-size: 11px; margin-bottom: 10px;">Stock: <span id="potion-stock-${p.key}">...</span></div>
         ${p.multi ? `
