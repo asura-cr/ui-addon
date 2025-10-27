@@ -373,16 +373,31 @@
     const container = document.querySelector('.section');
     if (!container) return;
     
+    // Check saved collapse state before creating HTML
+    const savedCollapseState = localStorage.getItem('equipSetsCollapsed');
+    const isCollapsed = savedCollapseState === null ? true : savedCollapseState === 'true';
+    
+    // Set initial styles based on saved state
+    const contentStyles = isCollapsed 
+      ? 'transition: all 0.3s ease; overflow: hidden; max-height: 0px; opacity: 0; margin-top: 0px;'
+      : 'transition: all 0.3s ease; overflow: hidden; max-height: 1000px; opacity: 1; margin-top: 15px;';
+    
+    const toggleStyles = isCollapsed
+      ? 'font-size: 16px; color: #89b4fa; transition: transform 0.3s ease; transform: rotate(-90deg);'
+      : 'font-size: 16px; color: #89b4fa; transition: transform 0.3s ease;';
+    
+    const toggleIcon = isCollapsed ? '▶' : '▼';
+    
     const equipSetsPanel = document.createElement('div');
     equipSetsPanel.id = 'integrated-equip-sets';
     equipSetsPanel.innerHTML = `
       <div style="background: rgba(30, 30, 46, 0.8); border: 1px solid rgba(43, 46, 73, 0.6); border-radius: 10px; padding: 20px; margin: 20px 0; backdrop-filter: blur(10px);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; cursor: pointer;" id="equip-sets-header">
+        <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" id="equip-sets-header">
           <div style="font-size: 18px; font-weight: 800; color: #f9e2af;">⚡ Equipment Sets</div>
-          <div id="equip-sets-toggle" style="font-size: 16px; color: #89b4fa; transition: transform 0.3s ease;">▼</div>
+          <div id="equip-sets-toggle" style="${toggleStyles}">${toggleIcon}</div>
         </div>
         
-        <div id="equip-sets-content" style="transition: all 0.3s ease; overflow: hidden;">
+        <div id="equip-sets-content" style="${contentStyles}">
           <div style="display: flex; gap: 10px; margin-bottom: 15px;">
             <input id="new-set-name" placeholder="Enter set name..." style="flex: 1; padding: 8px 12px; background: rgba(20, 20, 26, 0.7); border: 1px solid rgba(51, 51, 51, 0.5); border-radius: 6px; color: #fff; font-size: 14px;" />
             <button id="record-equipment-btn" class="equip-btn record-btn">⤴ Select Equipment</button>
@@ -555,10 +570,16 @@
       
       // Toggle collapse/expand functionality
       if (header && content && toggle) {
-        let isCollapsed = false;
+        // Get saved collapse state
+        const savedCollapseState = localStorage.getItem('equipSetsCollapsed');
+        let isCollapsed = savedCollapseState === null ? true : savedCollapseState === 'true';
         
+        // State is already applied in HTML, just set up the click handler
         header.addEventListener('click', () => {
           isCollapsed = !isCollapsed;
+          
+          // Save the new state
+          localStorage.setItem('equipSetsCollapsed', isCollapsed.toString());
           
           if (isCollapsed) {
             content.style.maxHeight = '0px';
