@@ -8422,7 +8422,6 @@
     
     // Initialize new systems
     safeExecute(() => initUserData(), 'User Data Initialization');
-    safeExecute(() => initFloatingPotionHelper(), 'Potion Helper');
     safeExecute(() => initSidebarQuestWidget(), 'Quest Widget');
     safeExecute(() => initializePetTeams(), 'Pet Teams');
     safeExecute(() => initSemiTransparentPersistence(), 'Semi-Transparent Effect');
