@@ -10478,6 +10478,204 @@
       removeOriginalBackButton();
   }
 
+  // ===== EQUIPMENT SORT & FILTER SYSTEM =====
+  
+  function initEquipmentSortFilter() {
+    // Find the equipment section
+    const sections = document.querySelectorAll('.section');
+    let equipmentSection = null;
+    
+    for (const section of sections) {
+      const title = section.querySelector('.section-title');
+      if (title && title.textContent.includes('Equipment')) {
+        equipmentSection = section;
+        break;
+      }
+    }
+    
+    if (!equipmentSection) return;
+    
+    const grid = equipmentSection.querySelector('.grid');
+    if (!grid) return;
+    
+    // Create sort/filter controls
+    const controlsDiv = document.createElement('div');
+    controlsDiv.id = 'equipment-controls';
+    controlsDiv.style.cssText = `
+      background: rgba(30, 30, 46, 0.8);
+      border: 1px solid rgba(43, 46, 73, 0.6);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      backdrop-filter: blur(10px);
+    `;
+    
+    controlsDiv.innerHTML = `
+      <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+        <div style="flex: 1; min-width: 200px;">
+          <label style="display: block; color: #f9e2af; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+            Sort By:
+          </label>
+          <select id="equipment-sort" style="width: 100%; padding: 8px; background: rgba(20, 20, 26, 0.7); border: 1px solid rgba(51, 51, 51, 0.5); border-radius: 6px; color: #fff; font-size: 13px;">
+            <option value="default">Default Order</option>
+            <option value="atk-desc">Highest ATK</option>
+            <option value="def-desc">Highest DEF</option>
+            <option value="combined-desc">Highest Combined (ATK+DEF)</option>
+            <option value="atk-asc">Lowest ATK</option>
+            <option value="def-asc">Lowest DEF</option>
+            <option value="combined-asc">Lowest Combined (ATK+DEF)</option>
+          </select>
+        </div>
+        
+        <div style="flex: 1; min-width: 200px;">
+          <label style="display: block; color: #f9e2af; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+            Filter By Type:
+          </label>
+          <select id="equipment-filter" style="width: 100%; padding: 8px; background: rgba(20, 20, 26, 0.7); border: 1px solid rgba(51, 51, 51, 0.5); border-radius: 6px; color: #fff; font-size: 13px;">
+            <option value="all">All Types</option>
+            <option value="weapon">Weapon</option>
+            <option value="helmet">Helmet</option>
+            <option value="armor">Armor</option>
+            <option value="gloves">Gloves</option>
+            <option value="boots">Boots</option>
+            <option value="amulet">Amulet</option>
+            <option value="ring">Ring</option>
+          </select>
+        </div>
+        
+        <div style="flex: 0;">
+          <label style="display: block; color: transparent; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+            &nbsp;
+          </label>
+          <button id="equipment-reset" style="padding: 8px 16px; background: linear-gradient(135deg, #f38ba8 0%, #eba0ac 100%); color: #1e1e2e; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s ease;">
+            Reset
+          </button>
+        </div>
+      </div>
+    `;
+    
+    // Insert controls before the grid
+    equipmentSection.insertBefore(controlsDiv, grid);
+    
+    // Parse equipment items
+    function parseEquipmentItem(slotBox) {
+      const equipBtn = slotBox.querySelector('button[onclick^="showEquipModal"]');
+      if (!equipBtn) return null;
+      
+      const onclick = equipBtn.getAttribute('onclick');
+      const match = onclick.match(/showEquipModal\(\s*\d+\s*,\s*['"]([^'"]+)['"]/);
+      const type = match ? match[1].toLowerCase() : null;
+      
+      const label = slotBox.querySelector('.label');
+      if (!label) return null;
+      
+      const statsText = label.textContent;
+      const atkMatch = statsText.match(/(\d+)\s*ATK/);
+      const defMatch = statsText.match(/(\d+)\s*DEF/);
+      
+      const atk = atkMatch ? parseInt(atkMatch[1]) : 0;
+      const def = defMatch ? parseInt(defMatch[1]) : 0;
+      const combined = atk + def;
+      
+      return {
+        element: slotBox,
+        type: type,
+        atk: atk,
+        def: def,
+        combined: combined
+      };
+    }
+    
+    // Get all equipment items
+    const allItems = Array.from(grid.querySelectorAll('.slot-box'))
+      .map(parseEquipmentItem)
+      .filter(item => item !== null);
+    
+    // Store original order
+    const originalOrder = allItems.map(item => item.element);
+    
+    // Apply sort and filter
+    function applySortFilter() {
+      const sortValue = document.getElementById('equipment-sort').value;
+      const filterValue = document.getElementById('equipment-filter').value;
+      
+      // Filter items
+      let filteredItems = allItems.filter(item => {
+        if (filterValue === 'all') return true;
+        // Handle ring1 and ring2 types as 'ring'
+        const itemType = item.type === 'ring1' || item.type === 'ring2' ? 'ring' : item.type;
+        return itemType === filterValue;
+      });
+      
+      // Sort items
+      let sortedItems = [...filteredItems];
+      
+      switch (sortValue) {
+        case 'atk-desc':
+          sortedItems.sort((a, b) => b.atk - a.atk);
+          break;
+        case 'atk-asc':
+          sortedItems.sort((a, b) => a.atk - b.atk);
+          break;
+        case 'def-desc':
+          sortedItems.sort((a, b) => b.def - a.def);
+          break;
+        case 'def-asc':
+          sortedItems.sort((a, b) => a.def - b.def);
+          break;
+        case 'combined-desc':
+          sortedItems.sort((a, b) => b.combined - a.combined);
+          break;
+        case 'combined-asc':
+          sortedItems.sort((a, b) => a.combined - b.combined);
+          break;
+        case 'default':
+          // Restore original order for filtered items
+          sortedItems.sort((a, b) => {
+            return originalOrder.indexOf(a.element) - originalOrder.indexOf(b.element);
+          });
+          break;
+      }
+      
+      // Clear grid
+      grid.innerHTML = '';
+      
+      // Add sorted/filtered items back
+      if (sortedItems.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.cssText = 'text-align: center; color: #a6adc8; padding: 40px; font-size: 14px; grid-column: 1 / -1;';
+        emptyMsg.textContent = '🔍 No equipment found matching the selected filter';
+        grid.appendChild(emptyMsg);
+      } else {
+        sortedItems.forEach(item => {
+          grid.appendChild(item.element);
+        });
+      }
+    }
+    
+    // Add event listeners
+    document.getElementById('equipment-sort').addEventListener('change', applySortFilter);
+    document.getElementById('equipment-filter').addEventListener('change', applySortFilter);
+    document.getElementById('equipment-reset').addEventListener('click', () => {
+      document.getElementById('equipment-sort').value = 'default';
+      document.getElementById('equipment-filter').value = 'all';
+      applySortFilter();
+    });
+    
+    // Add hover effects
+    const resetBtn = document.getElementById('equipment-reset');
+    resetBtn.addEventListener('mouseenter', () => {
+      resetBtn.style.transform = 'translateY(-1px)';
+      resetBtn.style.filter = 'brightness(1.05)';
+    });
+    resetBtn.addEventListener('mouseleave', () => {
+      resetBtn.style.transform = 'translateY(0)';
+      resetBtn.style.filter = 'brightness(1)';
+    });
+  }
+  
+  // ===== END EQUIPMENT SORT & FILTER SYSTEM =====
+
   function initInventoryMods(){
     initAlternativeInventoryView()
     initItemTotalDmg()
@@ -10485,7 +10683,8 @@
     createBackToDashboardButton()
     removeOriginalBackButton()
     initializeEquipmentSets()
-      applyCustomBackgrounds()
+    initEquipmentSortFilter()
+    applyCustomBackgrounds()
   }
 
   function initMerchantMods() {
