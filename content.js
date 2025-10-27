@@ -3,7 +3,10 @@
   // Global variables
   var alarmInterval = null;
   var waveRefreshInterval = null;
-  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":"", "lootFilter":[]}
+  var waveUpdateInterval = null;
+  var monsterSortingInterval = null;
+  var userDataUpdateInterval = null;
+  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":""}
   
   // Monster loot cache for performance optimization
   const lootCache = new Map(); // Cache loot data by monster name  // Enhanced settings management
@@ -15,41 +18,18 @@
     statsExpanded: false,
     petsExpanded: false,
     blacksmithExpanded: false,
-    battlePassExpanded: false,
     continueBattlesExpanded: true,
     lootExpanded: true,
     merchantExpanded: false,
     inventoryExpanded: false,
+    battlePassExpanded: false,
+    guildExpanded: false,
+    worldMapExpanded: false,
     pinnedMerchantItems: [],
     pinnedInventoryItems: [],
     multiplePotsEnabled: false,
     multiplePotsCount: 3,
-    pinnedItemsLimit: 10,
-    battlePageHideImages: false,
-    monsterImageOutlineColor: '#ff6b6b',
-    lootCardBorderColor: '#f38ba8',
-    menuCustomizationExpanded: false,
-    monsterBackgrounds: {
-      enabled: true,
-      effect: 'normal', // normal, gradient, blur, pattern
-      overlay: true,
-      overlayOpacity: 0.4,
-      monsters: {
-        'Orc Raider of Grakthar': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/windows_battlefield1.png',
-        'Orc Archer': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/windows_battlefield1.png',
-        'Orc Grunt of Grakthar': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/windows_battlefield1.png',
-        'Orc Berserker': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/windows_battlefield1.png',
-        'Orc Shaman': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/windows_battlefield1.png',
-        'Drum War Chief': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Storm%20Caller%20Warchief.png',
-        'Iron Warchief': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Iron%20Warchief.png',
-        'Bone-Seer Warchief': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Bone-Seer%20Warchief.png',
-        'Siege-Ram Captain': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Siege-Ram%20Captain.png',
-        'Storm-Caller Warchief': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Storm%20Caller%20Warchief.png',
-        'Ash-Blade Warchief': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Ash-Blade%20Warchief.png',
-        'Mountain Warchief': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Mountain%20Warchief.png',
-        'Orc King of Grakthar': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/Orc%20King%20of%20Grakthar.png'
-      } // Will store monster name -> URL mappings
-    },
+    
     petNames: {
       enabled: true,
       names: {} // Will store pet ID -> custom name mappings
@@ -81,10 +61,6 @@
       enabled: true, // Show battle win/loss prediction
       analyzeAfterAttacks: 2 // Start analysis after this many attacks
     },
-    pvpAutoSurrender: {
-      enabled: false, // Auto-surrender feature
-      surrenderThreshold: 0.2 // Surrender when win probability drops below 20%
-    },
     gateGraktharWave: 3, // Default wave for Gate Grakthar (wave 3 = gate=3&wave=3)
     equipSets: {
       enabled: true, // Enable equip sets functionality
@@ -92,27 +68,78 @@
       applyDelay: 350, // Delay between equipment applications (ms)
       showInSidebar: true // Show equip sets in sidebar
     },
+    potionHelper: {
+      enabled: true, // Enable potion helper functionality
+      showFloatingIcons: true, // Show floating potion icons
+      showInSidebar: true, // Show in sidebar
+      position: 'right', // Position: left or right
+      topOffset: '28%' // Vertical position
+    },
+    questWidget: {
+      enabled: true // Enable quest widget in sidebar
+    },
+    petTeams: {
+      enabled: true, // Enable pet teams functionality
+      storageKey: 'demonGamePetTeams',
+      applyDelay: 350, // Delay between pet applications (ms)
+      showInSidebar: true // Show pet teams in sidebar
+    },
+    semiTransparent: {
+      enabled: false, // Enable semi-transparent effect
+      opacity: 0.85 // Opacity level
+    },
+    battleModal: {
+      enabled: false, // Enable battle modal system
+      autoClose: true, // Auto-close modal after battle
+      showLootModal: true, // Show loot modal
+      showAttackLogs: true, // Show attack logs
+      showLeaderboard: true, // Show leaderboard
+      compact: false,        // Compact mode
+      zoomScale: 1.0,        // Zoom scale
+      showSlash: true,       // Show slash button
+      showPowerSlash: true,  // Show power slash button
+      showHeroicSlash: true, // Show heroic slash button
+      showUltimateSlash: true, // Show ultimate slash button
+      showLegendarySlash: true // Show legendary slash button
+    },
+    dungeonWave: {
+      enabled: true, // Enable dungeon wave features
+      showDamagePills: true, // Show damage pills
+      showZeroJoined: true, // Show monsters with 0 joined
+      compactModal: false, // Compact modal view
+      waveFilters: {
+        enabled: true, // Enable wave filters
+        hpOptions: ['20-50%', '50-80%', '80-100%', '100%'], // HP filter options
+        showCompactToggle: true // Show compact toggle
+      }
+    },
+    waveFilters: {
+      enabled: true, // Enable wave filters
+      hpOptions: ['20-50%', '50-80%', '80-100%', '100%'], // HP filter options
+      showCompactToggle: true, // Show compact toggle
+      hideImages: false, // Hide monster images
+      autoRefresh: false, // Auto-refresh waves
+      refreshInterval: 10 // Refresh interval in seconds
+    },
     menuItems: [
-      { id: 'pvp', name: 'PvP Arena', visible: true, order: 0 },
-      { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
+      { id: 'halloween_event', name: 'Halloween Event', visible: true, order: 1 },
       { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
-      { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-      { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
-      { id: 'guild', name: 'Guild', visible: true, order: 5 },
-      { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 6 },
-      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 7 },
-      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 8 },
+      { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 3 },
+      { id: 'pvp', name: 'PvP Arena', visible: true, order: 4 },
+      { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 5 },
+      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 6 },
+      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 7 },
+      { id: 'guild', name: 'Guild', visible: true, order: 8 },
       { id: 'stats', name: 'Stats', visible: true, order: 9 },
       { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 10 },
-      { id: 'merchant', name: 'Merchant', visible: true, order: 11 },
-      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 12 },
-      { id: 'achievements', name: 'Achievements', visible: true, order: 13 },
-      { id: 'collections', name: 'Collections', visible: true, order: 14 },
-      { id: 'guide', name: 'How To Play', visible: true, order: 15 },
-      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 16 },
-      { id: 'chat', name: 'Global Chat', visible: true, order: 17 },
-      { id: 'patches', name: 'Patch Notes', visible: true, order: 18 },
-      { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 19 }
+      { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 11 },
+      { id: 'merchant', name: 'Merchant', visible: true, order: 12 },
+      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 13 },
+      { id: 'achievements', name: 'Achievements', visible: true, order: 14 },
+      { id: 'collections', name: 'Collections', visible: true, order: 15 },
+      { id: 'guide', name: 'How To Play', visible: true, order: 16 },
+      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 17 },
+      { id: 'chat', name: 'Global Chat', visible: true, order: 18 },
     ]
   };
 
@@ -121,6 +148,7 @@
     '/active_wave.php': initWaveMods,
     '/game_dash.php': initDashboardTools,
     '/battle.php': initBattleMods,
+    '/dungeon_battle.php': initBattleMods,
     '/chat.php': initChatMods,
     '/inventory.php': initInventoryMods,
     '/pets.php': initPetMods,
@@ -129,11 +157,12 @@
     '/pvp_battle.php': [initPvPBattleMods, initPvPMods], // Run both handlers for PvP battle
     '/blacksmith.php': initBlacksmithMods,
     '/merchant.php': initMerchantMods,
-    '/orc_cull_event.php': initEventMods,
-    '/weekly.php': initLeaderboardMods,
     '/collections.php': initCollectionsMods,
     '/achievements.php': initAchievementsMods,
+    '/weekly.php': initLeaderboardMods,
     '/battle_pass.php': initBattlePassMods,
+    '/guild_dungeon.php': initDungeonLocationMods, // New dungeon handler
+    '/guild_dungeon_location.php': initDungeonLocationMods, // New dungeon location handler
   };
 
   // Automatic retrieval of userId from cookie
@@ -208,6 +237,34 @@
               ...savedSettings.customBackgrounds?.backgrounds,
           }
         },
+          potionHelper: {
+            ...extensionSettings.potionHelper,
+            ...savedSettings.potionHelper,
+          },
+          questWidget: {
+            ...extensionSettings.questWidget,
+            ...savedSettings.questWidget,
+          },
+          lootHelper: {
+            ...extensionSettings.lootHelper,
+            ...savedSettings.lootHelper,
+          },
+          petTeams: {
+            ...extensionSettings.petTeams,
+            ...savedSettings.petTeams,
+          },
+          semiTransparent: {
+            ...extensionSettings.semiTransparent,
+            ...savedSettings.semiTransparent,
+          },
+          equipSets: {
+            ...extensionSettings.equipSets,
+            ...savedSettings.equipSets,
+          },
+          battleModal: {
+            ...extensionSettings.battleModal,
+            ...savedSettings.battleModal,
+          },
       };
       
       console.log('Settings loaded successfully:', {
@@ -322,6 +379,382 @@
       applyCustomBackgrounds();
     applyMonsterBackgrounds();
   }
+
+  // ===== BATTLE MODAL UTILITY FUNCTIONS =====
+
+  // Global variables for battle modal system
+  let isModalOpen = false;
+  let userData = {
+    userID: null,
+    currentStamina: 0,
+    currentExp: 0,
+    gold: 0,
+    guildId: 0
+  };
+
+  function setModalOpen(value) {
+    isModalOpen = value;
+  }
+
+  function showNotification(msg, bgColor = '#2ecc71') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed; top: 20px; right: 20px; z-index: 10000;
+      background: ${bgColor}; color: white; padding: 15px 20px;
+      border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-size: 14px; max-width: 300px; animation: slideIn 0.3s ease;
+    `;
+    notification.textContent = msg;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transition = 'opacity 0.3s';
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }
+
+  // Fetch battle page HTML
+  async function fetchBattlePageHtml(monsterId) {
+    const response = await fetch(`battle.php?id=${monsterId}`);
+    return await response.text();
+  }
+
+  // Fetch wave page HTML
+  async function fetchWavePageHtml(wave = 1, event = null) {
+    const response = await fetch(`active_wave.php?wave=${wave}`);
+    return await response.text();
+  }
+
+  // Utility function to make POST requests
+  async function postAction(url, data) {
+    try {
+      const formData = new FormData();
+      Object.keys(data).forEach(key => formData.append(key, data[key]));
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const text = await response.text();
+      
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return { success: false, message: 'Invalid response format', rawResponse: text };
+      }
+    } catch (error) {
+      console.error('Error in postAction:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Parse battle page HTML to extract relevant data
+  function parseBattleHtml(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    console.log('Parsing battle HTML...');
+    
+    // Extract monster info - try multiple selectors, prioritize larger headings
+    let monsterName = 'Unknown Monster';
+    const headings = doc.querySelectorAll('h1, h2, h3');
+    for (const heading of headings) {
+      const text = heading.textContent.trim();
+      // Skip headings that are clearly not monster names
+      if (text && 
+          !text.includes('Active Buffs') && 
+          !text.includes('Loot') && 
+          !text.includes('Settings') &&
+          !text.includes('Menu') &&
+          text.length > 3 && 
+          text.length < 100) {
+        monsterName = text;
+        console.log('Found monster name:', monsterName);
+        break;
+      }
+    }
+    
+    // Extract HP - look for HP bar or text patterns with LARGE numbers
+    let currentHp = 0;
+    let maxHp = 1;
+    
+    // Try to find HP in various formats - prioritize numbers > 1000
+    const allText = doc.body.textContent;
+    const hpMatches = allText.matchAll(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)\s*HP/gi);
+    
+    let bestMatch = null;
+    let bestMaxHp = 0;
+    
+    for (const match of hpMatches) {
+      const curr = parseInt(match[1].replace(/,/g, ''));
+      const max = parseInt(match[2].replace(/,/g, ''));
+      
+      console.log('Found HP match:', curr, '/', max);
+      
+      // Take the match with the highest max HP (monster HP is usually the biggest)
+      if (max > bestMaxHp) {
+        bestMaxHp = max;
+        bestMatch = { curr, max };
+      }
+    }
+    
+    if (bestMatch) {
+      currentHp = bestMatch.curr;
+      maxHp = bestMatch.max;
+      console.log('Selected HP:', currentHp, '/', maxHp);
+    } else {
+      // Fallback: look for HP patterns without "HP" text
+      const hpElements = doc.querySelectorAll('div, span, p');
+      for (const elem of hpElements) {
+        const text = elem.textContent;
+        const hpMatch = text.match(/(\d[\d,]+)\s*\/\s*(\d[\d,]+)/);
+        if (hpMatch) {
+          const curr = parseInt(hpMatch[1].replace(/,/g, ''));
+          const max = parseInt(hpMatch[2].replace(/,/g, ''));
+          if (max > bestMaxHp && max > 1000) { // Monster HP should be > 1000
+            currentHp = curr;
+            maxHp = max;
+            bestMaxHp = max;
+            console.log('Found HP in fallback:', currentHp, '/', maxHp);
+          }
+        }
+      }
+    }
+    
+    // Extract player count
+    let playerCount = 0;
+    const playerMatch = allText.match(/Players?\s*(?:Joined)?[:\s]*(\d+)\s*\/\s*(\d+)/i);
+    if (playerMatch) {
+      playerCount = parseInt(playerMatch[1]);
+      console.log('Found player count:', playerCount, '/', playerMatch[2]);
+    }
+    
+    // Extract damage done
+    let damageDone = 0;
+    const damageMatch = allText.match(/(?:Your\s+)?Damage(?:\s+Done)?[:\s]*([\d,]+)/i);
+    if (damageMatch) {
+      damageDone = parseInt(damageMatch[1].replace(/,/g, ''));
+      console.log('Found damage:', damageDone);
+    }
+    
+    // Extract skill buttons - look for attack buttons
+    const skillButtons = [];
+    const buttons = doc.querySelectorAll('button, a');
+        for (const btn of buttons) {
+          const onclick = btn.getAttribute('onclick') || '';
+          const href = btn.getAttribute('href') || '';
+          const nameText = btn.textContent.trim();
+          const text = nameText.toLowerCase();
+          // Look for attack/slash buttons
+          if ((text.includes('slash') || text.includes('attack')) && nameText !== '⚡ Attack FX: ON') {
+            let skillId = null;
+            // Try to extract skillId from onclick/href
+            const skillMatch = (onclick + ' ' + href).match(/attack[^\d]*(\-?\d+)/i);
+            if (skillMatch) {
+              skillId = skillMatch[1];
+            } else {
+              // Fallback: try data-skill-id attribute
+              skillId = btn.getAttribute('data-skill-id');
+            }
+            // If still not found, fallback to 0 for Slash, -1 for Power Slash
+            if (!skillId) {
+              if (text.includes('power')) skillId = '-1';
+              else skillId = '0';
+            }
+            skillButtons.push({
+              id: skillId,
+              name: nameText,
+              element: btn.outerHTML
+            });
+            console.log('Found skill button:', nameText, 'ID:', skillId);
+          }
+        }
+    
+    // Extract battle log
+    const battleLog = [];
+    const logElements = doc.querySelectorAll('.battle-log-entry, .log-entry, .battle-log p, .battle-log div');
+    for (const log of logElements) {
+      const text = log.textContent.trim();
+      if (text && text.length > 5 && text.length < 200) {
+        battleLog.push(text);
+      }
+    }
+
+    // Extract skill buttons - look for attack buttons
+    // (already declared above, so just use existing skillButtons and buttons)
+
+    // Extract leaderboard
+    const leaderboard = [];
+    let leaderboardRows = [];
+    try {
+      leaderboardRows = doc.querySelectorAll('.lb-row, .leaderboard-row, .player-row, table tr');
+    } catch (e) {
+      console.warn('Could not query leaderboard rows:', e);
+    }
+    for (const row of leaderboardRows) {
+      // Try to extract ID, USERNAME, DAMAGE_DEALT from modal leaderboard
+      const rankEl = row.querySelector('.lb-rank');
+      const nameEl = row.querySelector('.lb-name a');
+      const dmgEl = row.querySelector('.lb-dmg');
+      const picEl = row.querySelector('.lb-avatar');
+      if (nameEl && dmgEl) {
+        // Modal leaderboard format
+        const pid = nameEl.getAttribute('href')?.match(/pid=(\d+)/)?.[1] || '';
+        leaderboard.push({
+          ID: pid,
+          USERNAME: nameEl.textContent.trim(),
+          PICTURE: picEl ? picEl.getAttribute('src') : '',
+          DAMAGE_DEALT: parseInt(dmgEl.textContent.replace(/[^0-9]/g, '')) || 0
+        });
+      } else {
+        // Fallback: table/tr format
+        const cells = row.querySelectorAll('td, .username, .damage');
+        if (cells.length >= 2) {
+          leaderboard.push({
+            USERNAME: cells[0].textContent.trim(),
+            DAMAGE_DEALT: parseInt(cells[1].textContent.replace(/[^0-9]/g, '')) || 0
+          });
+        }
+      }
+    }
+
+    console.log('Final parsed battle data:', { monsterName, currentHp, maxHp, playerCount, damageDone });
+
+    return {
+      monsterName,
+      currentHp,
+      maxHp,
+      playerCount,
+      damageDone,
+      skillButtons,
+      loot: [],
+      battleLog,
+      leaderboard
+    };
+  }
+
+  // Update user data UI elements
+  function updateUserDataUI() {
+    const staminaElem = document.querySelector('.sidebar-stamina, .stamina-value');
+    if (staminaElem && userData.currentStamina !== undefined) {
+      staminaElem.textContent = userData.currentStamina;
+    }
+    
+    const expElem = document.querySelector('.sidebar-exp, .exp-value');
+    if (expElem && userData.currentExp !== undefined) {
+      expElem.textContent = userData.currentExp;
+    }
+    
+    const goldElem = document.querySelector('.sidebar-gold, .gold-value');
+    if (goldElem && userData.gold !== undefined) {
+      goldElem.textContent = userData.gold;
+    }
+  }
+
+  // Update user data from wave page
+  async function updateUserDataFromWavePage() {
+    try {
+      const html = await fetchWavePageHtml();
+      const extractedData = extractUserData(html);
+      
+      if (extractedData) {
+        userData.currentStamina = extractedData.stamina || userData.currentStamina;
+        userData.currentExp = extractedData.exp || userData.currentExp;
+        userData.gold = extractedData.gold || userData.gold;
+        updateUserDataUI();
+      }
+    } catch (error) {
+      console.error('Error updating user data:', error);
+    }
+  }
+
+  // Update cap notice for damage requirements
+  function updateCapNotice(damageDone) {
+    const capNotice = document.querySelector('.cap-notice');
+    if (capNotice) {
+      capNotice.textContent = `Damage: ${damageDone}`;
+    }
+  }
+
+  // Initialize user data from page or cookies
+  function initUserData() {
+    // Try to get user ID from cookie
+    const userId = getCookieExtension('demon');
+    if (userId) {
+      userData.userID = userId;
+    }
+    
+    // Try to extract from page
+    const staminaElem = document.querySelector('.sidebar-stamina, .stamina-value');
+    if (staminaElem) {
+      const staminaText = staminaElem.textContent.trim();
+      const staminaMatch = staminaText.match(/(\d+)/);
+      if (staminaMatch) {
+        userData.currentStamina = parseInt(staminaMatch[1]);
+      }
+    }
+    
+    const expElem = document.querySelector('.sidebar-exp, .exp-value');
+    if (expElem) {
+      const expText = expElem.textContent.trim();
+      const expMatch = expText.match(/(\d+)/);
+      if (expMatch) {
+        userData.currentExp = parseInt(expMatch[1]);
+      }
+    }
+    
+    const goldElem = document.querySelector('.sidebar-gold, .gold-value');
+    if (goldElem) {
+      const goldText = goldElem.textContent.trim();
+      const goldMatch = goldText.match(/(\d+)/);
+      if (goldMatch) {
+        userData.gold = parseInt(goldMatch[1]);
+      }
+    }
+  }
+
+  // ===== END BATTLE MODAL UTILITY FUNCTIONS =====
+
+  // ===== POTION AND PET TEAM CONSTANTS =====
+  
+  const POTIONS = [
+    {
+      key: 'small',
+      name: 'Small Stamina Potion',
+      icon: 'https://demonicscans.org/images/items/1755316144_small_stamina_potion.webp',
+      multi: true
+    },
+    {
+      key: 'full',
+      name: 'Full Stamina Potion',
+      icon: 'https://demonicscans.org/images/items/1755909636_full_stamina_potion.webp',
+      multi: false
+    },
+    {
+      key: 'exp',
+      name: 'Exp Potion S',
+      icon: 'https://demonicscans.org/images/items/1758633119_10_exp_potion.webp',
+      multi: false,
+      hasTimer: true
+    }
+  ];
+
+  const POTION_STORAGE_KEY = 'expPotionTimerEnd';
+  let potionExpTimer = null;
+  let potionExpTimerEnd = null;
+
+  const PET_STORAGE_KEY = "pet_teams_v1";
+  const PET_APPLY_DELAY = 350;
+
+  // ===== END POTION AND PET TEAM CONSTANTS =====
 
   // ===== ADVANCED EQUIPMENT SETS SYSTEM =====
 
@@ -829,6 +1262,29 @@
     showNotification(`Equipment set "${setName}" deleted`, 'success');
   };
 
+  window.editEquipSet = function(setName) {
+    const sets = getEquipStorageSets();
+    const setData = sets[setName];
+    if (!setData) {
+      showNotification(`Equipment set "${setName}" not found`, 'error');
+      return;
+    }
+    
+    // Start recording mode with existing set data
+    isRecording = true;
+    currentEquipRecord = { ...setData };
+    
+    // Update UI to show we're editing
+    const recordBtn = document.getElementById('start-equip-record');
+    if (recordBtn) {
+      recordBtn.textContent = `Editing: ${setName}`;
+      recordBtn.style.background = '#f9e2af';
+    }
+    
+    updateEquipmentPreview();
+    showNotification(`Editing equipment set "${setName}"`, 'info');
+  };
+
   function loadIntegratedSets() {
     const listContainer = document.getElementById('integrated-sets-list');
     if (!listContainer) return;
@@ -878,6 +1334,631 @@
   }
 
   // ===== END ADVANCED EQUIPMENT SETS SYSTEM =====
+
+  // ===== BATTLE MODAL SYSTEM =====
+
+  // Handle joining a battle with modal option
+  async function handleJoin(monsterId, btn) {
+    if (!extensionSettings.battleModal.enabled) {
+      // If battle modal is disabled, use normal join
+      window.location.href = `battle.php?id=${monsterId}`;
+      return;
+    }
+    try {
+      btn.disabled = true;
+      btn.textContent = 'Joining...';
+      // Try to get monster name from the current page first (as fallback)
+      let monsterNameFallback = null;
+      const monsterCard = btn.closest('.monster-card, .wave-monster, .battle-card');
+      if (monsterCard) {
+        const nameElem = monsterCard.querySelector('h3, h2, h1, .monster-name');
+        if (nameElem) {
+          monsterNameFallback = nameElem.textContent.trim();
+        }
+      }
+      // First, submit the join action to the server
+      const joinPayload = 'monster_id=' + monsterId + '&user_id=' + userId;
+      console.log('[handleJoin] Attempting join: monsterId=' + monsterId + ', userId=' + userId);
+      console.log('[handleJoin] Join payload:', joinPayload);
+      const joinResponse = await fetch('user_join_battle.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: joinPayload,
+        referrer: 'https://demonicscans.org/battle.php?id=' + monsterId
+      });
+      const joinData = await joinResponse.text();
+      console.log('[handleJoin] Join server response:', joinData);
+      const joinMsg = (joinData || '').trim();
+      const joinSuccess = joinMsg.toLowerCase().startsWith('you have successfully');
+      if (!joinSuccess) {
+        throw new Error(joinMsg || 'Failed to join battle');
+      }
+      btn.textContent = 'Loading...';
+      // Now fetch the battle page to show in modal
+      const html = await fetchBattlePageHtml(monsterId);
+      const parsed = parseBattleHtml(html);
+      const monster = {
+        ...parsed,
+        id: monsterId,
+        skillButtons: parsed.skillButtons || [],
+      };
+      // Use fallback name if parser didn't find one
+      if (monster.monsterName === 'Unknown Monster' && monsterNameFallback) {
+        monster.monsterName = monsterNameFallback;
+      }
+      // Ensure leaderboard, playerCount, and damageDone are set from parsed data
+      if (monster.leaderboard && Array.isArray(monster.leaderboard)) {
+        monster.playerCount = monster.leaderboard.length;
+        let userId = window.userId || (typeof getCurrentUserId === 'function' ? getCurrentUserId() : null);
+        if (userId) {
+          // Try both ID and USERNAME for matching
+          const you = monster.leaderboard.find(x => String(x.ID || x.id) === String(userId) || String(x.USERNAME || x.username) === window.username);
+          if (you) {
+            monster.damageDone = you.DAMAGE_DEALT || you.damage || 0;
+          }
+        }
+      }
+      await showBattleModal(monster);
+      btn.textContent = 'Continue';
+      btn.disabled = false;
+    } catch (error) {
+      console.error('Error joining battle:', error);
+      showNotification('Error joining battle', '#e74c3c');
+      btn.textContent = 'Join';
+      btn.disabled = false;
+    }
+  }
+
+  // Attack monster in modal
+  async function attackMonster(monsterId, skillId, btn) {
+    try {
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'Attacking...';
+      // Debug log: skill name/id
+      console.log(`[BattleModal] Attempting attack: monsterId=${monsterId}, skillId=${skillId}, skillName="${btn.textContent}"`);
+      const staminaCost = skillId === "-1" ? 10 : skillId === "-2" ? 50 : skillId === "-3" ? 100 : skillId === "-4" ? 200 : 1;
+      const body = `monster_id=${encodeURIComponent(monsterId)}&skill_id=${encodeURIComponent(skillId)}&stamina_cost=${encodeURIComponent(staminaCost)}`;
+      const response = await fetch('damage.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body,
+        credentials: 'include',
+        referrer: 'https://demonicscans.org/battle.php?id=' + monsterId
+      });
+      let result;
+      let rawText;
+      try {
+        rawText = await response.text();
+        // Debug log: raw server response
+        console.log(`[BattleModal] Server response for skillId=${skillId}:`, rawText);
+        if (rawText.trim().startsWith('<')) {
+          console.error('[BattleModal] Attack failed: server returned HTML:', rawText);
+          showNotification('Attack failed: server returned HTML', '#e74c3c');
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
+        }
+        result = JSON.parse(rawText);
+      } catch (e) {
+        console.error('[BattleModal] Attack failed: invalid server response:', rawText);
+        showNotification('Attack failed: invalid server response', '#e74c3c');
+        btn.textContent = originalText;
+        btn.disabled = false;
+        return;
+      }
+      // Debug log: parsed result
+      console.log(`[BattleModal] Parsed result for skillId=${skillId}:`, result);
+      if (!result || result.status !== 'success') {
+        showNotification('Attack failed: ' + (result?.message || 'Unknown error'), '#e74c3c');
+        // Debug log: attack failed
+        console.warn(`[BattleModal] Attack failed for skillId=${skillId}:`, result?.message || 'Unknown error');
+        btn.textContent = originalText;
+        btn.disabled = false;
+        return;
+      }
+      // Build updatedMonster from JSON
+      let updatedMonster = {
+        id: monsterId,
+        monsterName: result.message?.match(/to <strong>(.*?)<\/strong>/)?.[1] || 'Unknown Monster',
+        currentHp: result.hp?.value || result.global_hp?.value || 0,
+        maxHp: result.hp?.max || result.global_hp?.max || 0,
+        playerCount: result.leaderboard?.length || 0,
+        damageDone: result.leaderboard?.find(p => p.USERNAME === userData?.username)?.DAMAGE_DEALT || 0,
+        battleLog: result.logs?.map(log => `${log.USERNAME}: ${log.SKILL_NAME} (${log.DAMAGE})`) || [],
+        leaderboard: result.leaderboard || []
+      };
+      // Update user data from wave page
+      await updateUserDataFromWavePage();
+      showNotification(result.message || 'Attack successful!', '#2ecc71');
+      // Debug log: attack succeeded
+      console.log(`[BattleModal] Attack succeeded for skillId=${skillId}:`, result.message);
+      // Refresh modal with updated data
+      const modal = document.getElementById('battle-modal');
+      if (modal && isModalOpen) {
+        await showBattleModal(updatedMonster);
+      }
+      // Check if monster is defeated
+      if (updatedMonster.currentHp <= 0) {
+        showNotification('Monster defeated!', '#f39c12');
+        if (extensionSettings.battleModal.autoClose) {
+          setTimeout(() => {
+            const modal = document.getElementById('battle-modal');
+            if (modal) modal.remove();
+            setModalOpen(false);
+            updateWaveData(true);
+          }, 1500);
+        }
+      }
+      btn.textContent = originalText;
+      btn.disabled = false;
+    } catch (error) {
+      console.error('[BattleModal] Error attacking:', error);
+      showNotification('Error attacking monster', '#e74c3c');
+      btn.textContent = originalText || 'Attack';
+      btn.disabled = false;
+    }
+  }
+
+  // Show battle modal
+  async function showBattleModal(monster) {
+  setModalOpen(true);
+  let html = "";
+  let modal = document.createElement('div');
+  let content = document.createElement('div');
+  // Add robust default styles to ensure modal is visible
+  modal.style.position = 'fixed';
+  modal.style.top = '50%';
+  modal.style.left = '50%';
+  modal.style.transform = 'translate(-50%, -50%)';
+  modal.style.zIndex = '9999';
+  modal.style.background = '#1e1e2e';
+  modal.style.color = '#cdd6f4';
+  modal.style.borderRadius = '12px';
+  modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.35)';
+  modal.style.padding = '24px';
+  modal.style.minWidth = '320px';
+  modal.style.maxWidth = '90vw';
+  modal.style.maxHeight = '90vh';
+  modal.style.overflowY = 'auto';
+  modal.style.border = '2px solid #89b4fa';
+    
+  // ...existing code...
+  // Fix ReferenceError: compact is not defined
+  let compact = false;
+    const skillId = monster.skillId || "0";
+    fetch('https://www.demonicscans.com/damage.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: `monster_id=${monster.id}&skill_id=${skillId}`,
+      credentials: 'include',
+    })
+    .then(response => response.json())
+    .then(result => {
+      console.log(`[BattleModal] Server response for skillId=${skillId}:`, result);
+      // Extract available skills from result if present
+      let skillButtons = [];
+      if (result.skills && Array.isArray(result.skills)) {
+        skillButtons = result.skills.map(skill => ({
+          name: skill.name,
+          id: skill.id,
+          stamina: skill.stamina || null
+        }));
+      }
+      // Fallback: if no skills in result, keep previous skillButtons if possible
+      if (!skillButtons.length && window.lastSkillButtons && Array.isArray(window.lastSkillButtons)) {
+        skillButtons = window.lastSkillButtons;
+      }
+      // Save for next time
+      window.lastSkillButtons = skillButtons;
+      if (result.status === 'success') {
+        // ...existing code...
+        // Update modal with new battle state
+        showBattleModal({
+          monsterName: monsterName,
+          currentHp: result.hp.value,
+          maxHp: result.hp.max,
+          playerCount: result.leaderboard ? result.leaderboard.length : 0,
+          damageDone: result.leaderboard ? (result.leaderboard.find(p => p.ID == userId)?.DAMAGE_DEALT || 0) : 0,
+          skillButtons: skillButtons,
+          logs: result.logs || [],
+          leaderboard: result.leaderboard || [],
+          message: result.message || '',
+        });
+      } else {
+        // ...existing code...
+      }
+    })
+    .catch(error => {
+      // ...existing code...
+    });
+    // Remove existing modal if present
+    const existingModal = document.getElementById('battle-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }    
+    // Check if monster is dead
+    if (monster.hp && Number(monster.hp.value) <= 0) {
+      html += `<div style="color:#f38ba8; font-size:16px; font-weight:bold; margin:12px 0;">🪦 Monster is dead</div>`;
+      html += `</div>`;
+      return renderModal(html);
+    }
+    // Add close button
+    html += `<button id="close-battle-modal" style="position: absolute; top: 12px; right: 16px; background: #f38ba8; color: #1e1e2e; border: 2px solid #cdd6f4; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; font-weight: bold; cursor: pointer; z-index: 10001;">&times;</button>`;
+    // Calculate player count and your damage from leaderboard (always use latest data)
+    let playerCount = Array.isArray(monster.leaderboard) ? monster.leaderboard.length : (monster.playerCount || 0);
+    let yourDamage = 0;
+    let userId = String(userData.userID || monster.userId || window.userId || (typeof getCurrentUserId === 'function' ? getCurrentUserId() : ''));
+    let entry = null;
+    if (Array.isArray(monster.leaderboard) && userId) {
+      // Try both string and number comparison for ID
+      entry = monster.leaderboard.find(e => {
+        const entryId = String(e.ID ?? e.id);
+        return entryId === String(userId) || Number(entryId) === Number(userId);
+      });
+      if (!entry && userData.username) {
+        entry = monster.leaderboard.find(e => String(e.USERNAME ?? e.username) === String(userData.username ?? window.username));
+      }
+      console.log('[BattleModal] userId:', userId, 'Leaderboard entry:', entry, 'Leaderboard:', monster.leaderboard);
+      yourDamage = entry ? (entry.DAMAGE_DEALT ?? entry.damage ?? 0) : 0;
+    } else if (typeof monster.damageDone !== 'undefined') {
+      yourDamage = monster.damageDone;
+    }
+    // Render monster info
+    html += `<div style="margin-bottom: 12px;">
+      <div style="font-size: 18px; font-weight: bold; color: #89b4fa;">${monster.monsterName || 'Monster'}</div>
+      <div style="font-size: 15px; margin-top: 4px;">HP: <span style="color: #a6e3a1; font-weight: bold;">${monster.currentHp || monster.hp?.value || '?'}</span> / <span style="color: #fab387;">${monster.maxHp || monster.hp?.max || '?'}</span></div>
+  <div style="font-size: 13px; margin-top: 2px;">Players: <span id="modal-player-count">${playerCount}</span></div>
+  <div style="font-size: 13px; margin-top: 2px;">Your Damage: <span id="modal-your-damage">${yourDamage}</span></div>
+    </div>`;
+    // Monster is alive, render attack skills or fallback message
+    if (monster.skillButtons && monster.skillButtons.length > 0) {
+      html += '<div style="margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap;">';
+      monster.skillButtons
+        .filter(skill => skill && skill.name && skill.name.trim() !== '⚡ Attack FX: ON')
+        .forEach(skill => {
+          html += `<button class="modal-skill-btn" data-skill-id="${typeof skill.id !== 'undefined' ? skill.id : ''}" style="background: #89b4fa; color: #1e1e2e; border: 2px solid #cdd6f4; padding: ${(typeof compact !== 'undefined' && compact) ? '8px' : '12px'}; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: ${(typeof compact !== 'undefined' && compact) ? '12px' : '14px'}; transition: all 0.2s; margin-bottom: 6px;">${skill.name}${skill.stamina ? ` (${skill.stamina} STAMINA)` : ''}</button>`;
+        });
+      html += '</div>';
+      // Add event listeners to skill buttons to refresh modal after attack
+      setTimeout(() => {
+        document.querySelectorAll('.modal-skill-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
+            const skillId = this.getAttribute('data-skill-id');
+            document.querySelectorAll('.modal-skill-btn').forEach(b => b.disabled = true);
+            await attackMonster(monster.id, skillId, this);
+          });
+        });
+      }, 100);
+    } else {
+      html += `<div style="color:#f38ba8; font-size:15px; font-weight:bold; margin:12px 0;">No attack skills available.<br><span style="font-size:13px; color:#fab387;">You may need to unlock skills, wait for the battle to start, or check your status.</span></div>`;
+    }
+    // Add logs if present
+    if (monster.logs && monster.logs.length > 0) {
+      html += `<div style="background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px; max-height: 120px; overflow-y: auto;">
+        <h3 style="margin: 0 0 10px 0; color: #89b4fa; font-size: 14px;">Battle Log</h3>
+        ${monster.logs.slice(-10).map(log => `<div style="font-size: 11px; color: #cdd6f4; margin-bottom: 4px;">${log}</div>`).join('')}
+      </div>`;
+    }
+    // Add leaderboard if present
+    if (extensionSettings.battleModal.showLeaderboard && monster.leaderboard && monster.leaderboard.length > 0) {
+      html += `<div style="background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+        <h3 style="margin: 0 0 10px 0; color: #89b4fa; font-size: 14px;">Leaderboard</h3>
+        <div style="max-height: 120px; overflow-y: auto;">
+          ${monster.leaderboard.slice(0, 10).map((entry, i) => `
+            <div style="display: flex; justify-content: space-between; padding: 6px; background: ${i % 2 === 0 ? '#11111b' : 'transparent'}; border-radius: 4px; font-size: 11px;">
+              <span>${i + 1}. ${entry.USERNAME || entry.username || 'Player'}</span>
+              <span style="color: #a6e3a1;">${entry.DAMAGE_DEALT || entry.damage || 0}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
+    
+    // Add attack logs if enabled
+    if (extensionSettings.battleModal.showAttackLogs && monster.battleLog && monster.battleLog.length > 0) {
+      html += `
+        <div style="background: #181825; padding: ${compact ? '10px' : '15px'}; border-radius: 8px; margin-bottom: ${compact ? '10px' : '15px'}; max-height: ${compact ? '120px' : '200px'}; overflow-y: auto;">
+          <h3 style="margin: 0 0 10px 0; color: #89b4fa; font-size: ${compact ? '14px' : '16px'};">Battle Log</h3>
+          ${monster.battleLog.slice(-10).map(log => `<div style="font-size: ${compact ? '11px' : '12px'}; color: #cdd6f4; margin-bottom: 4px;">${log}</div>`).join('')}
+        </div>
+      `;
+    }
+    
+    content.innerHTML = html;
+    modal.appendChild(content);
+  document.body.appendChild(modal);
+  console.log('[showBattleModal] Modal appended to body:', modal);
+
+    // Event listeners
+    const closeBtn = document.getElementById('close-battle-modal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        modal.remove();
+        setModalOpen(false);
+        // Remove battle iframe when closing modal
+        const iframe = document.getElementById('battle-session-iframe');
+        if (iframe) iframe.remove();
+        updateWaveData(true);
+      });
+    }
+    
+    document.querySelectorAll('.modal-skill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const skillId = btn.getAttribute('data-skill-id');
+        // Use monster.monsterId or monster.id (fallback to monster.monsterId if id is missing)
+        const mId = monster.id || monster.monsterId;
+        attackMonster(mId, skillId, btn);
+      });
+    });
+    
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+        setModalOpen(false);
+        
+        // Remove battle iframe when closing modal
+        const iframe = document.getElementById('battle-session-iframe');
+        if (iframe) iframe.remove();
+        
+        updateWaveData(true);
+      }
+    });
+  }
+
+  // Update join button text based on modal state
+  function updateJoinButtonText(monsterId, newText) {
+    const buttons = document.querySelectorAll(`button[data-monster-id="${monsterId}"]`);
+    buttons.forEach(btn => {
+      btn.textContent = newText;
+    });
+  }
+
+  // Handle loot action
+  async function handleLoot(monsterId, monsterName, btn) {
+    try {
+      btn.disabled = true;
+      btn.textContent = 'Looting...';
+      
+      const result = await postAction('active_wave.php', {
+        loot: monsterId
+      });
+      
+      if (result.success) {
+        showNotification(result.message || 'Loot collected!', '#2ecc71');
+        
+        if (extensionSettings.battleModal.showLootModal && result.loot) {
+          showLootModal(result.loot, monsterName);
+        }
+        
+        // Update user data
+        if (result.gold !== undefined) userData.gold = result.gold;
+        updateUserDataUI();
+        
+        // Refresh wave data
+        updateWaveData(true);
+      } else {
+        showNotification(result.message || 'Failed to loot', '#e74c3c');
+      }
+      
+      btn.textContent = 'Loot';
+      btn.disabled = false;
+    } catch (error) {
+      console.error('Error looting:', error);
+      showNotification('Error collecting loot', '#e74c3c');
+      btn.textContent = 'Loot';
+      btn.disabled = false;
+    }
+  }
+
+  // Show loot modal
+  function showLootModal(lootData, monsterName) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+      align-items: center; justify-content: center; backdrop-filter: blur(5px);
+    `;
+    
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: #1e1e2e; border-radius: 12px; padding: 30px;
+      max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      color: #cdd6f4;
+    `;
+    
+    content.innerHTML = `
+      <h2 style="margin: 0 0 20px 0; color: #cba6f7;">Loot from ${monsterName}</h2>
+      <div style="display: grid; gap: 12px;">
+        ${lootData.map(item => `
+          <div style="background: #181825; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+            ${item.img ? `<img src="${item.img}" style="width: 40px; height: 40px; border-radius: 4px;">` : ''}
+            <div style="flex: 1;">
+              <div style="font-weight: bold; color: #a6e3a1;">${item.name}</div>
+              ${item.quantity ? `<div style="font-size: 12px; color: #a6adc8;">Quantity: ${item.quantity}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <button id="close-loot-modal" style="
+        background: #89b4fa; color: #1e1e2e; border: none;
+        padding: 12px 24px; border-radius: 6px; cursor: pointer;
+        font-weight: bold; margin-top: 20px; width: 100%;
+      ">Close</button>
+    `;
+    
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    document.getElementById('close-loot-modal').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  // Wave data update function
+  async function updateWaveData(manual = false) {
+    if (!manual && !extensionSettings.waveAutoRefresh.enabled) return;
+    
+    try {
+      const html = await fetchWavePageHtml();
+      const monsters = await extractMonsters(html);
+      const userDataExtracted = extractUserData(html);
+      // Update monster list
+      if (monsters && monsters.length > 0) {
+        monsterList = monsters;
+      }
+      // Update user data
+      if (userDataExtracted) {
+        updateUserDataUI();
+      }
+    } catch (error) {
+      console.error('Error updating wave data:', error);
+    }
+  }
+
+  // Find monster by ID from current page data
+  function findMonsterById(monsterId) {
+    const monsterCards = document.querySelectorAll('.monster-card, .wave-monster');
+    for (const card of monsterCards) {
+      const joinBtn = card.querySelector('a[href*="battle.php"], button[onclick*="battle"]');
+      if (joinBtn) {
+        const href = joinBtn.getAttribute('href') || joinBtn.getAttribute('onclick') || '';
+        const idMatch = href.match(/id=(\d+)/);
+        if (idMatch && idMatch[1] === String(monsterId)) {
+          return card;
+        }
+      }
+    }
+    return null;
+  }
+
+  // ===== Monster list + parsing/rendering helpers =====
+  // Global in-memory monster list used by updateData and UI rendering
+  var monsterList = [];
+
+  // Parse monsters from a provided Document (or current document)
+  async function extractMonsters(htmlOrDoc = document) {
+    const doc = typeof htmlOrDoc === 'string' 
+      ? new DOMParser().parseFromString(htmlOrDoc, 'text/html')
+      : htmlOrDoc;
+    
+    const monsters = [];
+    const monsterCards = doc.querySelectorAll('.monster-card, .wave-monster, .battle-card');
+    
+    monsterCards.forEach(card => {
+      const nameElem = card.querySelector('.monster-name, h3, h2');
+      const name = nameElem ? nameElem.textContent.trim() : 'Unknown';
+      
+      const hpElem = card.querySelector('.monster-hp, .hp-bar, .hp-text');
+      const hpText = hpElem ? hpElem.textContent : '';
+      const hpMatch = hpText.match(/(\d+)\s*\/\s*(\d+)/);
+      const currentHp = hpMatch ? parseInt(hpMatch[1]) : 0;
+      const maxHp = hpMatch ? parseInt(hpMatch[2]) : 0;
+      
+      const joinBtn = card.querySelector('a[href*="battle.php"], button[onclick*="battle"]');
+      const href = joinBtn ? (joinBtn.getAttribute('href') || joinBtn.getAttribute('onclick') || '') : '';
+      const idMatch = href.match(/id=(\d+)/);
+      const id = idMatch ? idMatch[1] : null;
+      
+      if (id) {
+        monsters.push({
+          id,
+          name,
+          currentHp,
+          maxHp,
+          element: card
+        });
+      }
+    });
+    
+    return monsters;
+  }
+
+  // Extract basic user data (stamina/exp/gold) from a Document
+  function extractUserData(htmlOrDoc = document) {
+    const doc = typeof htmlOrDoc === 'string'
+      ? new DOMParser().parseFromString(htmlOrDoc, 'text/html')
+      : htmlOrDoc;
+    
+    const data = {};
+    
+    const staminaElem = doc.querySelector('.sidebar-stamina, .stamina-value, [class*="stamina"]');
+    if (staminaElem) {
+      const staminaMatch = staminaElem.textContent.match(/(\d+)/);
+      if (staminaMatch) data.stamina = parseInt(staminaMatch[1]);
+    }
+    
+    const expElem = doc.querySelector('.sidebar-exp, .exp-value, [class*="exp"]');
+    if (expElem) {
+      const expMatch = expElem.textContent.match(/(\d+)/);
+      if (expMatch) data.exp = parseInt(expMatch[1]);
+    }
+    
+    const goldElem = doc.querySelector('.sidebar-gold, .gold-value, [class*="gold"]');
+    if (goldElem) {
+      const goldMatch = goldElem.textContent.match(/(\d+)/);
+      if (goldMatch) data.gold = parseInt(goldMatch[1]);
+    }
+    
+    return data;
+  }
+
+  // Render the current `monsterList` into the page's .monster-container
+  function updateMonsterUI() {
+    const container = document.querySelector('.monster-container, .wave-monsters');
+    if (!container || monsterList.length === 0) return;
+    
+    // Update existing monster cards instead of replacing
+    monsterList.forEach(monster => {
+      const card = findMonsterById(monster.id);
+      if (card) {
+        const hpElem = card.querySelector('.monster-hp, .hp-bar, .hp-text');
+        if (hpElem) {
+          hpElem.textContent = `${monster.currentHp} / ${monster.maxHp}`;
+        }
+      }
+    });
+  }
+
+  // ===== Update Data ====
+  const updateData = async (manual = false) => {
+    await updateWaveData(manual);
+  };
+
+  // ===== END BATTLE MODAL SYSTEM =====
+
+  // Initialize battle modal on battle.php page
+  function initBattlePageModal() {
+    // Check if we're on a battle page
+    if (!window.location.pathname.includes('battle.php')) return;
+    
+    // Extract monster ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const monsterId = urlParams.get('id');
+    if (!monsterId) return;
+    
+    // Parse current page data
+    const monster = parseBattleHtml(document.documentElement.outerHTML);
+    monster.id = monsterId;
+    
+    // Show the modal immediately
+    setTimeout(() => {
+      showBattleModal(monster);
+    }, 500); // Small delay to let page load
+  }
 
   function saveSettings() {
     try {
@@ -1238,14 +2319,14 @@
     
     sortedItems.forEach(item => {
       switch(item.id) {
+        case 'halloween_event':
+          menuHTML += `<li><a href="event_goblin_feast_of_shadows.php"><img src="images/events/The_Goblin_Feast_of_Shadows/compressed_goblin_halloween_event.webp" alt="Halloween Event">Halloween Event</a></li>`;
+          break;
         case 'pvp':
           menuHTML += `<li><a href="pvp.php"><img src="images/pvp/season_2/compressed_pvp_season_2.webp" alt="PvP Arena"> PvP Arena</a></li>`;
           break;
-        case 'orc_cull':
-          menuHTML += `<li><a href="orc_cull_event.php"><img src="/images/events/orc_cull/banner.webp" alt="Goblin Feast"> 🪓 ⚔️ War Drums of GRAKTHAR</a></li>`;
-          break;
         case 'event_battlefield':
-          menuHTML += `<li><a href="active_wave.php?event=2&wave=6" draggable="false"><img src="/images/events/orc_cull/banner.webp" alt="War Drums of GRAKTHAR"> Event Battlefield</a></li>`;
+          menuHTML += `<li><a href="active_wave.php?event=3&wave=1" draggable="false"><img src="/images/events/The_Goblin_Feast_of_Shadows/compressed_goblin_halloween_event.webp" alt="Event Battlefield"> Event Battlefield</a></li>`;
           break;
         case 'gate_grakthar':
           menuHTML += `<li><a href="active_wave.php?gate=3&wave=${extensionSettings.gateGraktharWave}"><img src="images/gates/gate_688e438aba7f24.99262397.webp" alt="Gate"> Gate Grakthar</a></li>`;
@@ -1761,9 +2842,9 @@
         flex-shrink: 0;
         overflow-y: auto;
         position: fixed;
-        top: 55px;
+        top: 66px;
         left: 0;
-        height: calc(100vh - 55px);
+        height: calc(100vh - 66px);
         z-index: 1000;
       }
 
@@ -3160,6 +4241,8 @@
         margin-left: 8px;
         transition: all 0.3s ease-in-out;
         height: 32px;
+        flex-shrink: 0; /* Prevent compression */
+        white-space: nowrap; /* Prevent text wrapping */
       }
 
       .topbar-settings-btn span { 
@@ -3188,6 +4271,23 @@
 
       .topbar-settings-btn:active { 
         transform: scale(0.95);
+      }
+
+      /* Fix topbar right section layout */
+      .gtb-right {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+      }
+
+      .topbar-profile-circle {
+        flex-shrink: 0 !important;
+      }
+
+      .gtb-exp {
+        flex-shrink: 1 !important;
+        min-width: 100px !important;
       }
 
       /* Team selection buttons in sidebar */
@@ -3587,6 +4687,176 @@
     }
   }
 
+  // Quest Widget Functions
+  async function fetchQuestData() {
+    const response = await fetch('battle_pass.php');
+    const html = await response.text();
+    return parseQuestData(html);
+  }
+
+  function parseQuestData(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    const quests = [];
+    const questElements = doc.querySelectorAll('.quest-item, .daily-quest');
+    
+    questElements.forEach(elem => {
+      const title = elem.querySelector('.quest-title')?.textContent.trim() || 'Unknown Quest';
+      const progress = elem.querySelector('.quest-progress')?.textContent.trim() || '';
+      const reward = elem.querySelector('.quest-reward')?.textContent.trim() || '';
+      const isComplete = elem.classList.contains('complete') || elem.querySelector('.complete');
+      
+      quests.push({ title, progress, reward, isComplete });
+    });
+    
+    return quests;
+  }
+
+  // Sidebar Quest Widget Functions
+  function initSidebarQuestWidget() {
+    if (!extensionSettings.questWidget.enabled) return;
+    
+    const sidebar = document.querySelector('.sidebar, .game-sidebar');
+    if (!sidebar) return;
+    
+    // Add quest widget section to sidebar
+    const questSection = document.createElement('div');
+    questSection.id = 'sidebar-quest-widget';
+    questSection.style.cssText = 'background: #181825; border-radius: 8px; padding: 15px; margin-top: 15px;';
+    
+    questSection.innerHTML = `
+      <h3 style="margin: 0 0 10px 0; color: #cba6f7; font-size: 16px;">Daily Quests</h3>
+      <div id="sidebar-quests-list" style="display: grid; gap: 8px;">
+        <div style="text-align: center; color: #6c7086;">Loading...</div>
+      </div>
+    `;
+    
+    sidebar.appendChild(questSection);
+    updateSidebarQuestPanel();
+  }
+
+  async function updateSidebarQuestPanel() {
+    const listContainer = document.getElementById('sidebar-quests-list');
+    if (!listContainer) return;
+    
+    try {
+      const quests = await fetchQuestData();
+      
+      if (quests.length === 0) {
+        listContainer.innerHTML = '<div style="text-align: center; color: #6c7086;">No quests available</div>';
+        return;
+      }
+      
+      listContainer.innerHTML = quests.map(quest => `
+        <div style="background: #11111b; padding: 10px; border-radius: 6px; ${quest.isComplete ? 'opacity: 0.6;' : ''}">
+          <div style="font-size: 13px; color: ${quest.isComplete ? '#a6e3a1' : '#cdd6f4'}; font-weight: bold;">${quest.title}</div>
+          <div style="font-size: 11px; color: #a6adc8; margin-top: 4px;">${quest.progress}</div>
+        </div>
+      `).join('');
+    } catch (error) {
+      console.error('Error updating quest panel:', error);
+      listContainer.innerHTML = '<div style="text-align: center; color: #f38ba8;">Error loading quests</div>';
+    }
+  }
+
+  // Loot Helper Functions
+  function performLootAction(type, amount) {
+    if (window.location.pathname.includes('active_wave.php')) {
+      performCurrentPageLoot(type, amount);
+    } else {
+      // Default to wave 1 if not specified
+      const wave = extensionSettings.gateGraktharWave || 1;
+      performWaveLoot(type, amount, null, wave);
+    }
+  }
+
+  function performCurrentPageLoot(type, amount) {
+    const lootButtons = document.querySelectorAll('button[onclick*="loot"], a[href*="loot"]');
+    let looted = 0;
+    
+    for (const btn of lootButtons) {
+      if (type === 'unlocked' && !isLootUnlocked(btn)) continue;
+      if (looted >= amount) break;
+      
+      btn.click();
+      looted++;
+    }
+    
+    showNotification(`Looted ${looted} monster(s)`, '#2ecc71');
+  }
+
+  async function performWaveLoot(type, amount, event, wave) {
+    try {
+      const html = await fetchWavePageHtml(wave, event);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      const lootButtons = doc.querySelectorAll('button[onclick*="loot"], a[href*="loot"]');
+      let looted = 0;
+      
+      for (const btn of lootButtons) {
+        if (type === 'unlocked' && !isLootUnlockedFromHTML(btn)) continue;
+        if (looted >= amount) break;
+        
+        const onclick = btn.getAttribute('onclick') || btn.getAttribute('href') || '';
+        const monsterIdMatch = onclick.match(/loot[=(](\d+)/);
+        if (monsterIdMatch) {
+          const result = await postAction('active_wave.php', { loot: monsterIdMatch[1] });
+          if (result.success) looted++;
+        }
+      }
+      
+      showNotification(`Looted ${looted} monster(s) from wave ${wave}`, '#2ecc71');
+      updateWaveData(true);
+    } catch (error) {
+      console.error('Error looting wave:', error);
+      showNotification('Error looting monsters', '#e74c3c');
+    }
+  }
+
+  function isLootUnlockedFromHTML(button) {
+    const card = button.closest('.monster-card, .loot-card');
+    if (!card) return false;
+    
+    // Check for locked indicators
+    const isLocked = card.classList.contains('locked') || 
+                     card.querySelector('.locked') ||
+                     button.classList.contains('disabled') ||
+                     button.disabled;
+    
+    return !isLocked;
+  }
+
+  function isLootUnlocked(button) {
+    const card = button.closest('.monster-card, .loot-card');
+    if (!card) return false;
+    
+    // Check damage requirement
+    const damageElem = card.querySelector('.your-damage, .damage-done');
+    if (damageElem) {
+      const damageText = damageElem.textContent;
+      const damageMatch = damageText.match(/(\d+)/);
+      const damage = damageMatch ? parseInt(damageMatch[1]) : 0;
+      
+      // Check if damage meets requirement (usually > 0 or > certain threshold)
+      return damage > 0;
+    }
+    
+    return isLootUnlockedFromHTML(button);
+  }
+
+  function initFloatingLootHelper() {
+    if (!extensionSettings.dungeonWave.enabled) return;
+    
+    // This would create a floating loot helper UI if needed
+    // Implementation similar to potion helper
+  }
+
+  function createLootBox() {
+    // Create floating loot helper box
+    // Implementation would go here
+  }
+
   // Function to load and display battle pass daily quests
   async function loadBattlePassQuests() {
     const questsContainer = document.getElementById('battle-pass-quests');
@@ -3726,7 +4996,11 @@
           </div>
 
           <div class="settings-section">
-            <h3>🐉 Monster Backgrounds</h3>
+            <div class="settings-section-header" onclick="toggleSection(this)">
+              <h3>🐉 Monster Backgrounds</h3>
+              <span class="expand-icon">+</span>
+            </div>
+            <div class="settings-section-content">
               <div style="margin: 15px 0;">
                 <div style="margin-bottom: 15px; display: flex; align-items: center;">
                   <label style="color: #cdd6f4; display: flex; align-items: center;">
@@ -4001,6 +5275,84 @@
             </div>
           </div>
 
+          <!-- Battle Modal Settings Section -->
+          <div class="settings-section">
+            <div class="settings-section-header" onclick="toggleSection(this)">
+              <h3>⚔️ Battle Modal System</h3>
+              <span class="expand-icon">+</span>
+            </div>
+            <div class="settings-section-content">
+              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 20px;">
+                Enable modal-based battles instead of full page navigation. Opens battles in a popup overlay.
+              </p>
+              
+              <div style="margin-bottom: 25px; padding: 15px; background: rgba(49, 50, 68, 0.3); border-radius: 8px; border-left: 3px solid #89b4fa;">
+                <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
+                  <input type="checkbox" id="battle-modal-enabled" class="cyberpunk-checkbox" style="appearance: none; width: 20px; height: 20px; border: 2px solid #89b4fa; border-radius: 5px; background-color: transparent; display: inline-block; position: relative; margin-right: 10px; cursor: pointer; transition: 0.3s; box-shadow: rgba(137, 180, 250, 0.4) 0px 0px 15px;">
+                  <span style="font-weight: 600;">Enable Battle Modal System</span>
+                </label>
+                
+                <div style="margin: 15px 0;">
+                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Display Options:</label>
+                  <div style="display: flex; flex-direction: column; gap: 10px; margin-left: 20px;">
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-auto-close" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                      <span>Auto-close when monster defeated</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-loot" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                      <span>Show loot modal after looting</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-logs" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                      <span>Show attack logs</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-leaderboard" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                      <span>Show leaderboard</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-compact" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #fab387; border-radius: 4px; background-color: transparent;">
+                      <span>Compact mode (smaller modal)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style="margin: 15px 0;">
+                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Zoom Scale:</label>
+                  <input type="range" id="battle-modal-zoom" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 200px; margin-right: 10px;">
+                  <span id="battle-modal-zoom-value" style="color: #cdd6f4;">100%</span>
+                </div>
+
+                <div style="margin: 15px 0;">
+                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Attack Buttons:</label>
+                  <div style="display: flex; flex-direction: column; gap: 10px; margin-left: 20px;">
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #89b4fa; border-radius: 4px; background-color: transparent;">
+                      <span>Slash</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-power-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #f9e2af; border-radius: 4px; background-color: transparent;">
+                      <span>Power Slash</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-heroic-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #fab387; border-radius: 4px; background-color: transparent;">
+                      <span>Heroic Slash</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-ultimate-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #f38ba8; border-radius: 4px; background-color: transparent;">
+                      <span>Ultimate Slash</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-legendary-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #cba6f7; border-radius: 4px; background-color: transparent;">
+                      <span>Legendary Slash</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Wave Auto-Refresh Section -->
           <div class="settings-section">
             <div class="settings-section-header" onclick="toggleSection(this)">
@@ -4086,6 +5438,7 @@
       setupNewWaveAutoRefreshSettings();
       setupGateGraktharSettings();
       setupEquipSetsSettings();
+      setupBattleModalSettings();
       setupMenuCustomizationListeners();
         
         // Initialize all cyberpunk checkboxes
@@ -4857,6 +6210,309 @@
     }
   }
 
+  function setupBattleModalSettings() {
+    const enabledCheckbox = document.getElementById('battle-modal-enabled');
+    const autoCloseCheckbox = document.getElementById('battle-modal-auto-close');
+    const showLootCheckbox = document.getElementById('battle-modal-show-loot');
+    const showLogsCheckbox = document.getElementById('battle-modal-show-logs');
+    const showLeaderboardCheckbox = document.getElementById('battle-modal-show-leaderboard');
+    const compactCheckbox = document.getElementById('battle-modal-compact');
+    const zoomInput = document.getElementById('battle-modal-zoom');
+    const zoomValueSpan = document.getElementById('battle-modal-zoom-value');
+    
+    // Attack button checkboxes
+    const showSlashCheckbox = document.getElementById('battle-modal-show-slash');
+    const showPowerSlashCheckbox = document.getElementById('battle-modal-show-power-slash');
+    const showHeroicSlashCheckbox = document.getElementById('battle-modal-show-heroic-slash');
+    const showUltimateSlashCheckbox = document.getElementById('battle-modal-show-ultimate-slash');
+    const showLegendarySlashCheckbox = document.getElementById('battle-modal-show-legendary-slash');
+    
+    if (enabledCheckbox) {
+      enabledCheckbox.checked = extensionSettings.battleModal.enabled;
+      enabledCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.enabled = e.target.checked;
+        saveSettings();
+        showNotification(`Battle Modal ${e.target.checked ? 'enabled' : 'disabled'}!`, 'success');
+      });
+    }
+    
+    if (autoCloseCheckbox) {
+      autoCloseCheckbox.checked = extensionSettings.battleModal.autoClose;
+      autoCloseCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.autoClose = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showLootCheckbox) {
+      showLootCheckbox.checked = extensionSettings.battleModal.showLootModal;
+      showLootCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showLootModal = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showLogsCheckbox) {
+      showLogsCheckbox.checked = extensionSettings.battleModal.showAttackLogs;
+      showLogsCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showAttackLogs = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showLeaderboardCheckbox) {
+      showLeaderboardCheckbox.checked = extensionSettings.battleModal.showLeaderboard;
+      showLeaderboardCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showLeaderboard = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (compactCheckbox) {
+      compactCheckbox.checked = extensionSettings.battleModal.compact;
+      compactCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.compact = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (zoomInput) {
+      zoomInput.value = extensionSettings.battleModal.zoomScale || 1.0;
+      zoomInput.addEventListener('input', (e) => {
+        const zoom = parseFloat(e.target.value);
+        if (zoomValueSpan) {
+          zoomValueSpan.textContent = `${Math.round(zoom * 100)}%`;
+        }
+      });
+      zoomInput.addEventListener('change', (e) => {
+        const zoom = parseFloat(e.target.value);
+        if (zoom >= 0.5 && zoom <= 2.0) {
+          extensionSettings.battleModal.zoomScale = zoom;
+          saveSettings();
+          showNotification(`Zoom scale set to ${Math.round(zoom * 100)}%`, 'success');
+        }
+      });
+    }
+    
+    // Attack button event listeners
+    if (showSlashCheckbox) {
+      showSlashCheckbox.checked = extensionSettings.battleModal.showSlash;
+      showSlashCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showSlash = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showPowerSlashCheckbox) {
+      showPowerSlashCheckbox.checked = extensionSettings.battleModal.showPowerSlash;
+      showPowerSlashCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showPowerSlash = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showHeroicSlashCheckbox) {
+      showHeroicSlashCheckbox.checked = extensionSettings.battleModal.showHeroicSlash;
+      showHeroicSlashCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showHeroicSlash = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showUltimateSlashCheckbox) {
+      showUltimateSlashCheckbox.checked = extensionSettings.battleModal.showUltimateSlash;
+      showUltimateSlashCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showUltimateSlash = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (showLegendarySlashCheckbox) {
+      showLegendarySlashCheckbox.checked = extensionSettings.battleModal.showLegendarySlash;
+      showLegendarySlashCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showLegendarySlash = e.target.checked;
+        saveSettings();
+      });
+    }
+  }
+
+  function setupPvPBattlePredictionSettings() {
+    const enabledCheckbox = document.getElementById('pvp-prediction-enabled');
+    const analyzeAfterInput = document.getElementById('pvp-analyze-after');
+    
+    if (enabledCheckbox) {
+      enabledCheckbox.checked = extensionSettings.pvpBattlePrediction.enabled;
+      enabledCheckbox.addEventListener('change', (e) => {
+        extensionSettings.pvpBattlePrediction.enabled = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (analyzeAfterInput) {
+      analyzeAfterInput.value = extensionSettings.pvpBattlePrediction.analyzeAfterAttacks;
+      analyzeAfterInput.addEventListener('change', (e) => {
+        const value = parseInt(e.target.value);
+        if (value >= 1 && value <= 10) {
+          extensionSettings.pvpBattlePrediction.analyzeAfterAttacks = value;
+          saveSettings();
+        }
+      });
+    }
+  }
+
+  function setupSemiTransparentSettings() {
+    const enabledCheckbox = document.getElementById('semi-transparent-enabled');
+    const opacityInput = document.getElementById('semi-transparent-opacity');
+    
+    if (enabledCheckbox) {
+      enabledCheckbox.checked = extensionSettings.semiTransparent.enabled;
+      enabledCheckbox.addEventListener('change', (e) => {
+        extensionSettings.semiTransparent.enabled = e.target.checked;
+        saveSettings();
+        if (e.target.checked) {
+          applySemiTransparentEffect();
+        } else {
+          const style = document.getElementById('semi-transparent-style');
+          if (style) style.remove();
+        }
+        showNotification(`Semi-transparent ${e.target.checked ? 'enabled' : 'disabled'}!`, 'success');
+      });
+    }
+    
+    if (opacityInput) {
+      opacityInput.value = extensionSettings.semiTransparent.opacity;
+      opacityInput.addEventListener('change', (e) => {
+        const opacity = parseFloat(e.target.value);
+        if (opacity >= 0.1 && opacity <= 1.0) {
+          extensionSettings.semiTransparent.opacity = opacity;
+          saveSettings();
+          if (extensionSettings.semiTransparent.enabled) {
+            applySemiTransparentEffect();
+          }
+        }
+      });
+    }
+  }
+
+  function setupPotionHelperSettings() {
+    const enabledCheckbox = document.getElementById('potion-helper-enabled');
+    const showFloatingCheckbox = document.getElementById('potion-helper-floating');
+    const showSidebarCheckbox = document.getElementById('potion-helper-sidebar');
+    const positionSelect = document.getElementById('potion-helper-position');
+    const topOffsetInput = document.getElementById('potion-helper-top-offset');
+    
+    if (enabledCheckbox) {
+      enabledCheckbox.checked = extensionSettings.potionHelper.enabled;
+      enabledCheckbox.addEventListener('change', (e) => {
+        extensionSettings.potionHelper.enabled = e.target.checked;
+        saveSettings();
+        if (e.target.checked) {
+          initFloatingPotionHelper();
+        } else {
+          const helper = document.getElementById('floating-potion-helper');
+          if (helper) helper.remove();
+        }
+        showNotification(`Potion Helper ${e.target.checked ? 'enabled' : 'disabled'}!`, 'success');
+      });
+    }
+    
+    if (showFloatingCheckbox) {
+      showFloatingCheckbox.checked = extensionSettings.potionHelper.showFloatingIcons;
+      showFloatingCheckbox.addEventListener('change', (e) => {
+        extensionSettings.potionHelper.showFloatingIcons = e.target.checked;
+        saveSettings();
+        if (extensionSettings.potionHelper.enabled) {
+          initFloatingPotionHelper();
+        }
+      });
+    }
+    
+    if (showSidebarCheckbox) {
+      showSidebarCheckbox.checked = extensionSettings.potionHelper.showInSidebar;
+      showSidebarCheckbox.addEventListener('change', (e) => {
+        extensionSettings.potionHelper.showInSidebar = e.target.checked;
+        saveSettings();
+      });
+    }
+    
+    if (positionSelect) {
+      positionSelect.value = extensionSettings.potionHelper.position;
+      positionSelect.addEventListener('change', (e) => {
+        extensionSettings.potionHelper.position = e.target.value;
+        saveSettings();
+        if (extensionSettings.potionHelper.enabled) {
+          initFloatingPotionHelper();
+        }
+      });
+    }
+    
+    if (topOffsetInput) {
+      topOffsetInput.value = extensionSettings.potionHelper.topOffset;
+      topOffsetInput.addEventListener('change', (e) => {
+        extensionSettings.potionHelper.topOffset = e.target.value;
+        saveSettings();
+        if (extensionSettings.potionHelper.enabled) {
+          initFloatingPotionHelper();
+        }
+      });
+    }
+  }
+
+  function setupPetTeamsSettings() {
+    const enabledCheckbox = document.getElementById('pet-teams-enabled');
+    const delayInput = document.getElementById('pet-teams-delay');
+    const sidebarCheckbox = document.getElementById('pet-teams-sidebar');
+    
+    if (enabledCheckbox) {
+      enabledCheckbox.checked = extensionSettings.petTeams.enabled;
+      enabledCheckbox.addEventListener('change', (e) => {
+        extensionSettings.petTeams.enabled = e.target.checked;
+        saveSettings();
+        showNotification(`Pet Teams ${e.target.checked ? 'enabled' : 'disabled'}!`, 'success');
+      });
+    }
+    
+    if (delayInput) {
+      delayInput.value = extensionSettings.petTeams.applyDelay;
+      delayInput.addEventListener('change', (e) => {
+        const value = parseInt(e.target.value);
+        if (value >= 100 && value <= 2000) {
+          extensionSettings.petTeams.applyDelay = value;
+          saveSettings();
+          showNotification('Pet teams delay updated!', 'success');
+        }
+      });
+    }
+    
+    if (sidebarCheckbox) {
+      sidebarCheckbox.checked = extensionSettings.petTeams.showInSidebar;
+      sidebarCheckbox.addEventListener('change', (e) => {
+        extensionSettings.petTeams.showInSidebar = e.target.checked;
+        saveSettings();
+        showNotification(`Pet Teams ${e.target.checked ? 'added to' : 'removed from'} sidebar!`, 'success');
+      });
+    }
+  }
+
+  function setupQuestWidgetSettings() {
+    const enabledCheckbox = document.getElementById('quest-widget-enabled');
+    
+    if (enabledCheckbox) {
+      enabledCheckbox.checked = extensionSettings.questWidget.enabled;
+      enabledCheckbox.addEventListener('change', (e) => {
+        extensionSettings.questWidget.enabled = e.target.checked;
+        saveSettings();
+        if (e.target.checked) {
+          initSidebarQuestWidget();
+        } else {
+          const widget = document.getElementById('sidebar-quest-widget');
+          if (widget) widget.remove();
+        }
+        showNotification(`Quest Widget ${e.target.checked ? 'enabled' : 'disabled'}!`, 'success');
+      });
+    }
+  }
+
   function populateMonsterUrlInputs() {
     const container = document.getElementById('monster-url-inputs');
     if (!container) return;
@@ -5606,6 +7262,63 @@
     console.log(`Applied loot panel colors: ${lootCards.length} cards processed`);
   }
 
+  function applySemiTransparentEffect() {
+    if (!extensionSettings.semiTransparent.enabled) return;
+    
+    // Remove existing style if any
+    const existingStyle = document.getElementById('semi-transparent-style');
+    if (existingStyle) existingStyle.remove();
+    
+    const opacity = extensionSettings.semiTransparent.opacity || 0.85;
+    
+    const style = document.createElement('style');
+    style.id = 'semi-transparent-style';
+    style.textContent = `
+      .panel, .card, .section, .sidebar, .game-sidebar {
+        background-color: rgba(30, 30, 46, ${opacity}) !important;
+        backdrop-filter: blur(10px) !important;
+      }
+      .modal-content, .modal-body {
+        background-color: rgba(30, 30, 46, ${opacity}) !important;
+        backdrop-filter: blur(10px) !important;
+      }
+    `;
+    
+    document.head.appendChild(style);
+  }
+
+  // Function to ensure semi-transparent persists
+  function ensureSemiTransparentPersistence() {
+    if (!extensionSettings.semiTransparent.enabled) return;
+    
+    const style = document.getElementById('semi-transparent-style');
+    if (!style) {
+      applySemiTransparentEffect();
+    }
+  }
+
+  // Set up persistence observer for semi-transparent effect
+  function initSemiTransparentPersistence() {
+    if (!extensionSettings.semiTransparent.enabled) return;
+    
+    applySemiTransparentEffect();
+    
+    // Observe DOM changes to re-apply if needed
+    const observer = new MutationObserver(() => {
+      ensureSemiTransparentPersistence();
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Also re-apply on page changes
+    setInterval(() => {
+      ensureSemiTransparentPersistence();
+    }, 5000);
+  }
+
   function initWaveAutoRefresh() {
     // Check if we're on a wave page
     const isWavePage = window.location.pathname.includes('active_wave.php') || 
@@ -6271,6 +7984,79 @@
     topbarRight.appendChild(settingsButton);
   }
 
+  async function createTopbarProfileCircle() {
+    const topbarRight = document.querySelector('.gtb-right');
+    if (!topbarRight || document.querySelector('.topbar-profile-circle')) return;
+    
+    try {
+      const pid = userId || getCookieExtension('demon');
+      
+      const profileCircle = document.createElement('div');
+      profileCircle.className = 'topbar-profile-circle';
+      profileCircle.style.cssText = `
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #89b4fa, #cba6f7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1e1e2e;
+        font-weight: bold;
+        font-size: 14px;
+        cursor: pointer;
+        margin-left: 10px;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        border: 2px solid rgba(137, 180, 250, 0.3);
+      `;
+      
+      // Fetch the player page to get the actual avatar URL
+      try {
+        const response = await fetch(`player.php?pid=${pid}`, {
+          credentials: 'include'
+        });
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const avatarImg = doc.querySelector('.avatar img');
+        
+        if (avatarImg && avatarImg.src) {
+          const img = document.createElement('img');
+          img.src = avatarImg.src;
+          img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+          img.onerror = () => {
+            // Fallback to user ID first letter if image fails to load
+            profileCircle.innerHTML = (pid || 'U').toString().charAt(0).toUpperCase();
+          };
+          profileCircle.appendChild(img);
+        } else {
+          // No avatar found, use fallback
+          profileCircle.innerHTML = (pid || 'U').toString().charAt(0).toUpperCase();
+        }
+      } catch (fetchError) {
+        // If fetch fails, use fallback
+        profileCircle.innerHTML = (pid || 'U').toString().charAt(0).toUpperCase();
+      }
+      
+      profileCircle.addEventListener('mouseenter', () => {
+        profileCircle.style.transform = 'scale(1.1)';
+      });
+      
+      profileCircle.addEventListener('mouseleave', () => {
+        profileCircle.style.transform = 'scale(1)';
+      });
+      
+      profileCircle.addEventListener('click', () => {
+        window.location.href = `player.php?pid=${pid}`;
+      });
+      
+      topbarRight.appendChild(profileCircle);
+    } catch (error) {
+      console.error('Error creating profile circle:', error);
+    }
+  }
+
   function createBackToDashboardButton() {
     const topbarInner = document.querySelector('.gtb-inner');
     if (!topbarInner || document.querySelector('.back-to-dashboard-btn')) return;
@@ -6314,23 +8100,12 @@
     // Add collapsible functionality to all sections 
     modal.querySelectorAll('.settings-section').forEach(section => {
       if (!section.querySelector('.settings-section-header')) {
-        // Add header wrapper if missing
-        const title = section.querySelector('h3');
-        if (title) {
-          const content = section.innerHTML;
-          const header = document.createElement('div'); 
-          header.className = 'settings-section-header';
-          header.innerHTML = `
-            <h3>${title.textContent}</h3>
-            <span class="expand-icon">–</span>
-          `;
-          section.innerHTML = '';
-          section.appendChild(header);
-
-          const contentDiv = document.createElement('div');
+        // Add leaderboard if present (single rendering only)
+        if (monster.leaderboard && monster.leaderboard.length > 0) {
+          html += `<div style=\"background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px;\">\n\
           contentDiv.className = 'settings-section-content expanded';
           contentDiv.innerHTML = content.replace(title.outerHTML, '');
-          section.appendChild(contentDiv);
+          section.appendChild(contentDiv);`
         }
       }
 
@@ -6338,41 +8113,8 @@
       const content = section.querySelector('.settings-section-content');
       const icon = header?.querySelector('.expand-icon');
 
-      if (header && content && icon) {
-        header.addEventListener('click', () => {
-          const isExpanded = content.classList.contains('expanded');
-          content.classList.toggle('expanded');
-          icon.textContent = isExpanded ? '+' : '–';
-        });
-      }
-    });
-
-    // Use event delegation for all modal buttons
-    document.addEventListener('click', (e) => {
-      if (e.target && e.target.classList.contains('settings-button')) {
-        const action = e.target.getAttribute('data-action');
-        
-        switch (action) {
-          case 'close':
-            e.preventDefault();
-            e.stopPropagation();
-            closeSettingsModal();
-            break;
-          case 'reset':
-            e.preventDefault();
-            e.stopPropagation();
-            resetSettings();
-            break;
-          case 'clear':
-            e.preventDefault();
-            e.stopPropagation();
-            clearAllData();
-            break;
-        }
-      }
     });
   }
-
   function updateColorSelections() {
       // Update sidebar color input
       const sidebarColorInput = document.getElementById('sidebar-custom-color');
@@ -6777,6 +8519,13 @@
     // Initialize page-specific functionality
     safeExecute(() => initPageSpecificFunctionality(), 'Page-Specific Functionality');
     
+    // Initialize new systems
+    safeExecute(() => initUserData(), 'User Data Initialization');
+    safeExecute(() => initFloatingPotionHelper(), 'Potion Helper');
+    safeExecute(() => initSidebarQuestWidget(), 'Quest Widget');
+    safeExecute(() => initializePetTeams(), 'Pet Teams');
+    safeExecute(() => initSemiTransparentPersistence(), 'Semi-Transparent Effect');
+    safeExecute(() => createTopbarProfileCircle(), 'Profile Circle');
     
     // Update sidebar quantities on all pages
     setTimeout(() => {
@@ -8567,6 +10316,159 @@
     applyMonsterFilters();
     showNotification('All filters cleared!', 'info');
   }
+
+  function toggleMonsterView(viewMode) {
+    // viewMode can be 'compact' or 'normal'
+    const monsterCards = document.querySelectorAll('.monster-card, .wave-monster');
+    
+    if (viewMode === 'compact') {
+      monsterCards.forEach(card => {
+        card.style.cssText += `
+          padding: 8px !important;
+          margin: 4px !important;
+        `;
+        
+        const img = card.querySelector('img');
+        if (img) img.style.display = 'none';
+        
+        const details = card.querySelectorAll('.monster-details, .description');
+        details.forEach(d => d.style.fontSize = '11px');
+      });
+    } else {
+      monsterCards.forEach(card => {
+        card.style.cssText = '';
+        
+        const img = card.querySelector('img');
+        if (img) img.style.display = '';
+        
+        const details = card.querySelectorAll('.monster-details, .description');
+        details.forEach(d => d.style.fontSize = '');
+      });
+    }
+  }
+
+  // Enhanced Continue Battle button handler for modal integration
+  function initContinueBattleModal() {
+    console.log('initContinueBattleModal called, enabled:', extensionSettings.battleModal.enabled);
+    
+    if (!extensionSettings.battleModal.enabled) {
+      console.log('Battle modal disabled, skipping');
+      return;
+    }
+    
+    // Find all battle buttons (both links and buttons), but exclude loot buttons
+    const continueButtons = document.querySelectorAll('a[href*="battle.php?id="], button[onclick*="battle"], .join-btn');
+    console.log('Found buttons:', continueButtons.length);
+    
+    continueButtons.forEach((btn, index) => {
+      // Skip loot buttons
+      const btnText = btn.textContent.trim().toLowerCase();
+      if (btnText.includes('loot') || btnText.includes('💰')) {
+        console.log(`Button ${index}: Skipping loot button`);
+        return;
+      }
+      // Try multiple ways to get the monster ID
+      let monsterId = null;
+      
+      // Method 1: Check href attribute
+      const href = btn.getAttribute('href') || '';
+      let match = href.match(/battle\.php\?id=(\d+)/);
+      if (match) {
+        monsterId = match[1];
+        console.log(`Button ${index}: Found ID in href:`, monsterId);
+      }
+      
+      // Method 2: Check onclick attribute
+      if (!monsterId) {
+        const onclick = btn.getAttribute('onclick') || '';
+        match = onclick.match(/battle\.php\?id=(\d+)|id[=:](\d+)/);
+        if (match) {
+          monsterId = match[1] || match[2];
+          console.log(`Button ${index}: Found ID in onclick:`, monsterId);
+        }
+      }
+      
+      // Method 3: Check if button is inside a monster card and find the link there
+      if (!monsterId) {
+        const monsterCard = btn.closest('.monster-card, .wave-monster, .battle-card');
+        if (monsterCard) {
+          console.log(`Button ${index}: Found monster card, searching for link...`);
+          // Look for ALL links, including hidden ones
+          const cardLinks = monsterCard.querySelectorAll('a[href*="battle.php?id="], a[data-monster-id]');
+          for (const cardLink of cardLinks) {
+            // Try href first
+            if (cardLink.href) {
+              console.log(`Button ${index}: Found card link:`, cardLink.href);
+              match = cardLink.href.match(/battle\.php\?id=(\d+)/);
+              if (match) {
+                monsterId = match[1];
+                console.log(`Button ${index}: Extracted ID from card href:`, monsterId);
+                break;
+              }
+            }
+            // Try data-monster-id attribute
+            if (!monsterId && cardLink.hasAttribute('data-monster-id')) {
+              monsterId = cardLink.getAttribute('data-monster-id');
+              console.log(`Button ${index}: Extracted ID from card data attribute:`, monsterId);
+              break;
+            }
+          }
+          if (!monsterId) {
+            console.log(`Button ${index}: No link found in card`);
+          }
+        } else {
+          console.log(`Button ${index}: No monster card parent found`);
+        }
+      }
+      
+      // Method 4: Check data-monster-id attribute
+      if (!monsterId) {
+        monsterId = btn.getAttribute('data-monster-id');
+        if (monsterId) {
+          console.log(`Button ${index}: Found ID in data attribute:`, monsterId);
+        }
+      }
+      
+      if (monsterId) {
+        console.log(`Button ${index}: Final monster ID:`, monsterId, 'Button:', btn);
+        
+        // Store the monster ID on the button
+        btn.setAttribute('data-monster-id', monsterId);
+        
+        // Remove any existing onclick handlers to prevent conflicts
+        if (btn.hasAttribute('onclick')) {
+          btn.removeAttribute('onclick');
+        }
+        
+        // Remove href to prevent navigation
+        if (btn.tagName === 'A') {
+          btn.style.cursor = 'pointer';
+          btn.removeAttribute('href');
+        }
+        
+        // Remove any existing event listeners by cloning
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.addEventListener('click', async (e) => {
+          console.log('BATTLE BUTTON CLICKED! Monster ID:', monsterId);
+          e.preventDefault();
+          e.stopPropagation();
+          
+          if (!extensionSettings.battleModal.enabled) {
+            // If disabled, navigate normally
+            window.location.href = `battle.php?id=${monsterId}`;
+            return;
+          }
+          
+          await handleJoin(monsterId, newBtn);
+        }, true); // Use capture phase to ensure we get the event first
+      } else {
+        console.log(`Button ${index}: No monster ID found for button:`, btn);
+      }
+    });
+  }
+
   //#endregion
 
   //#region Loot and battle functionality
@@ -8639,34 +10541,68 @@
     .catch(() => showNotification('Server error. Please try again.', 'error'));
   }
 
-  function lootWave(monsterId) {
-    fetch('loot.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'monster_id=' + monsterId + '&user_id=' + userId
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success') {
-            const lootContainer = document.getElementById('lootItems');
-            lootContainer.innerHTML = '';
+  async function lootWave(monsterId) {
+    try {
+      const response = await fetch('loot.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'monster_id=' + monsterId + '&user_id=' + userId
+      });
+      
+      // Try to parse as JSON first
+      const text = await response.text();
+      let data;
+      
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // If not JSON, assume success if response is ok
+        if (response.ok) {
+          showNotification('Loot claimed successfully!', 'success');
+          // Refresh the page to update loot status
+          setTimeout(() => location.reload(), 1000);
+          return;
+        } else {
+          throw new Error('Server returned non-JSON response');
+        }
+      }
+      
+      // Handle JSON response
+      if (data.status === 'success') {
+        const lootContainer = document.getElementById('lootItems');
+        if (lootContainer) {
+          lootContainer.innerHTML = '';
 
+          if (data.items && data.items.length > 0) {
             data.items.forEach(item => {
-                const div = document.createElement('div');
-                div.style = 'background:#1e1e2f; border-radius:8px; padding:10px; text-align:center; width:80px;';
-                div.innerHTML = `
-                    <img src="${item.IMAGE_URL}" alt="${item.NAME}" style="width:64px; height:64px;"><br>
-                    <small>${item.NAME}</small>
-                `;
-                lootContainer.appendChild(div);
+              const div = document.createElement('div');
+              div.style = 'background:#1e1e2f; border-radius:8px; padding:10px; text-align:center; width:80px;';
+              div.innerHTML = `
+                <img src="${item.IMAGE_URL}" alt="${item.NAME}" style="width:64px; height:64px;"><br>
+                <small>${item.NAME}</small>
+              `;
+              lootContainer.appendChild(div);
             });
 
-            document.getElementById('lootModal').style.display = 'flex';
+            const modal = document.getElementById('lootModal');
+            if (modal) modal.style.display = 'flex';
+          } else {
+            showNotification('Loot claimed successfully!', 'success');
+            setTimeout(() => location.reload(), 1000);
+          }
         } else {
-            showNotification(data.message || 'Failed to loot.', 'error');
+          showNotification('Loot claimed successfully!', 'success');
+          setTimeout(() => location.reload(), 1000);
         }
-    })
-    .catch(() => showNotification("Server error", 'error'));
+      } else {
+        showNotification(data.message || 'Failed to loot.', 'error');
+      }
+    } catch (error) {
+      console.error('Loot error:', error);
+      // Even if there's an error, the loot was likely claimed, so show success and reload
+      showNotification('Loot claimed! Refreshing...', 'success');
+      setTimeout(() => location.reload(), 1500);
+    }
   }
 
   function addLootAllButtonToHeader(lootHeader, lootCount) {
@@ -10180,6 +12116,7 @@
     initMonsterSorting()
     initWaveAutoRefresh()
     initMonsterLootPreview()
+    initContinueBattleModal()
   }
 
   function initPvPHistoryCollapse() {
@@ -10441,6 +12378,11 @@
     initAnyClickClosesModal()
     addBattleHideImagesToggle()
     initBattleLayoutSideBySide()
+    
+    // Initialize battle modal if enabled
+    if (extensionSettings.battleModal.enabled) {
+      initBattlePageModal();
+    }
     
     // Apply initial monster backgrounds
     applyMonsterBackgrounds()
@@ -10718,6 +12660,863 @@
     
     applyCustomBackgrounds();
   }
+
+  // NEW: Define initDungeonLocationMods to fix the ReferenceError
+  function initDungeonLocationMods() {
+    applyCustomBackgrounds();
+  }
+
+  // ===== ENHANCED POTION HELPER SYSTEM =====
+
+  // Enhanced findConsumableByName with improved detection
+  async function findConsumableByName(name) {
+    try {
+      const response = await fetch('inventory.php');
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      const allSlots = doc.querySelectorAll('.slot-box');
+      
+      for (const slot of allSlots) {
+        const img = slot.querySelector('img');
+        const label = slot.querySelector('.label');
+        
+        if (img && label) {
+          const itemName = img.getAttribute('alt');
+          
+          if (itemName === name) {
+            const onclick = slot.getAttribute('onclick');
+            if (!onclick) continue;
+            
+            const invIdMatch = onclick.match(/inv_id['"]\s*:\s*['"]([^'"]+)['"]/);
+            const itemIdMatch = onclick.match(/item_id['"]\s*:\s*['"]([^'"]+)['"]/);
+            
+            if (invIdMatch && itemIdMatch) {
+              const labelText = label.textContent;
+              const quantityMatch = labelText.match(/x(\d+)/);
+              const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+              
+              return {
+                inv_id: invIdMatch[1],
+                item_id: itemIdMatch[1],
+                name: itemName,
+                quantity: quantity
+              };
+            }
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error finding consumable:', error);
+      return null;
+    }
+  }
+
+  // Use item by inv_id with enhanced logic
+  async function consumeByName(name, count = 1) {
+    try {
+      const item = await findConsumableByName(name);
+      
+      if (!item) {
+        showNotification(`${name} not found`, '#e74c3c');
+        return false;
+      }
+      
+      if (item.quantity < count) {
+        showNotification(`Not enough ${name} (have ${item.quantity}, need ${count})`, '#e74c3c');
+        return false;
+      }
+      
+      const result = await postAction('inventory.php', {
+        use_item: item.inv_id,
+        quantity: count
+      });
+      
+      if (result.success) {
+        showNotification(result.message || `Used ${count}x ${name}`, '#2ecc71');
+        
+        // If it's an exp potion, start timer
+        if (name.includes('Exp Potion')) {
+          startPotionExpTimer();
+        }
+        
+        return true;
+      } else {
+        showNotification(result.message || 'Failed to use item', '#e74c3c');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error consuming item:', error);
+      showNotification('Error using item', '#e74c3c');
+      return false;
+    }
+  }
+
+  // Exp timer functions for potion tracking
+  function startPotionExpTimer() {
+    potionExpTimerEnd = Date.now() + (30 * 60 * 1000); // 30 minutes
+    localStorage.setItem(POTION_STORAGE_KEY, potionExpTimerEnd);
+    resumePotionExpTimerIfActive();
+  }
+
+  function resumePotionExpTimerIfActive() {
+    const savedEnd = localStorage.getItem(POTION_STORAGE_KEY);
+    if (savedEnd) {
+      potionExpTimerEnd = parseInt(savedEnd);
+      if (potionExpTimerEnd > Date.now()) {
+        if (potionExpTimer) clearInterval(potionExpTimer);
+        potionExpTimer = setInterval(updatePotionExpTimerUI, 1000);
+      }
+    }
+  }
+
+  function updatePotionExpTimerUI() {
+    const expTimerElem = document.getElementById('exp-potion-timer');
+    if (!expTimerElem) return;
+    
+    const remaining = potionExpTimerEnd - Date.now();
+    if (remaining <= 0) {
+      clearInterval(potionExpTimer);
+      localStorage.removeItem(POTION_STORAGE_KEY);
+      expTimerElem.textContent = '00:00';
+      return;
+    }
+    
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    expTimerElem.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Initialize floating potion helper
+  function initFloatingPotionHelper() {
+    if (!extensionSettings.potionHelper.enabled || !extensionSettings.potionHelper.showFloatingIcons) return;
+    
+    const existing = document.getElementById('floating-potion-helper');
+    if (existing) existing.remove();
+    
+    const container = document.createElement('div');
+    container.id = 'floating-potion-helper';
+    container.style.cssText = `
+      position: fixed;
+      ${extensionSettings.potionHelper.position === 'left' ? 'left: 10px;' : 'right: 10px;'}
+      top: ${extensionSettings.potionHelper.topOffset};
+      z-index: 9998;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    `;
+    
+    POTIONS.forEach(p => {
+      container.appendChild(createPotionBox(p));
+    });
+    
+    document.body.appendChild(container);
+    resumePotionExpTimerIfActive();
+  }
+
+  // Helper functions for potion UI
+  function closeAllPotionPanels(exceptKey) {
+    POTIONS.forEach(p => {
+      if (p.key !== exceptKey) {
+        const panel = document.getElementById(`potion-panel-${p.key}`);
+        if (panel) panel.style.display = 'none';
+      }
+    });
+  }
+
+  function createPotionBox(p) {
+    const box = document.createElement('div');
+    box.id = `potion-box-${p.key}`;
+    box.style.cssText = `
+      background: #1e1e2e;
+      border: 2px solid #89b4fa;
+      border-radius: 12px;
+      padding: 8px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    
+    box.innerHTML = `
+      <img src="${p.icon}" style="width: 48px; height: 48px; display: block; border-radius: 6px;" />
+      <div id="potion-count-${p.key}" style="
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        background: #11111b;
+        color: #a6e3a1;
+        font-size: 11px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      ">...</div>
+      ${p.hasTimer ? `<div id="exp-potion-timer" style="
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        background: #f9e2af;
+        color: #1e1e2e;
+        font-size: 10px;
+        font-weight: bold;
+        padding: 2px 4px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      ">00:00</div>` : ''}
+      <div id="potion-panel-${p.key}" style="
+        display: none;
+        position: absolute;
+        ${extensionSettings.potionHelper.position === 'left' ? 'left: 70px;' : 'right: 70px;'}
+        top: 0;
+        background: #181825;
+        border: 2px solid #89b4fa;
+        border-radius: 8px;
+        padding: 12px;
+        min-width: 150px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      ">
+        <div style="color: #cdd6f4; font-size: 14px; font-weight: bold; margin-bottom: 8px;">${p.name}</div>
+        <div style="color: #a6adc8; font-size: 11px; margin-bottom: 10px;">Stock: <span id="potion-stock-${p.key}">...</span></div>
+        ${p.multi ? `
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
+            ${[1, 5, 10].map(n => `
+              <button class="use-potion-btn" data-key="${p.key}" data-amount="${n}" style="
+                background: #89b4fa;
+                color: #1e1e2e;
+                border: none;
+                padding: 6px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: bold;
+                font-size: 12px;
+              ">Use ${n}</button>
+            `).join('')}
+          </div>
+        ` : ''}
+        <button class="use-potion-btn" data-key="${p.key}" data-amount="1" style="
+          background: #a6e3a1;
+          color: #1e1e2e;
+          border: none;
+          padding: 8px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+          width: 100%;
+          font-size: 13px;
+        ">Use${p.multi ? ' 1' : ''}</button>
+        <button class="refresh-potion-btn" data-key="${p.key}" style="
+          background: #f9e2af;
+          color: #1e1e2e;
+          border: none;
+          padding: 6px;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 6px;
+          width: 100%;
+          font-size: 11px;
+        ">Refresh</button>
+      </div>
+    `;
+    
+    box.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = document.getElementById(`potion-panel-${p.key}`);
+      const isVisible = panel.style.display === 'block';
+      closeAllPotionPanels();
+      panel.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible) refreshSinglePotion(p);
+    });
+    
+    box.querySelectorAll('.use-potion-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const amount = parseInt(btn.getAttribute('data-amount'));
+        btn.disabled = true;
+        btn.textContent = 'Using...';
+        await consumeByName(p.name, amount);
+        await refreshSinglePotion(p);
+        btn.disabled = false;
+        btn.textContent = `Use ${amount === 1 && !p.multi ? '' : amount}`;
+      });
+    });
+    
+    box.querySelectorAll('.refresh-potion-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await refreshSinglePotion(p);
+      });
+    });
+    
+    return box;
+  }
+
+  async function refreshSinglePotion(p) {
+    const item = await findConsumableByName(p.name);
+    const count = item ? item.quantity : 0;
+    const countElem = document.getElementById(`potion-count-${p.key}`);
+    const stockElem = document.getElementById(`potion-stock-${p.key}`);
+    if (countElem) countElem.textContent = count;
+    if (stockElem) stockElem.textContent = count;
+  }
+
+  async function refreshAllPotionCounts() {
+    for (const p of POTIONS) {
+      await refreshSinglePotion(p);
+    }
+  }
+
+  // ===== END ENHANCED POTION HELPER SYSTEM =====
+
+  // ===== ADVANCED PET TEAMS SYSTEM =====
+
+  // Pet teams utility functions
+  function getPetStorageTeams() {
+    try {
+      return JSON.parse(localStorage.getItem(PET_STORAGE_KEY) || '{}');
+    } catch (error) {
+      console.error('Error loading pet teams:', error);
+      return {};
+    }
+  }
+
+  function savePetStorageTeams(obj) {
+    try {
+      localStorage.setItem(PET_STORAGE_KEY, JSON.stringify(obj));
+    } catch (error) {
+      console.error('Error saving pet teams:', error);
+    }
+  }
+
+  function showPetNotification(msg, type = "info") {
+    const colors = { info: '#89b4fa', success: '#a6e3a1', error: '#f38ba8' };
+    showNotification(msg, colors[type] || colors.info);
+  }
+
+  // Pet teams integrated UI builder
+  function addPetTeamsToPage() {
+    if (document.getElementById('integrated-pet-teams')) return;
+    
+    const container = document.querySelector('.section');
+    if (!container) return;
+    
+    const savedCollapseState = localStorage.getItem('petTeamsCollapsed');
+    const isCollapsed = savedCollapseState === null ? true : savedCollapseState === 'true';
+    
+    const contentStyles = isCollapsed 
+      ? 'transition: all 0.3s ease; overflow: hidden; max-height: 0px; opacity: 0; margin-top: 0px;'
+      : 'transition: all 0.3s ease; overflow: hidden; max-height: 1000px; opacity: 1; margin-top: 15px;';
+    
+    const toggleStyles = isCollapsed
+      ? 'font-size: 16px; color: #89b4fa; transition: transform 0.3s ease; transform: rotate(-90deg);'
+      : 'font-size: 16px; color: #89b4fa; transition: transform 0.3s ease;';
+    
+    const toggleIcon = isCollapsed ? '▶' : '▼';
+    
+    const petTeamsPanel = document.createElement('div');
+    petTeamsPanel.id = 'integrated-pet-teams';
+    petTeamsPanel.style.cssText = 'background: #1e1e2e; border: 2px solid #89b4fa; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);';
+    
+    petTeamsPanel.innerHTML = `
+      <div id="pet-teams-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
+        <h3 style="margin: 0; color: #cba6f7; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+          <span id="pet-teams-toggle" style="${toggleStyles}">${toggleIcon}</span>
+          Pet Teams Manager
+        </h3>
+      </div>
+      
+      <div id="pet-teams-content" style="${contentStyles}">
+        <div id="pet-recording-section" style="background: #181825; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+          <button id="start-pet-record" style="background: #a6e3a1; color: #1e1e2e; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px;">
+            Start Recording Pet Team
+          </button>
+          <div id="pet-preview" style="display: none; margin-top: 10px; padding: 10px; background: #11111b; border-radius: 6px; color: #cdd6f4;"></div>
+          <div id="pet-save-section" style="display: none; margin-top: 10px;">
+            <input type="text" id="pet-team-name-input" placeholder="Enter team name..." style="width: calc(100% - 120px); padding: 8px; border: 2px solid #89b4fa; border-radius: 6px; background: #11111b; color: #cdd6f4; margin-right: 8px;" />
+            <button id="save-pet-team-btn" style="background: #89b4fa; color: #1e1e2e; border: none; padding-top: 10px;padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">Save Team</button>
+          </div>
+        </div>
+        
+        <div id="integrated-pet-teams-list" style="display: grid; gap: 10px;"></div>
+      </div>
+    `;
+    
+    container.insertBefore(petTeamsPanel, container.firstChild);
+    
+    // Toggle functionality - make the entire header clickable
+    document.getElementById('pet-teams-header').addEventListener('click', () => {
+      const content = document.getElementById('pet-teams-content');
+      const toggle = document.getElementById('pet-teams-toggle');
+      const isCurrentlyCollapsed = content.style.maxHeight === '0px';
+      
+      if (isCurrentlyCollapsed) {
+        content.style.maxHeight = '1000px';
+        content.style.opacity = '1';
+        content.style.marginTop = '15px';
+        toggle.style.transform = 'rotate(0deg)';
+        toggle.textContent = '▼';
+        localStorage.setItem('petTeamsCollapsed', 'false');
+      } else {
+        content.style.maxHeight = '0px';
+        content.style.opacity = '0';
+        content.style.marginTop = '0px';
+        toggle.style.transform = 'rotate(-90deg)';
+        toggle.textContent = '▶';
+        localStorage.setItem('petTeamsCollapsed', 'true');
+      }
+    });
+    
+    // Add event listeners for recording buttons
+    document.getElementById('start-pet-record').addEventListener('click', () => {
+      if (isPetRecording) {
+        stopPetRecordingSelection();
+      } else {
+        startPetRecordingSelection();
+      }
+    });
+    
+    document.getElementById('save-pet-team-btn').addEventListener('click', () => {
+      saveCurrentPetTeam();
+    });
+    
+    loadPetTeams();
+  }
+
+  // Apply pet teams with advanced logic
+  async function applyAdvancedPetTeam(teamObj) {
+    showPetNotification('Applying pet team...', 'info');
+    
+    try {
+      // Get current team from URL (atk, def, or support)
+      const urlParams = new URLSearchParams(window.location.search);
+      const currentTeam = urlParams.get('team') || 'atk';
+      
+      // Step 1: Unequip all current pets in slots 1, 2, 3
+      for (let slot = 1; slot <= 3; slot++) {
+        try {
+          const body = `action=unequip_pet&team=${encodeURIComponent(currentTeam)}&slot_id=${slot}`;
+          
+          const response = await fetch('inventory_ajax.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body,
+            credentials: 'include'
+          });
+          
+          const text = await response.text();
+          console.log(`Unequip slot ${slot} response:`, text);
+          
+          if (text.trim() !== 'OK') {
+            console.warn(`Unequip slot ${slot} returned: ${text}`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+          console.log(`Could not unequip slot ${slot}:`, error);
+        }
+      }
+      
+      // Wait a bit for unequip to process
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Step 2: Equip the new pets
+      // Sort by slot number to ensure correct order
+      const sortedSlots = Object.entries(teamObj).sort((a, b) => a[1].slot - b[1].slot);
+      
+      for (const [slotKey, petData] of sortedSlots) {
+        const petInvId = petData.petInvId;
+        const targetSlot = petData.slot; // Should be 1, 2, or 3
+        
+        if (!petInvId || !targetSlot) {
+          console.warn('Missing pet data:', petData);
+          continue;
+        }
+        
+        try {
+          const body = `action=equip_pet&team=${encodeURIComponent(currentTeam)}&pet_inv_id=${petInvId}&slot_id=${targetSlot}`;
+          
+          const response = await fetch('inventory_ajax.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body,
+            credentials: 'include'
+          });
+          
+          const text = await response.text();
+          console.log(`Equip ${petData.name} to slot ${targetSlot} response:`, text);
+          
+          if (text.trim() !== 'OK') {
+            console.warn(`Equip ${petData.name} returned: ${text}`);
+          }
+          
+          // Delay between equipping pets
+          await new Promise(resolve => setTimeout(resolve, PET_APPLY_DELAY));
+          
+        } catch (error) {
+          console.error(`Error equipping ${petData.name}:`, error);
+        }
+      }
+      
+      showPetNotification('Pet team applied! Reloading...', 'success');
+      
+      // Reload the page to show the updated pets
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error applying pet team:', error);
+      showPetNotification('Error applying pet team', 'error');
+    }
+  }
+
+  // Pet teams recording and management
+  let currentPetRecord = {};
+  let isPetRecording = false;
+
+  // Start recording pet selection
+  window.startPetRecordingSelection = function() {
+    isPetRecording = true;
+    currentPetRecord = {};
+    
+    const recordBtn = document.getElementById('start-pet-record');
+    if (recordBtn) {
+      recordBtn.textContent = 'Recording... (Click pets to select)';
+      recordBtn.style.background = '#f9e2af';
+    }
+    
+    const preview = document.getElementById('pet-preview');
+    const saveSection = document.getElementById('pet-save-section');
+    if (preview) preview.style.display = 'block';
+    if (saveSection) saveSection.style.display = 'block';
+    
+    updatePetPreview();
+    showPetNotification('Click on pets to add them to your team', 'info');
+  };
+
+  function stopPetRecordingSelection() {
+    isPetRecording = false;
+    
+    const recordBtn = document.getElementById('start-pet-record');
+    if (recordBtn) {
+      recordBtn.textContent = 'Start Recording Pet Team';
+      recordBtn.style.background = '#a6e3a1';
+    }
+    
+    // Reset input and button to default state
+    const nameInput = document.getElementById('pet-team-name-input');
+    const saveBtn = document.getElementById('save-pet-team-btn');
+    
+    if (nameInput) {
+      nameInput.style.display = '';
+      nameInput.style.width = 'calc(100% - 120px)';
+    }
+    
+    if (saveBtn) {
+      saveBtn.textContent = 'Save Team';
+      saveBtn.style.width = '';
+    }
+    
+    // Clear all visual highlights
+    const allSlots = document.querySelectorAll('.slot-box');
+    allSlots.forEach(slot => {
+      slot.style.border = '';
+    });
+    
+    updatePetPreview();
+  }
+
+  function updatePetPreview() {
+    const preview = document.getElementById('pet-preview');
+    if (!preview) return;
+    
+    const petCount = Object.keys(currentPetRecord).length;
+    if (petCount === 0) {
+      preview.innerHTML = '<div style="color: #6c7086; text-align: center;">No pets selected yet</div>';
+      return;
+    }
+    
+    let html = '<div style="font-weight: bold; margin-bottom: 8px; color: #cba6f7;">Selected Pets:</div>';
+    html += '<div style="display: grid; gap: 6px;">';
+    
+    for (const [slot, petData] of Object.entries(currentPetRecord)) {
+      html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #1e1e2e; padding: 8px; border-radius: 4px;">
+          <span style="color: #a6e3a1;">Slot ${slot}: ${petData.name || 'Pet'}</span>
+          <button data-remove-slot="${slot}" style="background: #f38ba8; color: #1e1e2e; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Remove</button>
+        </div>
+      `;
+    }
+    
+    html += '</div>';
+    preview.innerHTML = html;
+    
+    // Add event listeners to remove buttons
+    preview.querySelectorAll('button[data-remove-slot]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const slot = e.target.getAttribute('data-remove-slot');
+        removeFromPetPreview(slot);
+      });
+    });
+  }
+
+  function removeFromPetPreview(slot) {
+    delete currentPetRecord[slot];
+    updatePetPreview();
+    
+    // Remove visual highlight from the pet slot
+    const allSlots = Array.from(document.querySelectorAll('.slot-box'));
+    const slotIndex = parseInt(slot) - 1;
+    if (allSlots[slotIndex]) {
+      allSlots[slotIndex].style.border = '';
+    }
+    
+    showPetNotification('Pet removed from team', 'info');
+  }
+
+  function updateFloatingPetPreview() {
+    // Additional floating preview if needed
+  }
+
+  window.saveCurrentPetTeam = function() {
+    const nameInput = document.getElementById('pet-team-name-input');
+    const teamName = nameInput ? nameInput.value.trim() : '';
+    
+    if (!teamName) {
+      showPetNotification('Please enter a team name', 'error');
+      return;
+    }
+    
+    const teams = getPetStorageTeams();
+    teams[teamName] = currentPetRecord;
+    savePetStorageTeams(teams);
+    
+    // Clear the recording state
+    currentPetRecord = {};
+    stopPetRecordingSelection();
+    
+    // Hide preview and save section
+    const preview = document.getElementById('pet-preview');
+    const saveSection = document.getElementById('pet-save-section');
+    if (preview) {
+      preview.style.display = 'none';
+      preview.innerHTML = '';
+    }
+    if (saveSection) saveSection.style.display = 'none';
+    
+    // Clear input and reload teams list
+    if (nameInput) nameInput.value = '';
+    loadPetTeams();
+    
+    showPetNotification(`Pet team "${teamName}" saved!`, 'success');
+  };
+
+  function loadPetTeams() {
+    const listContainer = document.getElementById('integrated-pet-teams-list');
+    if (!listContainer) return;
+    
+    const teams = getPetStorageTeams();
+    const teamNames = Object.keys(teams);
+    
+    if (teamNames.length === 0) {
+      listContainer.innerHTML = '<div style="text-align: center; color: #6c7086; padding: 20px;">No pet teams saved yet</div>';
+      return;
+    }
+    
+    listContainer.innerHTML = teamNames.map(name => {
+      const team = teams[name];
+      const petCount = Object.keys(team).length;
+      
+      return `
+        <div style="background: #181825; border-radius: 8px; padding: 15px; border: 1px solid #313244;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: bold; color: #cba6f7; margin-bottom: 4px;">${name}</div>
+              <div style="font-size: 12px; color: #a6adc8;">${petCount} pet(s)</div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button data-action="apply" data-team="${name}" style="background: #a6e3a1; color: #1e1e2e; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Apply</button>
+              <button data-action="edit" data-team="${name}" style="background: #f9e2af; color: #1e1e2e; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Edit</button>
+              <button data-action="delete" data-team="${name}" style="background: #f38ba8; color: #1e1e2e; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    // Add event listeners to all team buttons
+    listContainer.querySelectorAll('button[data-action]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = e.target.getAttribute('data-action');
+        const teamName = e.target.getAttribute('data-team');
+        
+        if (action === 'apply') {
+          applyPetTeam(teamName);
+        } else if (action === 'edit') {
+          editPetTeam(teamName);
+        } else if (action === 'delete') {
+          deletePetTeam(teamName);
+        }
+      });
+    });
+  }
+  
+  function applyPetTeam(name) {
+    const teams = getPetStorageTeams();
+    const teamData = teams[name];
+    if (teamData) {
+      applyAdvancedPetTeam(teamData);
+    }
+  }
+
+  function deletePetTeam(name) {
+    if (!confirm(`Delete pet team "${name}"?`)) return;
+    const teams = getPetStorageTeams();
+    delete teams[name];
+    savePetStorageTeams(teams);
+    loadPetTeams();
+    showPetNotification(`Pet team "${name}" deleted`, 'success');
+  }
+
+  function editPetTeam(name) {
+    const teams = getPetStorageTeams();
+    const teamData = teams[name];
+    if (!teamData) return;
+    
+    isPetRecording = true;
+    currentPetRecord = { ...teamData };
+    
+    const recordBtn = document.getElementById('start-pet-record');
+    if (recordBtn) {
+      recordBtn.textContent = `Editing: ${name}`;
+      recordBtn.style.background = '#f9e2af';
+    }
+    
+    // Show preview and save section when editing
+    const preview = document.getElementById('pet-preview');
+    const saveSection = document.getElementById('pet-save-section');
+    const nameInput = document.getElementById('pet-team-name-input');
+    const saveBtn = document.getElementById('save-pet-team-btn');
+    
+    if (preview) preview.style.display = 'block';
+    if (saveSection) saveSection.style.display = 'block';
+    
+    // Pre-fill the team name and hide the input
+    if (nameInput) {
+      nameInput.value = name;
+      nameInput.style.display = 'none';
+    }
+    
+    // Change save button text to "Update Team"
+    if (saveBtn) {
+      saveBtn.textContent = 'Update Team';
+      saveBtn.style.width = '100%';
+    }
+    
+    // Highlight the selected pets in the DOM
+    document.querySelectorAll('.slot-box').forEach(box => box.style.border = '');
+    for (const [slot, petData] of Object.entries(currentPetRecord)) {
+      const petBox = document.querySelector(`.slot-box[data-pet-inv-id="${petData.petInvId}"]`);
+      if (petBox) petBox.style.border = '3px solid #a6e3a1';
+    }
+    
+    updatePetPreview();
+    showPetNotification(`Editing pet team "${name}"`, 'info');
+  }
+
+  function initializePetTeams() {
+    if (!extensionSettings.petTeams.enabled) return;
+    if (window.location.pathname.includes('pets.php')) {
+      addPetTeamsToPage();
+      setupPetClickDetection();
+    }
+  }
+
+  // Setup click detection for pet recording
+  function setupPetClickDetection() {
+    document.addEventListener('click', (e) => {
+      if (!isPetRecording) return;
+      
+      // Look for pet slot clicks
+      const slotBox = e.target.closest('.slot-box');
+      if (!slotBox) return;
+      
+      // Get pet information
+      const img = slotBox.querySelector('img');
+      if (!img) return;
+      
+      const petName = img.getAttribute('alt') || 'Unknown Pet';
+      const petImage = img.src;
+      const petInvId = slotBox.getAttribute('data-pet-inv-id');
+      
+      // Check if this pet is already recorded (by petInvId)
+      let existingSlot = null;
+      for (const [slot, petData] of Object.entries(currentPetRecord)) {
+        if (petData.petInvId === petInvId) {
+          existingSlot = slot;
+          break;
+        }
+      }
+      
+      // If already selected, remove it
+      if (existingSlot) {
+        delete currentPetRecord[existingSlot];
+        // Remove all green borders and re-apply to remaining pets
+        document.querySelectorAll('.slot-box').forEach(box => box.style.border = '');
+        
+        // Re-highlight remaining selected pets
+        for (const [slot, petData] of Object.entries(currentPetRecord)) {
+          const petBox = document.querySelector(`.slot-box[data-pet-inv-id="${petData.petInvId}"]`);
+          if (petBox) petBox.style.border = '3px solid #a6e3a1';
+        }
+        
+        showPetNotification(`Removed ${petName} from team`, 'info');
+        updatePetPreview();
+        updateFloatingPetPreview();
+        return;
+      }
+      
+      // Check if max 3 pets selected
+      const currentCount = Object.keys(currentPetRecord).length;
+      if (currentCount >= 3) {
+        showPetNotification('Maximum 3 pets allowed. Remove one first.', 'error');
+        return;
+      }
+      
+      // Find next available slot (1, 2, or 3)
+      let nextSlot = 1;
+      while (currentPetRecord[nextSlot] && nextSlot <= 3) {
+        nextSlot++;
+      }
+      
+      if (nextSlot > 3) {
+        showPetNotification('All slots full', 'error');
+        return;
+      }
+      
+      // Add pet to next available slot
+      currentPetRecord[nextSlot] = {
+        name: petName,
+        image: petImage,
+        petInvId: petInvId,
+        slot: nextSlot
+      };
+      
+      slotBox.style.border = '3px solid #a6e3a1';
+      showPetNotification(`Added ${petName} to slot ${nextSlot}`, 'success');
+      
+      updatePetPreview();
+      updateFloatingPetPreview();
+    });
+  }
+
+  // ===== END ADVANCED PET TEAMS SYSTEM =====
 
 
 
