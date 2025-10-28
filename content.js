@@ -8652,6 +8652,88 @@ window.toggleSection = function(header) {
       }, 200);
       
       // Also try again after a longer delay to ensure elements are loaded
+      if (window.location.pathname.includes('battle.php')) {
+        setTimeout(() => {
+          // Remove monster card from battle grid if present
+          const battleGrid = document.querySelector('.battle-grid');
+          if (battleGrid) {
+            const monsterCard = battleGrid.querySelector('.monster-card');
+            if (monsterCard) monsterCard.remove();
+          }
+
+          // Find log panel and monster-display
+          const logPanel = document.querySelector('.log-panel');
+          const monsterDisplay = document.getElementById('monster-display');
+          if (logPanel && monsterDisplay) {
+            // Remove any existing injected monster card
+            const oldInjected = monsterDisplay.querySelector('.card.monster-card');
+            if (oldInjected) oldInjected.remove();
+
+            // Get monster name, ATK, DEF, HP, image
+            const monsterName = document.querySelector('.card-title')?.textContent?.trim() || '';
+            const monsterAtk = document.querySelector('.stat-block .label:contains("ATK")')?.nextElementSibling?.textContent?.trim() || '0';
+            const monsterDef = document.querySelector('.stat-block .label:contains("DEF")')?.nextElementSibling?.textContent?.trim() || '0';
+            const monsterImg = document.getElementById('monsterImage')?.src || '';
+            const monsterHP = document.getElementById('hpText')?.textContent?.trim() || '';
+            const monsterHPBar = document.getElementById('hpFill')?.style?.width || '100%';
+
+            // Build stat-line-mobs div
+            let statLine = document.createElement('div');
+            statLine.className = 'stat-line-mobs';
+            statLine.style = 'margin-top:6px;position: absolute;display: flex;gap: 8px;z-index: 2;';
+            statLine.innerHTML = `
+              <div class="stat-block">
+                <span class="label">ATK</span>
+                <strong>${monsterAtk}</strong>
+              </div>
+              <div class="stat-block">
+                <span class="label">DEF</span>
+                <strong>${monsterDef}</strong>
+              </div>
+            `;
+
+            // Build monster card HTML (compact)
+            let card = document.createElement('div');
+            card.className = 'card monster-card';
+            card.innerHTML = `
+              <div class="card-headline">
+                <div class="card-title">${monsterName}</div>
+              </div>
+              <div class="battle-actions-card">
+                <div class="battle-actions-head">
+                  <div class="label-left">
+                    ⚔ Action
+                    <span class="chip" style="background: rgb(42, 59, 32); border: 1px solid rgb(59, 90, 43); border-radius: 999px; padding: 2px 8px; font-size: 11px; color: rgb(201, 255, 201);">Not in battle</span>
+                  </div>
+                  <div style="font-size: 11px; color: rgb(154, 160, 184);">Tap to join instantly</div>
+                </div>
+                <div class="battle-actions-body">
+                  <button id="join-battle" class="btn btn-join" style="width:100%;" draggable="false">👉 Join the Battle</button>
+                </div>
+              </div>
+              <div>
+                <div class="hp-bar" style="justify-self: normal;">
+                  <div class="hp-fill hp-fill--monster" id="hpFill" style="width:${monsterHPBar}"></div>
+                </div>
+                <div class="hp-text" id="hpText" style="font-size:13px;">${monsterHP}</div>
+              </div>
+            `;
+
+            // Clear monsterDisplay and inject statLine and monster image
+            monsterDisplay.innerHTML = '';
+            monsterDisplay.appendChild(statLine);
+            // Monster image
+            let img = document.createElement('img');
+            img.className = 'monster_image';
+            img.id = 'monsterImage';
+            img.src = monsterImg;
+            img.style = 'width: 100%;height: auto;border-radius: 12px;border: 1px solid rgb(43, 46, 73);background: rgb(15, 16, 26);padding: 8px;box-shadow: rgba(0, 0, 0, 0.6) 0px 12px 32px;margin: 6px auto 10px;display: block;max-height: 400px;';
+            monsterDisplay.appendChild(img);
+            // Inject monster card below image
+            monsterDisplay.appendChild(card);
+          }
+        }, 300);
+      }
       setTimeout(() => {
         applyCustomBackgrounds();
         applyMonsterBackgrounds();
