@@ -10057,7 +10057,12 @@ window.toggleSection = function(header) {
     
     // Add event listeners to new checkboxes
     document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
-      checkbox.addEventListener('change', applyMonsterFilters);
+      checkbox.addEventListener('change', function() {
+        applyMonsterFilters();
+        if (typeof renderJoinCards === 'function') {
+          renderJoinCards();
+        }
+      });
     });
     
     // Restore saved filter state
