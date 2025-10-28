@@ -1665,6 +1665,109 @@ function parseAttackLogs(html) {
     } else {
       html += `<div style="color:#f38ba8; font-size:15px; font-weight:bold; margin:12px 0;">No attack skills available.<br><span style="font-size:13px; color:#fab387;">You may need to unlock skills, wait for the battle to start, or check your status.</span></div>`;
     }
+    // Add player health info
+    if (extensionSettings.battleModal.showPlayerInfo) {
+      html += `<div id="modal-player-info" style="background: #181825; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        <div class="battle-card player-card">
+          <h3 style="margin: 0 0 8px 0; color: #89b4fa; font-size: 14px;">Your Info</h3>
+          <div style="font-size: 13px;">HP: <span id="modal-player-hp" style="color: #a6e3a1; font-weight: bold;">Loading...</span> / <span id="modal-player-max-hp" style="color: #fab387;">Loading...</span></div>
+        </div>
+      </div>`;
+      setTimeout(async () => {
+        try {
+          const response = await fetch(`battle.php?id=${monster.id}`);
+          const htmlText = await response.text();
+          // Inject player info section as a separate part
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlText, 'text/html');
+          const playerCard = doc.querySelector('.battle-card.player-card');
+          if (playerCard) {
+            // Transform the player card to match requested structure
+            // Remove eyebrow and headline
+            // Remove any eyebrow with 'Retaliation Preview' or 'You' text
+            const eyebrows = playerCard.querySelectorAll('.eyebrow');
+            eyebrows.forEach(el => {
+              const txt = el.textContent.trim();
+              if (txt === 'Retaliation Preview' || txt === 'You') el.remove();
+            });
+            const headline = playerCard.querySelector('.card-headline');
+            if (headline) {
+              // Remove card-title and card-sub from headline
+              const cardTitle = headline.querySelector('.card-title');
+              if (cardTitle) cardTitle.remove();
+              const cardSub = headline.querySelector('.card-sub');
+              if (cardSub) cardSub.remove();
+            }
+            // Move HP numbers into HP bar as .hp-numbers-player
+            const hpBar = playerCard.querySelector('.hp-bar');
+            const hpText = playerCard.querySelector('.hp-text');
+            if (hpBar && hpText) {
+              // Extract HP numbers from hpText
+              const hpNumbers = hpText.textContent.replace(/[^\d,\/]/g, '').trim();
+              const hpNumbersDiv = document.createElement('div');
+              hpNumbersDiv.className = 'hp-numbers-player card-sub';
+              hpNumbersDiv.textContent = hpNumbers;
+              hpBar.insertBefore(hpNumbersDiv, hpBar.firstChild);
+              hpText.remove();
+            }
+            // Remove any remaining headline/eyebrow elements
+            if (headline) headline.innerHTML = '';
+
+            // Move the 'Ready in' timer after the heal buttons
+            const healChips = playerCard.querySelectorAll('.inline-chips');
+            let timerSpan = null;
+            healChips.forEach(chip => {
+              const timer = chip.querySelector('.muted');
+              if (timer) {
+                timerSpan = timer;
+                timer.remove();
+              }
+            });
+            // Find the heal buttons container (the .inline-chips with the heal buttons)
+            let healBtnChips = null;
+            healChips.forEach(chip => {
+              if (chip.querySelector('#usePotionBtn') || chip.querySelector('#timedHealBtn')) {
+                healBtnChips = chip;
+              }
+            });
+            if (healBtnChips && timerSpan) {
+              const healBtn = healBtnChips.querySelector('#timedHealBtn');
+              if (healBtn) {
+                healBtn.insertAdjacentElement('afterend', timerSpan);
+              } else {
+                healBtnChips.appendChild(timerSpan);
+              }
+              // Remove display:flex from timer style if present
+              if (timerSpan.hasAttribute('style')) {
+                timerSpan.setAttribute('style', timerSpan.getAttribute('style').replace(/display\s*:\s*flex;?/i, ''));
+              }
+            }
+
+            // Inject transformed card
+            const modalContent = document.getElementById('battle-modal-content');
+            if (modalContent) {
+              let playerInfoDiv = document.getElementById('modal-player-info');
+              if (!playerInfoDiv) {
+                playerInfoDiv = document.createElement('div');
+                playerInfoDiv.id = 'modal-player-info';
+                playerInfoDiv.style = 'background: #181825; padding: 12px; border-radius: 8px; margin-bottom: 12px;';
+                // Always insert after monster header (first child), before loot preview
+                if (modalContent.children.length > 1) {
+                  modalContent.insertBefore(playerInfoDiv, modalContent.children[1]);
+                } else {
+                  modalContent.appendChild(playerInfoDiv);
+                }
+              }
+              playerInfoDiv.innerHTML = playerCard.outerHTML;
+            }
+          }
+        } catch (error) {
+          console.error('[Battle Modal] Failed to load player info:', error);
+        }
+      }, 100);
+    }
+
+
     // Add loot preview if enabled
     if (extensionSettings.battleModal.showLootPreview) {
       html += `<div class="loot-preview-container" style="background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
@@ -1725,6 +1828,32 @@ function parseAttackLogs(html) {
     });
     modal.appendChild(content);
     document.body.appendChild(modal);
+    // Inject CSS for overlapping HP numbers in modal player info
+    const styleId = 'modal-player-hp-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        #modal-player-info .hp-bar { position: relative; }
+        #modal-player-info .hp-numbers-player.card-sub {
+          position: absolute;
+          left: 0; top: 0; width: 100%;
+          text-align: center;
+          z-index: 2;
+          pointer-events: none;
+          font-size: 14px;
+          line-height: 28px;
+          color: white;
+          text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        }
+        #modal-player-info .hp-fill.hp-fill--player {
+          position: relative;
+          z-index: 1;
+          height: 28px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
     // Event listeners
     const closeBtn = modal.querySelector('#close-battle-modal');
@@ -5376,6 +5505,10 @@ function parseAttackLogs(html) {
                       <input type="checkbox" id="battle-modal-show-leaderboard" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
                       <span>Show leaderboard</span>
                     </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-player-info" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                      <span>Show player info</span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -6262,9 +6395,16 @@ window.toggleSection = function(header) {
     const showLogsCheckbox = document.getElementById('battle-modal-show-logs');
     const showLeaderboardCheckbox = document.getElementById('battle-modal-show-leaderboard');
     const compactCheckbox = document.getElementById('battle-modal-compact');
+    const showPlayerInfoCheckbox = document.getElementById('battle-modal-show-player-info');
 
+    if (showPlayerInfoCheckbox) {
+      showPlayerInfoCheckbox.checked = extensionSettings.battleModal.showPlayerInfo;
+      showPlayerInfoCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showPlayerInfo = e.target.checked;
+        saveSettings();
+      });
+    }
 
-    
     if (enabledCheckbox) {
       enabledCheckbox.checked = extensionSettings.battleModal.enabled;
       enabledCheckbox.addEventListener('change', (e) => {
