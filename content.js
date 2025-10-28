@@ -1577,6 +1577,8 @@ function parseAttackLogs(html) {
       btn.textContent = originalText || 'Attack';
       btn.disabled = false;
     }
+
+    return result;
   }
 
   // Show battle modal
@@ -1658,7 +1660,25 @@ function parseAttackLogs(html) {
           btn.addEventListener('click', async function() {
             const skillId = this.getAttribute('data-skill-id');
             document.querySelectorAll('.modal-skill-btn').forEach(b => b.disabled = true);
-            await attackMonster(monster.id, skillId, this, monster.skillButtons);
+            const attackResult = await attackMonster(monster.id, skillId, this, monster.skillButtons);
+            // Update player HP bar in modal if response contains user_hp_after
+            if (attackResult && typeof attackResult.user_hp_after !== 'undefined') {
+              const hpFill = document.getElementById('pHpFill');
+              const hpNumbers = document.querySelector('#modal-player-info .hp-numbers-player');
+              // Try to get max HP from the modal
+              let maxHp = 0;
+              const statsDiv = document.querySelector('#modal-player-info #yourStats');
+              if (statsDiv && statsDiv.dataset.maxhp) {
+                maxHp = parseInt(statsDiv.dataset.maxhp, 10);
+              }
+              if (hpFill && maxHp) {
+                const percent = Math.round((attackResult.user_hp_after / maxHp) * 100);
+                hpFill.style.width = percent + '%';
+              }
+              if (hpNumbers && maxHp) {
+                hpNumbers.textContent = `${attackResult.user_hp_after}/${maxHp}`;
+              }
+            }
           });
         });
       }, 100);
@@ -2107,26 +2127,19 @@ function parseAttackLogs(html) {
         const hpNumbersElem = card.querySelector('.hp-numbers');
         const hpFillElem = card.querySelector('.hp-fill');
         if (hpNumbersElem) {
-          console.log(`[updateMonsterUI] Updating .hp-numbers for monster ID ${monster.id} (${monster.monsterName}): HP ${monster.currentHp} / ${monster.maxHp}`);
           hpNumbersElem.textContent = `${monster.currentHp.toLocaleString()} / ${monster.maxHp.toLocaleString()}`;
           if (hpFillElem && monster.maxHp > 0) {
             const percent = Math.max(0, Math.min(100, (monster.currentHp / monster.maxHp) * 100));
             hpFillElem.style.width = percent.toFixed(4) + '%';
-            console.log(`[updateMonsterUI] Updated .hp-fill width for monster ID ${monster.id}: ${percent.toFixed(4)}%`);
           }
         } else {
           // Fallback to previous selectors
           const hpElem = card.querySelector('.monster-hp, .hp-bar, .hp-text');
           if (hpElem) {
-            console.log(`[updateMonsterUI] Updating fallback HP element for monster ID ${monster.id} (${monster.monsterName}): HP ${monster.currentHp} / ${monster.maxHp}`);
             hpElem.textContent = `${monster.currentHp} / ${monster.maxHp}`;
-          } else {
-            console.log(`[updateMonsterUI] No HP element found for monster ID ${monster.id} (${monster.monsterName})`);
-          }
+          } 
         }
-      } else {
-        console.log(`[updateMonsterUI] No card found for monster ID ${monster.id} (${monster.monsterName})`);
-      }
+      } 
     });
   }
 
