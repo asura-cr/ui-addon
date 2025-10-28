@@ -2155,7 +2155,6 @@ function parseAttackLogs(html) {
       if (!existing) {
         monsterList.push(monster);
         updated = true;
-        console.log(`[updateData] New monster card detected: ${monster.id} (${monster.monsterName})`);
       } else {
         // Update HP and other info if changed
         if (existing.currentHp !== monster.currentHp || existing.maxHp !== monster.maxHp) {
@@ -11125,11 +11124,22 @@ window.toggleSection = function(header) {
       </div>
     `;
 
+    // Add sorting controls for Join a Battle section
     const joinBattleSection = document.createElement('div');
     joinBattleSection.className = 'monster-section';
     joinBattleSection.innerHTML = `
-      <div class="monster-section-header">
+      <div class="monster-section-header" style="flex-wrap: wrap;">
         <h3 style="color: #a6e3a1; margin: 0; flex: 1;">🆕 Join a Battle</h3>
+        <div id="join-sort-controls" style="margin-left: 20px;">
+          <label for="join-sort-select" style="color: #a6e3a1; font-size: 13px; margin-right: 6px;">Sort by:</label>
+          <select id="join-sort-select" style="padding: 4px 8px; border-radius: 4px; background: #181825; color: #fff; border: 1px solid #444;">
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="hp-desc">HP (High → Low)</option>
+            <option value="hp-asc">HP (Low → High)</option>
+            <option value="players-desc">Players (High → Low)</option>
+            <option value="players-asc">Players (Low → High)</option>
+          </select>
+        </div>
       </div>
       <div class="monster-section-content">
         <div class="monster-container" style="display: flex; flex-wrap: wrap; gap: 15px;"></div>
@@ -11141,27 +11151,92 @@ window.toggleSection = function(header) {
     const lootCards = [];
     const joinCards = [];
 
+    // Helper to extract HP and player count from card
+    function getCardStats(card) {
+      let hp = 0, maxHp = 0, players = 0;
+      // Try to get HP from visible bar first
+      const hpNumbers = card.querySelector('.hp-bar .hp-numbers');
+      if (hpNumbers) {
+        const match = hpNumbers.textContent.match(/([\d,]+)\s*\/\s*([\d,]+)/);
+        if (match) {
+          hp = parseInt(match[1].replace(/,/g, ''), 10);
+          maxHp = parseInt(match[2].replace(/,/g, ''), 10);
+        }
+      }
+      // Players
+      const playerText = Array.from(card.querySelectorAll('div')).find(div => 
+        div.textContent.includes('Players Joined') || div.textContent.includes('👥')
+      );
+      if (playerText) {
+        const playerMatch = playerText.textContent.match(/(\d+)\s*\/\s*(\d+)/);
+        if (playerMatch) {
+          players = parseInt(playerMatch[1], 10);
+        }
+      }
+      // Name
+      const name = getMonsterNameFromCard(card) || '';
+      return { hp, maxHp, players, name };
+    }
+
     monsterCards.forEach(card => {
       if (card.innerText.includes('Continue the Battle')) {
         continueCards.push(card);
       } else if (card.innerText.includes('Loot')) {
         lootCards.push(card);
       } else {
-        const hpText = card.querySelector('div[style*="width:"]')?.parentNode?.nextElementSibling?.textContent || '';
-        const hpMatch = hpText.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
-        if (hpMatch) {
-          const currentHp = parseInt(hpMatch[1].replace(/,/g, ''));
-          card.dataset.currentHp = currentHp;
-        }
         joinCards.push(card);
       }
     });
 
-    joinCards.sort((a, b) => {
-      const hpA = parseInt(a.dataset.currentHp) || 0;
-      const hpB = parseInt(b.dataset.currentHp) || 0;
-      return hpA - hpB;
-    });
+    // Default sort: name ascending
+    function sortJoinCards(cards, sortType) {
+      return cards.slice().sort((a, b) => {
+        const statsA = getCardStats(a);
+        const statsB = getCardStats(b);
+        switch (sortType) {
+          case 'name-asc':
+            return statsA.name.localeCompare(statsB.name);
+          case 'hp-desc':
+            if (statsB.hp !== statsA.hp) return statsB.hp - statsA.hp;
+            return statsA.name.localeCompare(statsB.name);
+          case 'hp-asc':
+            if (statsA.hp !== statsB.hp) return statsA.hp - statsB.hp;
+            return statsA.name.localeCompare(statsB.name);
+          case 'players-desc':
+            if (statsB.players !== statsA.players) return statsB.players - statsA.players;
+            return statsA.name.localeCompare(statsB.name);
+          case 'players-asc':
+            if (statsA.players !== statsB.players) return statsA.players - statsB.players;
+            return statsA.name.localeCompare(statsB.name);
+          default:
+            return statsA.name.localeCompare(statsB.name);
+        }
+      });
+    }
+
+    // Initial sort type
+    let currentSortType = localStorage.getItem('joinSortType') || 'name-asc';
+
+    // Render join cards with current sort
+    function renderJoinCards() {
+      const joinContainer = joinBattleSection.querySelector('.monster-container');
+      joinContainer.innerHTML = '';
+      const sorted = sortJoinCards(joinCards, currentSortType);
+      sorted.forEach(card => joinContainer.appendChild(card));
+    }
+
+    // Listen for sort changes
+    setTimeout(() => {
+      const sortSelect = joinBattleSection.querySelector('#join-sort-select');
+      if (sortSelect) {
+        sortSelect.value = currentSortType;
+        sortSelect.addEventListener('change', e => {
+          currentSortType = sortSelect.value;
+          localStorage.setItem('joinSortType', currentSortType);
+          renderJoinCards();
+        });
+      }
+    }, 0);
 
     monsterContainer.innerHTML = '';
 
@@ -11184,10 +11259,17 @@ window.toggleSection = function(header) {
       monsterContainer.appendChild(lootSection);
     }
 
+    // Render join cards with sorting controls
     if (joinCards.length > 0) {
-      const joinGrid = joinBattleSection.querySelector('.monster-container');
-      joinCards.forEach(card => joinGrid.appendChild(card));
       monsterContainer.appendChild(joinBattleSection);
+        // Set dropdown value before initial render
+        setTimeout(() => {
+          const sortSelect = joinBattleSection.querySelector('#join-sort-select');
+          if (sortSelect) {
+            sortSelect.value = currentSortType;
+          }
+          renderJoinCards();
+        }, 0);
     }
 
     const continueToggle = document.getElementById('continue-battle-toggle');
@@ -11213,6 +11295,11 @@ window.toggleSection = function(header) {
         extensionSettings.lootExpanded = isCollapsed;
         saveSettings();
       });
+    }
+
+    // Defensive: always re-render join cards after all setup
+    if (joinCards.length > 0) {
+      renderJoinCards();
     }
 
     const sectionStyle = document.createElement('style');
