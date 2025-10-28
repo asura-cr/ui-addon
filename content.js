@@ -9684,18 +9684,7 @@ window.toggleSection = function(header) {
   }
 
   function createFilterUI(monsterList, settings) {
-    const filterContainer = document.createElement('div');
-    filterContainer.style.cssText = `
-      padding: 10px;
-      background: #2d2d3d;
-      border-radius: 5px;
-      margin-bottom: 15px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-    `;
+    const filterContainer = document.querySelector('.batch-loot-card');
 
     filterContainer.innerHTML = `
       <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: center; width: 100%;">
