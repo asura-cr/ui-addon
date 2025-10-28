@@ -104,7 +104,7 @@
         enabled: true, // Enable wave filters
         hpOptions: ['20-50%', '50-80%', '80-100%', '100%'], // HP filter options
         showCompactToggle: true // Show compact toggle
-      }
+  }
     },
     waveFilters: {
       enabled: true, // Enable wave filters
@@ -446,6 +446,25 @@
   }
 
   // Parse battle page HTML to extract relevant data
+// Utility: Extract leaderboard from battle HTML
+function parseLeaderboardFromHtml(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const rows = doc.querySelectorAll('.lb-list .lb-row');
+  const leaderboard = [];
+  for (const row of rows) {
+    const rank = row.querySelector('.lb-rank')?.textContent.trim() || '';
+    const nameEl = row.querySelector('.lb-name a');
+    const name = nameEl?.textContent.trim() || '';
+    const dmg = row.querySelector('.lb-dmg')?.textContent.replace(/[^\d]/g, '') || '0';
+    leaderboard.push({
+      rank,
+      name,
+      damage: parseInt(dmg, 10)
+    });
+  }
+  return leaderboard;
+}
   function parseBattleHtml(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -1376,14 +1395,42 @@
     }
   }
 
+  
+function parseAttackLogs(html) {
+  // Create a temporary DOM element to parse the HTML
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  const logs = [];
+  const logPanel = container.querySelector('.panel.log-panel');
+
+  if (!logPanel) return logs;
+
+  // Match each log line
+  const logLines = logPanel.innerHTML.split('<br>').filter(line => line.includes('used'));
+
+  logLines.forEach(line => {
+    const match = line.match(/<a[^>]*>(.*?)<\/a>\s*used\s*(.*?)\s*for\s*([\d,]+)\s*DMG!/);
+    if (match) {
+      const [, player, skill, damage] = match;
+      logs.push({
+        player: player.trim(),
+        skill: skill.trim(),
+        damage: parseInt(damage.replace(/,/g, ''))
+      });
+    }
+  });
+
+  return logs;
+}
+
   // Attack monster in modal
-  async function attackMonster(monsterId, skillId, btn) {
+  async function attackMonster(monsterId, skillId, btn, skillButtons) {
     try {
       btn.disabled = true;
       const originalText = btn.textContent;
+      let loadPromises = [];
       btn.textContent = 'Attacking...';
-      // Debug log: skill name/id
-      console.log(`[BattleModal] Attempting attack: monsterId=${monsterId}, skillId=${skillId}, skillName="${btn.textContent}"`);
       const staminaCost = skillId === "-1" ? 10 : skillId === "-2" ? 50 : skillId === "-3" ? 100 : skillId === "-4" ? 200 : 1;
       const body = `monster_id=${encodeURIComponent(monsterId)}&skill_id=${encodeURIComponent(skillId)}&stamina_cost=${encodeURIComponent(staminaCost)}`;
       const response = await fetch('damage.php', {
@@ -1401,8 +1448,6 @@
       let rawText;
       try {
         rawText = await response.text();
-        // Debug log: raw server response
-        console.log(`[BattleModal] Server response for skillId=${skillId}:`, rawText);
         if (rawText.trim().startsWith('<')) {
           console.error('[BattleModal] Attack failed: server returned HTML:', rawText);
           showNotification('Attack failed: server returned HTML', '#e74c3c');
@@ -1418,12 +1463,8 @@
         btn.disabled = false;
         return;
       }
-      // Debug log: parsed result
-      console.log(`[BattleModal] Parsed result for skillId=${skillId}:`, result);
       if (!result || result.status !== 'success') {
         showNotification('Attack failed: ' + (result?.message || 'Unknown error'), '#e74c3c');
-        // Debug log: attack failed
-        console.warn(`[BattleModal] Attack failed for skillId=${skillId}:`, result?.message || 'Unknown error');
         btn.textContent = originalText;
         btn.disabled = false;
         return;
@@ -1434,21 +1475,36 @@
         monsterName: result.message?.match(/to <strong>(.*?)<\/strong>/)?.[1] || 'Unknown Monster',
         currentHp: result.hp?.value || result.global_hp?.value || 0,
         maxHp: result.hp?.max || result.global_hp?.max || 0,
-        playerCount: result.leaderboard?.length || 0,
-        damageDone: result.leaderboard?.find(p => p.USERNAME === userData?.username)?.DAMAGE_DEALT || 0,
         battleLog: result.logs?.map(log => `${log.USERNAME}: ${log.SKILL_NAME} (${log.DAMAGE})`) || [],
-        leaderboard: result.leaderboard || []
+        damageDone: 0,
+        leaderboard: result.leaderboard || [],
+        playerCount: result.leaderboard ? result.leaderboard.length : 0,
+        skillButtons: skillButtons || [],
+        logs: result.logs || []
       };
-      // Update user data from wave page
-      await updateUserDataFromWavePage();
-      showNotification(result.message || 'Attack successful!', '#2ecc71');
-      // Debug log: attack succeeded
-      console.log(`[BattleModal] Attack succeeded for skillId=${skillId}:`, result.message);
-      // Refresh modal with updated data
-      const modal = document.getElementById('battle-modal');
-      if (modal && isModalOpen) {
-        await showBattleModal(updatedMonster);
-      }
+      // Define monsterName for later use
+      const monsterName = updatedMonster.monsterName;
+      if (monsterId && monsterName) {
+          loadPromises.push(
+            fetch(`battle.php?id=${monsterId}`)
+              .then(response => response.text())
+              .then(html => {
+                const yourDamageMatch = html.match(/<span\s+id=["']yourDamageValue["']>([\d,]+)<\/span>/i);
+                const yourDamage = yourDamageMatch ? parseInt(yourDamageMatch[1].replace(/,/g, '')) : 0;
+                updatedMonster.damageDone = yourDamage;
+                const leaderboard = parseLeaderboardFromHtml(html);
+                updatedMonster.leaderboard = leaderboard;
+                updatedMonster.playerCount = leaderboard.length;
+                const logs = parseAttackLogs(html);
+                updatedMonster.logs = logs;
+              })
+              .catch(error => console.error('Error loading loot for filter:', error))
+          );
+        };
+      console.log(updatedMonster);
+      await Promise.all(loadPromises);
+      // Update modal with new monster data
+      showBattleModal(updatedMonster);
       // Check if monster is defeated
       if (updatedMonster.currentHp <= 0) {
         showNotification('Monster defeated!', '#f39c12');
@@ -1494,59 +1550,8 @@
   modal.style.overflowY = 'auto';
   modal.style.border = '2px solid #89b4fa';
     
-  // ...existing code...
   // Fix ReferenceError: compact is not defined
   let compact = false;
-    const skillId = monster.skillId || "0";
-    fetch('https://www.demonicscans.com/damage.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: `monster_id=${monster.id}&skill_id=${skillId}`,
-      credentials: 'include',
-    })
-    .then(response => response.json())
-    .then(result => {
-      console.log(`[BattleModal] Server response for skillId=${skillId}:`, result);
-      // Extract available skills from result if present
-      let skillButtons = [];
-      if (result.skills && Array.isArray(result.skills)) {
-        skillButtons = result.skills.map(skill => ({
-          name: skill.name,
-          id: skill.id,
-          stamina: skill.stamina || null
-        }));
-      }
-      // Fallback: if no skills in result, keep previous skillButtons if possible
-      if (!skillButtons.length && window.lastSkillButtons && Array.isArray(window.lastSkillButtons)) {
-        skillButtons = window.lastSkillButtons;
-      }
-      // Save for next time
-      window.lastSkillButtons = skillButtons;
-      if (result.status === 'success') {
-        // ...existing code...
-        // Update modal with new battle state
-        showBattleModal({
-          monsterName: monsterName,
-          currentHp: result.hp.value,
-          maxHp: result.hp.max,
-          playerCount: result.leaderboard ? result.leaderboard.length : 0,
-          damageDone: result.leaderboard ? (result.leaderboard.find(p => p.ID == userId)?.DAMAGE_DEALT || 0) : 0,
-          skillButtons: skillButtons,
-          logs: result.logs || [],
-          leaderboard: result.leaderboard || [],
-          message: result.message || '',
-        });
-      } else {
-        // ...existing code...
-      }
-    })
-    .catch(error => {
-      // ...existing code...
-    });
     // Remove existing modal if present
     const existingModal = document.getElementById('battle-modal');
     if (existingModal) {
@@ -1562,7 +1567,7 @@
     html += `<button id="close-battle-modal" style="position: absolute; top: 12px; right: 16px; background: #f38ba8; color: #1e1e2e; border: 2px solid #cdd6f4; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; font-weight: bold; cursor: pointer; z-index: 10001;">&times;</button>`;
     // Calculate player count and your damage from leaderboard (always use latest data)
     let playerCount = Array.isArray(monster.leaderboard) ? monster.leaderboard.length : (monster.playerCount || 0);
-    let yourDamage = 0;
+    let yourDamage = monster.damageDone || 0;
     let userId = String(userData.userID || monster.userId || window.userId || (typeof getCurrentUserId === 'function' ? getCurrentUserId() : ''));
     let entry = null;
     if (Array.isArray(monster.leaderboard) && userId) {
@@ -1574,10 +1579,6 @@
       if (!entry && userData.username) {
         entry = monster.leaderboard.find(e => String(e.USERNAME ?? e.username) === String(userData.username ?? window.username));
       }
-      console.log('[BattleModal] userId:', userId, 'Leaderboard entry:', entry, 'Leaderboard:', monster.leaderboard);
-      yourDamage = entry ? (entry.DAMAGE_DEALT ?? entry.damage ?? 0) : 0;
-    } else if (typeof monster.damageDone !== 'undefined') {
-      yourDamage = monster.damageDone;
     }
     // Render monster info
     html += `<div style="margin-bottom: 12px;">
@@ -1601,19 +1602,12 @@
           btn.addEventListener('click', async function() {
             const skillId = this.getAttribute('data-skill-id');
             document.querySelectorAll('.modal-skill-btn').forEach(b => b.disabled = true);
-            await attackMonster(monster.id, skillId, this);
+            await attackMonster(monster.id, skillId, this, monster.skillButtons);
           });
         });
       }, 100);
     } else {
       html += `<div style="color:#f38ba8; font-size:15px; font-weight:bold; margin:12px 0;">No attack skills available.<br><span style="font-size:13px; color:#fab387;">You may need to unlock skills, wait for the battle to start, or check your status.</span></div>`;
-    }
-    // Add logs if present
-    if (monster.logs && monster.logs.length > 0) {
-      html += `<div style="background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px; max-height: 120px; overflow-y: auto;">
-        <h3 style="margin: 0 0 10px 0; color: #89b4fa; font-size: 14px;">Battle Log</h3>
-        ${monster.logs.slice(-10).map(log => `<div style="font-size: 11px; color: #cdd6f4; margin-bottom: 4px;">${log}</div>`).join('')}
-      </div>`;
     }
     // Add leaderboard if present
     if (extensionSettings.battleModal.showLeaderboard && monster.leaderboard && monster.leaderboard.length > 0) {
@@ -1658,15 +1652,6 @@
         updateWaveData(true);
       });
     }
-    
-    document.querySelectorAll('.modal-skill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const skillId = btn.getAttribute('data-skill-id');
-        // Use monster.monsterId or monster.id (fallback to monster.monsterId if id is missing)
-        const mId = monster.id || monster.monsterId;
-        attackMonster(mId, skillId, btn);
-      });
-    });
     
     // Close on background click
     modal.addEventListener('click', (e) => {
@@ -5149,30 +5134,6 @@
                   </select>
                 </div>
               </div>
-
-              <!-- Auto-Surrender Settings -->
-              <div style="margin-bottom: 15px; padding: 15px; background: rgba(49, 50, 68, 0.3); border-radius: 8px; border-left: 3px solid #f38ba8;">
-                <h4 style="color: #f38ba8; margin: 0 0 15px 0; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                  🏳️ Auto-Surrender
-                </h4>
-                <p style="color: #a6adc8; font-size: 11px; margin-bottom: 15px;">
-                  Automatically surrender when losing is detected. Requires battle prediction to be enabled.
-                </p>
-                <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
-                  <input type="checkbox" id="pvp-auto-surrender-enabled" class="cyberpunk-checkbox">
-                  <span>Enable auto-surrender</span>
-                </label>
-                
-                <div style="margin: 15px 0;">
-                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Surrender Threshold:</label>
-                  <select id="pvp-surrender-threshold" style="width: 200px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
-                    <option value="0.1">10% (Very Aggressive)</option>
-                    <option value="0.2" selected>20% (Aggressive)</option>
-                    <option value="0.3">30% (Moderate)</option>
-                    <option value="0.4">40% (Conservative)</option>
-                  </select>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -5287,32 +5248,6 @@
                   <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Zoom Scale:</label>
                   <input type="range" id="battle-modal-zoom" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 200px; margin-right: 10px;">
                   <span id="battle-modal-zoom-value" style="color: #cdd6f4;">100%</span>
-                </div>
-
-                <div style="margin: 15px 0;">
-                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Attack Buttons:</label>
-                  <div style="display: flex; flex-direction: column; gap: 10px; margin-left: 20px;">
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #89b4fa; border-radius: 4px; background-color: transparent;">
-                      <span>Slash</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-power-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #f9e2af; border-radius: 4px; background-color: transparent;">
-                      <span>Power Slash</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-heroic-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #fab387; border-radius: 4px; background-color: transparent;">
-                      <span>Heroic Slash</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-ultimate-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #f38ba8; border-radius: 4px; background-color: transparent;">
-                      <span>Ultimate Slash</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-legendary-slash" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #cba6f7; border-radius: 4px; background-color: transparent;">
-                      <span>Legendary Slash</span>
-                    </label>
-                  </div>
                 </div>
               </div>
             </div>
