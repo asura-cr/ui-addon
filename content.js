@@ -10156,16 +10156,23 @@ window.toggleSection = function(header) {
       }
 
       // Handle image visibility and loot preview
-      const lootPreview = monster.querySelector('.loot-preview-grid');
+      const lootPreview = monster.querySelector('.loot-preview-container');
+      const mobStat = monster.querySelector('.monster-overlay');
       if (hideImg && monsterImg) {
         monsterImg.style.display = 'none';
         if (lootPreview) {
           lootPreview.style.display = 'none';
         }
+        if (mobStat) {
+          mobStat.style.display = 'none';
+        }
       } else if (monsterImg) {
         monsterImg.style.removeProperty('display');
         if (lootPreview) {
           lootPreview.style.removeProperty('display');
+        }
+        if (mobStat) {
+          mobStat.style.removeProperty('display');
         }
       }
 
@@ -11802,6 +11809,7 @@ window.toggleSection = function(header) {
       
       .enhanced-monster-card h3 {
         margin-bottom: 8px !important;
+        margin-top: 8px !important;
       }
       
       .enhanced-monster-card .hp-bar {
@@ -12093,6 +12101,86 @@ window.toggleSection = function(header) {
     initWaveAutoRefresh()
     initMonsterLootPreview()
     initContinueBattleModal()
+    initMonsterStatOverlay()
+  }
+  function initMonsterStatOverlay() {
+
+    // Dynamically move ATK/DEF indicators to overlay above monster image
+    document.querySelectorAll('.monster-card').forEach(function(card) {
+      // Find the ATK/DEF stat row
+      var statRows = card.querySelectorAll('.stat-row');
+      var atkDefRow = null;
+      statRows.forEach(function(row) {
+        var icon = row.querySelector('.stat-icon');
+        if (icon && icon.classList.contains('atk')) {
+          atkDefRow = row;
+        }
+      });
+      if (!atkDefRow) return;
+
+      // Extract ATK and DEF values
+      var atkChip = atkDefRow.querySelector('.atk-chip');
+      var defChip = atkDefRow.querySelector('.def-chip');
+      var atk = atkChip ? atkChip.textContent.replace(/[^\d]/g, '') : '';
+      var def = defChip ? defChip.textContent.replace(/[^\d]/g, '') : '';
+
+      // Remove the original ATK/DEF row
+      atkDefRow.parentNode.removeChild(atkDefRow);
+
+      // Create overlay div
+      var overlay = document.createElement('div');
+      overlay.className = 'monster-overlay';
+      overlay.innerHTML =
+        '<span class="atk">' + (atk || '0') + '</span>' +
+        '<span class="def">' + (def || '0') + '</span>';
+
+      // Insert overlay before the monster image
+      var img = card.querySelector('.monster-img');
+      if (img) {
+        card.insertBefore(overlay, img);
+      }
+    });
+
+    // Inject CSS for overlay if not present
+    if (!document.getElementById('monster-overlay-style')) {
+      var style = document.createElement('style');
+      style.id = 'monster-overlay-style';
+      style.textContent = `
+        .monster-card { position: relative; }
+        .monster-overlay {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          display: flex;
+          gap: 8px;
+          z-index: 2;
+        }
+        body.monster-images-hidden .monster-img,
+        body.monster-images-hidden .monster-overlay {
+          display: none !important;
+        }
+        .monster-overlay .atk,
+        .monster-overlay .def {
+          background: rgba(0,0,0,0.7);
+          color: #fff;
+          border-radius: 6px;
+          padding: 2px 8px;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .monster-overlay .atk::before {
+          content: "⚔";
+          margin-right: 4px;
+        }
+        .monster-overlay .def::before {
+          content: "🛡";
+          margin-right: 4px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }
 
   function initPvPHistoryCollapse() {
