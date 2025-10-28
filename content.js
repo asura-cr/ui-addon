@@ -474,7 +474,6 @@ function parseLeaderboardFromHtml(html) {
     // Extract monster info - try multiple selectors, prioritize larger headings
     let monsterName = 'Unknown Monster';
     const cardTitle = doc.querySelector('.card-title');
-    console.log('Card title element:', cardTitle);
     if (cardTitle) {
       // Remove emoji from the start of the title
       let titleText = cardTitle.textContent.trim();
@@ -535,9 +534,10 @@ function parseLeaderboardFromHtml(html) {
     
     // Extract damage done
     let damageDone = 0;
-    const damageMatch = allText.match(/(?:Your\s+)?Damage(?:\s+Done)?[:\s]*([\d,]+)/i);
-    if (damageMatch) {
-      damageDone = parseInt(damageMatch[1].replace(/,/g, ''));
+    // Try new chip span first
+    const dmgChip = doc.querySelector('span.chip #yourDamageValue');
+    if (dmgChip) {
+      damageDone = parseInt(dmgChip.textContent.replace(/,/g, '')) || 0;
     }
     
     // Extract skill buttons - look for attack buttons
@@ -1495,6 +1495,13 @@ function parseAttackLogs(html) {
           );
         };
       await Promise.all(loadPromises);
+      // update stamina display
+      const staminaElem = document.getElementById('stamina_span');
+      const newStamina = result.stamina || 0;
+      if (staminaElem) {
+        staminaElem.textContent = newStamina;
+      }
+
       // Update modal with new monster data
       showBattleModal(updatedMonster);
       // Check if monster is defeated
@@ -1896,22 +1903,11 @@ function parseAttackLogs(html) {
 
   // Initialize battle modal on battle.php page
   function initBattlePageModal() {
-    // Check if we're on a battle page
-    if (!window.location.pathname.includes('battle.php')) return;
-    
-    // Extract monster ID from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const monsterId = urlParams.get('id');
-    if (!monsterId) return;
-    
-    // Parse current page data
-    const monster = parseBattleHtml(document.documentElement.outerHTML);
-    monster.id = monsterId;
-    
-    // Show the modal immediately
-    setTimeout(() => {
-      showBattleModal(monster);
-    }, 500); // Small delay to let page load
+    // Prevent modal on actual battle.php page
+    if (window.location.pathname.includes('battle.php')) {
+      return;
+    }
+    // ...existing code...
   }
 
   function saveSettings() {
@@ -10218,7 +10214,6 @@ window.toggleSection = function(header) {
       // Skip loot buttons
       const btnText = btn.textContent.trim().toLowerCase();
       if (btnText.includes('loot') || btnText.includes('💰')) {
-        console.log(`Button ${index}: Skipping loot button`);
         return;
       }
       // Try multiple ways to get the monster ID
@@ -10229,7 +10224,6 @@ window.toggleSection = function(header) {
       let match = href.match(/battle\.php\?id=(\d+)/);
       if (match) {
         monsterId = match[1];
-        console.log(`Button ${index}: Found ID in href:`, monsterId);
       }
       
       // Method 2: Check onclick attribute
@@ -10238,7 +10232,6 @@ window.toggleSection = function(header) {
         match = onclick.match(/battle\.php\?id=(\d+)|id[=:](\d+)/);
         if (match) {
           monsterId = match[1] || match[2];
-          console.log(`Button ${index}: Found ID in onclick:`, monsterId);
         }
       }
       
@@ -10308,13 +10301,30 @@ window.toggleSection = function(header) {
           console.log('BATTLE BUTTON CLICKED! Monster ID:', monsterId);
           e.preventDefault();
           e.stopPropagation();
-          
+
           if (!extensionSettings.battleModal.enabled) {
-            // If disabled, navigate normally
+            window.location.href = `battle.php?id=${monsterId}`;
+            return;
+          } else if (newBtn.id === 'view-battle-btn') {
             window.location.href = `battle.php?id=${monsterId}`;
             return;
           }
-          
+
+          // Check if already joined (button text is 'Continue the Battle')
+          if (newBtn.textContent.trim().toLowerCase() === 'continue the battle') {
+            // Fetch battle info and show modal
+            try {
+              const html = await fetchBattlePageHtml(monsterId);
+              const monster = parseBattleHtml(html);
+              monster.id = monsterId;
+              console.log('Continuing battle for monster:', monster);
+              showBattleModal(monster);
+            } catch (err) {
+              showNotification('Could not load battle info', '#e74c3c');
+            }
+            return;
+          }
+
           await handleJoin(monsterId, newBtn);
         }, true); // Use capture phase to ensure we get the event first
       } else {
