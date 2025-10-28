@@ -455,11 +455,11 @@ function parseLeaderboardFromHtml(html) {
   for (const row of rows) {
     const rank = row.querySelector('.lb-rank')?.textContent.trim() || '';
     const nameEl = row.querySelector('.lb-name a');
-    const name = nameEl?.textContent.trim() || '';
+    const USERNAME = nameEl?.textContent.trim() || '';
     const dmg = row.querySelector('.lb-dmg')?.textContent.replace(/[^\d]/g, '') || '0';
     leaderboard.push({
       rank,
-      name,
+      USERNAME,
       damage: parseInt(dmg, 10)
     });
   }
@@ -473,21 +473,14 @@ function parseLeaderboardFromHtml(html) {
     
     // Extract monster info - try multiple selectors, prioritize larger headings
     let monsterName = 'Unknown Monster';
-    const headings = doc.querySelectorAll('h1, h2, h3');
-    for (const heading of headings) {
-      const text = heading.textContent.trim();
-      // Skip headings that are clearly not monster names
-      if (text && 
-          !text.includes('Active Buffs') && 
-          !text.includes('Loot') && 
-          !text.includes('Settings') &&
-          !text.includes('Menu') &&
-          text.length > 3 && 
-          text.length < 100) {
-        monsterName = text;
-        console.log('Found monster name:', monsterName);
-        break;
-      }
+    const cardTitle = doc.querySelector('.card-title');
+    console.log('Card title element:', cardTitle);
+    if (cardTitle) {
+      // Remove emoji from the start of the title
+      let titleText = cardTitle.textContent.trim();
+      titleText = titleText.replace(/^[^\w\d]+\s*/, '');
+      const status = cardTitle.querySelector('.chip')?.textContent.trim() || '';
+      monsterName = `${titleText}`;
     }
     
     // Extract HP - look for HP bar or text patterns with LARGE numbers
@@ -587,14 +580,7 @@ function parseLeaderboardFromHtml(html) {
         }
     
     // Extract battle log
-    const battleLog = [];
-    const logElements = doc.querySelectorAll('.battle-log-entry, .log-entry, .battle-log p, .battle-log div');
-    for (const log of logElements) {
-      const text = log.textContent.trim();
-      if (text && text.length > 5 && text.length < 200) {
-        battleLog.push(text);
-      }
-    }
+    const battleLog = parseAttackLogs(html);
 
     // Extract skill buttons - look for attack buttons
     // (already declared above, so just use existing skillButtons and buttons)
@@ -619,7 +605,6 @@ function parseLeaderboardFromHtml(html) {
         leaderboard.push({
           ID: pid,
           USERNAME: nameEl.textContent.trim(),
-          PICTURE: picEl ? picEl.getAttribute('src') : '',
           DAMAGE_DEALT: parseInt(dmgEl.textContent.replace(/[^0-9]/g, '')) || 0
         });
       } else {
@@ -633,9 +618,6 @@ function parseLeaderboardFromHtml(html) {
         }
       }
     }
-
-    console.log('Final parsed battle data:', { monsterName, currentHp, maxHp, playerCount, damageDone });
-
     return {
       monsterName,
       currentHp,
@@ -1357,36 +1339,57 @@ function parseLeaderboardFromHtml(html) {
       const joinMsg = (joinData || '').trim();
       const joinSuccess = joinMsg.toLowerCase().startsWith('you have successfully');
       if (!joinSuccess) {
-        throw new Error(joinMsg || 'Failed to join battle');
-      }
-      btn.textContent = 'Loading...';
-      // Now fetch the battle page to show in modal
-      const html = await fetchBattlePageHtml(monsterId);
-      const parsed = parseBattleHtml(html);
-      const monster = {
-        ...parsed,
-        id: monsterId,
-        skillButtons: parsed.skillButtons || [],
-      };
-      // Use fallback name if parser didn't find one
-      if (monster.monsterName === 'Unknown Monster' && monsterNameFallback) {
-        monster.monsterName = monsterNameFallback;
-      }
-      // Ensure leaderboard, playerCount, and damageDone are set from parsed data
-      if (monster.leaderboard && Array.isArray(monster.leaderboard)) {
-        monster.playerCount = monster.leaderboard.length;
-        let userId = window.userId || (typeof getCurrentUserId === 'function' ? getCurrentUserId() : null);
-        if (userId) {
-          // Try both ID and USERNAME for matching
-          const you = monster.leaderboard.find(x => String(x.ID || x.id) === String(userId) || String(x.USERNAME || x.username) === window.username);
-          if (you) {
-            monster.damageDone = you.DAMAGE_DEALT || you.damage || 0;
-          }
+        if (joinMsg.toLowerCase().includes('You can only join 5 monsters at a time in this wave')) {
+          showNotification('Cannot join battle: You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
+          btn.textContent = 'Join';
+        } else {
+          throw new Error(joinMsg || 'Failed to join battle');
         }
+      } else {
+        btn.style.display = 'none';
+        const viewBtn = monsterCard.querySelector('#view-battle-btn');
+        if (viewBtn) {
+          viewBtn.style.display = 'none';
+        }
+        // Create <a> wrapper
+        const a = document.createElement('a');
+        a.setAttribute('draggable', 'false');
+        a.setAttribute('data-monster-id', monsterId);
+        a.style.cursor = 'pointer';
+        // Create <button>
+        const newBtn = document.createElement('button');
+        newBtn.className = 'join-btn';
+        newBtn.setAttribute('draggable', 'false');
+        newBtn.setAttribute('data-enhanced', 'true');
+        newBtn.setAttribute('data-monster-id', monsterId);
+        newBtn.setAttribute('data-darkreader-inline-bgimage', '');
+        newBtn.setAttribute('data-darkreader-inline-bgcolor', '');
+        newBtn.textContent = 'Continue the Battle';
+        newBtn.style.background = 'rgb(230, 126, 34)';
+        newBtn.style.setProperty('--darkreader-inline-bgimage', 'initial');
+        newBtn.style.setProperty('--darkreader-inline-bgcolor', 'var(--darkreader-background-e67e22, #b25e14)');
+        a.appendChild(newBtn);
+        monsterCard.appendChild(a);
+        newBtn.addEventListener('click', () => {
+          showBattleModal(monster);
+        });
+    
+        // Now fetch the battle page to show in modal
+        const html = await fetchBattlePageHtml(monsterId);
+        const parsed = parseBattleHtml(html);
+        const monster = {
+          id: monsterId,
+          skillButtons: parsed.skillButtons || [],
+          currentHp: parsed.currentHp || 0,
+          maxHp: parsed.maxHp || 0,
+          battleLog: parsed.battleLog || [],
+          damageDone: parsed.damageDone || 0,
+          leaderboard: parsed.leaderboard || [],
+          playerCount: parsed.playerCount || 0,
+          monsterName: parsed.monsterName || 'Unknown Monster'
+        };
+        await showBattleModal(monster);
       }
-      await showBattleModal(monster);
-      btn.textContent = 'Continue';
-      btn.disabled = false;
     } catch (error) {
       console.error('Error joining battle:', error);
       showNotification('Error joining battle', '#e74c3c');
@@ -1413,13 +1416,14 @@ function parseAttackLogs(html) {
     const match = line.match(/<a[^>]*>(.*?)<\/a>\s*used\s*(.*?)\s*for\s*([\d,]+)\s*DMG!/);
     if (match) {
       const [, player, skill, damage] = match;
-      logs.push({
-        player: player.trim(),
-        skill: skill.trim(),
-        damage: parseInt(damage.replace(/,/g, ''))
-      });
+      logs.push(
+        {USERNAME: player.trim(), 
+          SKILL: skill.trim(), 
+          DAMAGE: parseInt(damage.replace(/,/g, ''))}
+      );
+      }
     }
-  });
+  );
 
   return logs;
 }
@@ -1475,12 +1479,11 @@ function parseAttackLogs(html) {
         monsterName: result.message?.match(/to <strong>(.*?)<\/strong>/)?.[1] || 'Unknown Monster',
         currentHp: result.hp?.value || result.global_hp?.value || 0,
         maxHp: result.hp?.max || result.global_hp?.max || 0,
-        battleLog: result.logs?.map(log => `${log.USERNAME}: ${log.SKILL_NAME} (${log.DAMAGE})`) || [],
+        battleLog: [],
         damageDone: 0,
         leaderboard: result.leaderboard || [],
         playerCount: result.leaderboard ? result.leaderboard.length : 0,
         skillButtons: skillButtons || [],
-        logs: result.logs || []
       };
       // Define monsterName for later use
       const monsterName = updatedMonster.monsterName;
@@ -1496,12 +1499,11 @@ function parseAttackLogs(html) {
                 updatedMonster.leaderboard = leaderboard;
                 updatedMonster.playerCount = leaderboard.length;
                 const logs = parseAttackLogs(html);
-                updatedMonster.logs = logs;
+                updatedMonster.battleLog = logs;
               })
               .catch(error => console.error('Error loading loot for filter:', error))
           );
         };
-      console.log(updatedMonster);
       await Promise.all(loadPromises);
       // Update modal with new monster data
       showBattleModal(updatedMonster);
@@ -1558,6 +1560,8 @@ function parseAttackLogs(html) {
     content.id = 'battle-modal-content';
     modal.appendChild(content);
       
+    console.log('[BattleModal] Showing modal for monster:', monster);
+
     // Fix ReferenceError: compact is not defined
     let compact = false;  
     // Check if monster is dead
@@ -1634,7 +1638,13 @@ function parseAttackLogs(html) {
       html += `
         <div style="background: #181825; padding: ${compact ? '10px' : '15px'}; border-radius: 8px; margin-bottom: ${compact ? '10px' : '15px'}; max-height: ${compact ? '120px' : '200px'}; overflow-y: auto;">
           <h3 style="margin: 0 0 10px 0; color: #89b4fa; font-size: ${compact ? '14px' : '16px'};">Battle Log</h3>
-          ${monster.battleLog.slice(-10).map(log => `<div style="font-size: ${compact ? '11px' : '12px'}; color: #cdd6f4; margin-bottom: 4px;">${log}</div>`).join('')}
+          <div style="max-height: 120px; overflow-y: auto;">
+          ${monster.battleLog.slice(0, 10).map((entry, i) => `
+            <div style="display: flex; justify-content: space-between; padding: 6px; background: ${i % 2 === 0 ? '#11111b' : 'transparent'}; border-radius: 4px; font-size: 11px;">
+              <span>${entry.USERNAME || entry.username || 'Player'}  --  ${entry.SKILL || entry.skill || 'Unknown Skill'}</span>
+              <span style="color: #a6e3a1;">${entry.DAMAGE || entry.damage || 0}</span>
+            </div>
+          `).join('')}
         </div>
       `;
     }
@@ -1646,7 +1656,6 @@ function parseAttackLogs(html) {
     });
     modal.appendChild(content);
     document.body.appendChild(modal);
-    console.log('[showBattleModal] Modal appended to body:', modal);
 
     // Event listeners
     const closeBtn = modal.querySelector('#close-battle-modal');
@@ -10846,6 +10855,7 @@ window.toggleSection = function(header) {
 
         const viewBtn = document.createElement('button');
         viewBtn.className = "join-btn";
+        viewBtn.id = "view-battle-btn";
         viewBtn.style.cssText = 'flex: 1; font-size: 12px; background: #6c7086;';
         viewBtn.innerText = "👁️ View";
         viewBtn.addEventListener('click', function(e) {
