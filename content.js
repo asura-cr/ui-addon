@@ -1665,6 +1665,27 @@ function parseAttackLogs(html) {
     } else {
       html += `<div style="color:#f38ba8; font-size:15px; font-weight:bold; margin:12px 0;">No attack skills available.<br><span style="font-size:13px; color:#fab387;">You may need to unlock skills, wait for the battle to start, or check your status.</span></div>`;
     }
+    // Add loot preview if enabled
+    if (extensionSettings.battleModal.showLootPreview) {
+      html += `<div class="loot-preview-container" style="background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+        <div class="loot-preview-grid forModal" id="loot-grid-modal-${monster.id}">
+          <div class="loot-loading">Loading loot...</div>
+        </div>
+      </div>`;
+      setTimeout(async () => {
+        try {
+          const response = await fetch(`battle.php?id=${monster.id}`);
+          const htmlText = await response.text();
+          const lootData = parseLootFromBattlePage(htmlText);
+          displayLootPreview(`modal-${monster.id}`, lootData);
+        } catch (error) {
+          console.error('[Battle Modal] Failed to load loot preview:', error);
+          const grid = document.getElementById(`loot-grid-modal-${monster.id}`);
+          if (grid) grid.innerHTML = '<div class="loot-error">Failed to load loot</div>';
+        }
+      }, 100);
+    }
+
     // Add leaderboard if present
     if (extensionSettings.battleModal.showLeaderboard && monster.leaderboard && monster.leaderboard.length > 0) {
       html += `<div style="background: #181825; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
@@ -1696,7 +1717,7 @@ function parseAttackLogs(html) {
         </div>
       `;
     }
-    
+
     content.innerHTML = html;
     // Prevent clicks inside modal content from bubbling to modal background
     content.addEventListener('click', (e) => {
@@ -5344,6 +5365,10 @@ function parseAttackLogs(html) {
                       <span>Show loot modal after looting</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                      <input type="checkbox" id="battle-modal-show-loot-preview" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                      <span>Show loot preview in modal</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
                       <input type="checkbox" id="battle-modal-show-logs" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
                       <span>Show attack logs</span>
                     </label>
@@ -6233,18 +6258,12 @@ window.toggleSection = function(header) {
     const enabledCheckbox = document.getElementById('battle-modal-enabled');
     const autoCloseCheckbox = document.getElementById('battle-modal-auto-close');
     const showLootCheckbox = document.getElementById('battle-modal-show-loot');
+    const showLootPreviewCheckbox = document.getElementById('battle-modal-show-loot-preview');
     const showLogsCheckbox = document.getElementById('battle-modal-show-logs');
     const showLeaderboardCheckbox = document.getElementById('battle-modal-show-leaderboard');
     const compactCheckbox = document.getElementById('battle-modal-compact');
-    const zoomInput = document.getElementById('battle-modal-zoom');
-    const zoomValueSpan = document.getElementById('battle-modal-zoom-value');
-    
-    // Attack button checkboxes
-    const showSlashCheckbox = document.getElementById('battle-modal-show-slash');
-    const showPowerSlashCheckbox = document.getElementById('battle-modal-show-power-slash');
-    const showHeroicSlashCheckbox = document.getElementById('battle-modal-show-heroic-slash');
-    const showUltimateSlashCheckbox = document.getElementById('battle-modal-show-ultimate-slash');
-    const showLegendarySlashCheckbox = document.getElementById('battle-modal-show-legendary-slash');
+
+
     
     if (enabledCheckbox) {
       enabledCheckbox.checked = extensionSettings.battleModal.enabled;
@@ -6286,70 +6305,19 @@ window.toggleSection = function(header) {
         saveSettings();
       });
     }
+
+    if (showLootPreviewCheckbox) {
+      showLootPreviewCheckbox.checked = extensionSettings.battleModal.showLootPreview;
+      showLootPreviewCheckbox.addEventListener('change', (e) => {
+        extensionSettings.battleModal.showLootPreview = e.target.checked;
+        saveSettings();
+      });
+    }
     
     if (compactCheckbox) {
       compactCheckbox.checked = extensionSettings.battleModal.compact;
       compactCheckbox.addEventListener('change', (e) => {
         extensionSettings.battleModal.compact = e.target.checked;
-        saveSettings();
-      });
-    }
-    
-    if (zoomInput) {
-      zoomInput.value = extensionSettings.battleModal.zoomScale || 1.0;
-      zoomInput.addEventListener('input', (e) => {
-        const zoom = parseFloat(e.target.value);
-        if (zoomValueSpan) {
-          zoomValueSpan.textContent = `${Math.round(zoom * 100)}%`;
-        }
-      });
-      zoomInput.addEventListener('change', (e) => {
-        const zoom = parseFloat(e.target.value);
-        if (zoom >= 0.5 && zoom <= 2.0) {
-          extensionSettings.battleModal.zoomScale = zoom;
-          saveSettings();
-          showNotification(`Zoom scale set to ${Math.round(zoom * 100)}%`, 'success');
-        }
-      });
-    }
-    
-    // Attack button event listeners
-    if (showSlashCheckbox) {
-      showSlashCheckbox.checked = extensionSettings.battleModal.showSlash;
-      showSlashCheckbox.addEventListener('change', (e) => {
-        extensionSettings.battleModal.showSlash = e.target.checked;
-        saveSettings();
-      });
-    }
-    
-    if (showPowerSlashCheckbox) {
-      showPowerSlashCheckbox.checked = extensionSettings.battleModal.showPowerSlash;
-      showPowerSlashCheckbox.addEventListener('change', (e) => {
-        extensionSettings.battleModal.showPowerSlash = e.target.checked;
-        saveSettings();
-      });
-    }
-    
-    if (showHeroicSlashCheckbox) {
-      showHeroicSlashCheckbox.checked = extensionSettings.battleModal.showHeroicSlash;
-      showHeroicSlashCheckbox.addEventListener('change', (e) => {
-        extensionSettings.battleModal.showHeroicSlash = e.target.checked;
-        saveSettings();
-      });
-    }
-    
-    if (showUltimateSlashCheckbox) {
-      showUltimateSlashCheckbox.checked = extensionSettings.battleModal.showUltimateSlash;
-      showUltimateSlashCheckbox.addEventListener('change', (e) => {
-        extensionSettings.battleModal.showUltimateSlash = e.target.checked;
-        saveSettings();
-      });
-    }
-    
-    if (showLegendarySlashCheckbox) {
-      showLegendarySlashCheckbox.checked = extensionSettings.battleModal.showLegendarySlash;
-      showLegendarySlashCheckbox.addEventListener('change', (e) => {
-        extensionSettings.battleModal.showLegendarySlash = e.target.checked;
         saveSettings();
       });
     }
@@ -11765,6 +11733,12 @@ window.toggleSection = function(header) {
         margin-top: 8px;
       }
       
+      .loot-preview-grid.forModal {
+        grid-template-columns: repeat(8, 1fr);
+        margin-top: 0px;
+      }
+
+      
       .loot-preview-grid.hidden-with-images {
         display: none;
       }
@@ -12060,14 +12034,15 @@ window.toggleSection = function(header) {
   }
 
   function displayLootPreview(monsterId, lootData) {
-    const grid = document.getElementById(`loot-grid-${monsterId}`);
+    // Support both card and modal loot preview containers
+    const grid = document.getElementById(`loot-grid-${monsterId}`) || document.getElementById(`loot-grid-modal-${monsterId}`);
     if (!grid) return;
-    
+
     if (lootData.length === 0) {
       grid.innerHTML = '<div class="loot-error">No loot data found</div>';
       return;
     }
-    
+
     // Create loot items
     const lootHTML = lootData.map(item => `
       <div class="loot-preview-item" title="${item.name}">
@@ -12076,15 +12051,14 @@ window.toggleSection = function(header) {
         <div class="drop-rate">${item.dropRate}</div>
       </div>
     `).join('');
-    
+
     grid.innerHTML = lootHTML;
-    
+
     if (lootData.length < 5) {
       const lootContainer = grid.parentElement;
       if (lootContainer && lootContainer.classList.contains('loot-preview-container')) {
         const missingRows = lootData.length <= 4 ? 1 : 0;
         const extraSpace = missingRows * 64; // height of one row of loot items
-        
         lootContainer.style.marginBottom = `${extraSpace}px`;
       }
     }
