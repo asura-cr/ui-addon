@@ -4961,7 +4961,7 @@
           </div>
 
           <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSection(this)">
+            <div class="settings-section-header">
               <h3>🐉 Monster Backgrounds</h3>
               <span class="expand-icon">+</span>
             </div>
@@ -5086,7 +5086,7 @@
           </div>
 
             <div class="settings-section">
-              <div class="settings-section-header" onclick="toggleSection(this)">
+              <div class="settings-section-header">
                 <h3>🖼️ Custom Backgrounds</h3>
                 <span class="expand-icon">+</span>
               </div>
@@ -5242,7 +5242,7 @@
 
           <!-- Battle Modal Settings Section -->
           <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSection(this)">
+            <div class="settings-section-header">
               <h3>⚔️ Battle Modal System</h3>
               <span class="expand-icon">+</span>
             </div>
@@ -5376,42 +5376,57 @@
         </div>
       `;
 
+
       document.body.appendChild(modal);
-        
-        // Add toggle section function to global scope
-        window.toggleSection = function(header) {
-          const section = header.parentElement;
-          const icon = header.querySelector('.expand-icon');
-          
-          section.classList.toggle('expanded');
-          
-          if (section.classList.contains('expanded')) {
-            icon.textContent = '−';
-            icon.style.transform = 'rotate(0deg)';
-          } else {
-            icon.textContent = '+';
-            icon.style.transform = 'rotate(0deg)';
-          }
-        };
-        
       setupColorSelectors();
       updateColorSelections();
       setupMonsterBackgroundControls();
-        setupLootHighlightingSettings();
-        setupCustomBackgroundSettings();
+      setupLootHighlightingSettings();
+      setupCustomBackgroundSettings();
       setupPvPAutoSurrenderSettings();
       setupNewWaveAutoRefreshSettings();
       setupGateGraktharSettings();
       setupEquipSetsSettings();
       setupBattleModalSettings();
       setupMenuCustomizationListeners();
-        
-        // Initialize all cyberpunk checkboxes
-        initializeAllCheckboxes();
+      // Initialize all cyberpunk checkboxes
+      initializeAllCheckboxes();
       setupSettingsModalListeners();
+
+      // Add expand/collapse listeners to all settings-section-header elements
+      const sectionHeaders = modal.querySelectorAll('.settings-section-header');
+      sectionHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+          window.toggleSection(header);
+        });
+      });
     }
 
+// Make toggleSection globally available for all pages
+window.toggleSection = function(header) {
+  const sectionContent = header.parentElement.querySelector('.settings-section-content');
+  const icon = header.querySelector('.expand-icon');
+  if (sectionContent) {
+    sectionContent.classList.toggle('expanded');
+    if (sectionContent.classList.contains('expanded')) {
+      icon.textContent = '−';
+      icon.style.transform = 'rotate(0deg)';
+    } else {
+      icon.textContent = '+';
+      icon.style.transform = 'rotate(0deg)';
+    }
+  }
+};
+
     modal.style.display = 'flex';
+
+      // Add event listener for the Close button
+      const closeBtn = modal.querySelector('button[data-action="close"]');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          closeSettingsModal();
+        });
+      }
 
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
