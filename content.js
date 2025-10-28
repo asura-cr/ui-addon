@@ -11136,8 +11136,6 @@ window.toggleSection = function(header) {
             <option value="name-asc">Name (A-Z)</option>
             <option value="hp-desc">HP (High → Low)</option>
             <option value="hp-asc">HP (Low → High)</option>
-            <option value="players-desc">Players (High → Low)</option>
-            <option value="players-asc">Players (Low → High)</option>
           </select>
         </div>
       </div>
@@ -11201,12 +11199,6 @@ window.toggleSection = function(header) {
             return statsA.name.localeCompare(statsB.name);
           case 'hp-asc':
             if (statsA.hp !== statsB.hp) return statsA.hp - statsB.hp;
-            return statsA.name.localeCompare(statsB.name);
-          case 'players-desc':
-            if (statsB.players !== statsA.players) return statsB.players - statsA.players;
-            return statsA.name.localeCompare(statsB.name);
-          case 'players-asc':
-            if (statsA.players !== statsB.players) return statsA.players - statsB.players;
             return statsA.name.localeCompare(statsB.name);
           default:
             return statsA.name.localeCompare(statsB.name);
