@@ -1529,34 +1529,37 @@ function parseAttackLogs(html) {
 
   // Show battle modal
   async function showBattleModal(monster) {
-  setModalOpen(true);
-  let html = "";
-  let modal = document.createElement('div');
-  let content = document.createElement('div');
-  // Add robust default styles to ensure modal is visible
-  modal.style.position = 'fixed';
-  modal.style.top = '50%';
-  modal.style.left = '50%';
-  modal.style.transform = 'translate(-50%, -50%)';
-  modal.style.zIndex = '9999';
-  modal.style.background = '#1e1e2e';
-  modal.style.color = '#cdd6f4';
-  modal.style.borderRadius = '12px';
-  modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.35)';
-  modal.style.padding = '24px';
-  modal.style.minWidth = '320px';
-  modal.style.maxWidth = '90vw';
-  modal.style.maxHeight = '90vh';
-  modal.style.overflowY = 'auto';
-  modal.style.border = '2px solid #89b4fa';
-    
-  // Fix ReferenceError: compact is not defined
-  let compact = false;
     // Remove existing modal if present
     const existingModal = document.getElementById('battle-modal');
     if (existingModal) {
       existingModal.remove();
-    }    
+    }  
+    setModalOpen(true);
+    let html = "";
+    let modal = document.createElement('div');
+    let content = document.createElement('div');
+    // Add robust default styles to ensure modal is visible
+    modal.style.position = 'fixed';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.zIndex = '9999';
+    modal.style.background = '#1e1e2e';
+    modal.style.color = '#cdd6f4';
+    modal.style.borderRadius = '12px';
+    modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.35)';
+    modal.style.padding = '24px';
+    modal.style.minWidth = '320px';
+    modal.style.maxWidth = '90vw';
+    modal.style.maxHeight = '90vh';
+    modal.style.overflowY = 'auto';
+    modal.style.border = '2px solid #89b4fa';
+    modal.id = 'battle-modal';
+    content.id = 'battle-modal-content';
+    modal.appendChild(content);
+      
+    // Fix ReferenceError: compact is not defined
+    let compact = false;  
     // Check if monster is dead
     if (monster.hp && Number(monster.hp.value) <= 0) {
       html += `<div style="color:#f38ba8; font-size:16px; font-weight:bold; margin:12px 0;">🪦 Monster is dead</div>`;
@@ -1565,6 +1568,7 @@ function parseAttackLogs(html) {
     }
     // Add close button
     html += `<button id="close-battle-modal" style="position: absolute; top: 12px; right: 16px; background: #f38ba8; color: #1e1e2e; border: 2px solid #cdd6f4; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; font-weight: bold; cursor: pointer; z-index: 10001;">&times;</button>`;
+        
     // Calculate player count and your damage from leaderboard (always use latest data)
     let playerCount = Array.isArray(monster.leaderboard) ? monster.leaderboard.length : (monster.playerCount || 0);
     let yourDamage = monster.damageDone || 0;
@@ -1636,14 +1640,19 @@ function parseAttackLogs(html) {
     }
     
     content.innerHTML = html;
+    // Prevent clicks inside modal content from bubbling to modal background
+    content.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
     modal.appendChild(content);
-  document.body.appendChild(modal);
-  console.log('[showBattleModal] Modal appended to body:', modal);
+    document.body.appendChild(modal);
+    console.log('[showBattleModal] Modal appended to body:', modal);
 
     // Event listeners
-    const closeBtn = document.getElementById('close-battle-modal');
+    const closeBtn = modal.querySelector('#close-battle-modal');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         modal.remove();
         setModalOpen(false);
         // Remove battle iframe when closing modal
@@ -1652,17 +1661,15 @@ function parseAttackLogs(html) {
         updateWaveData(true);
       });
     }
-    
-    // Close on background click
+
+    // Close on background click only if clicking the modal background
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.remove();
         setModalOpen(false);
-        
         // Remove battle iframe when closing modal
         const iframe = document.getElementById('battle-session-iframe');
         if (iframe) iframe.remove();
-        
         updateWaveData(true);
       }
     });
@@ -11531,26 +11538,33 @@ window.toggleSection = function(header) {
 
   function addHPNumbersToHealthBar(card) {
     const hpBar = card.querySelector('.hp-bar');
-    const hpText = Array.from(card.querySelectorAll('div')).find(div => 
-      div.textContent.includes('❤️') && div.textContent.includes('HP')
-    );
-    
-    if (hpBar && hpText && !hpBar.querySelector('.hp-numbers')) {
-      // Extract current and max HP from text
-      const hpMatch = hpText.textContent.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
-      if (hpMatch) {
-        const currentHP = hpMatch[1];
-        const maxHP = hpMatch[2];
-        
-        // Create HP numbers overlay
-        const hpNumbers = document.createElement('div');
-        hpNumbers.className = 'hp-numbers';
-        hpNumbers.textContent = `${currentHP} / ${maxHP}`;
-        
-        // Make sure hp-bar is positioned relatively
-        hpBar.style.position = 'relative';
-        hpBar.appendChild(hpNumbers);
+    // Find the HP stat row
+    const hpRow = Array.from(card.querySelectorAll('.stat-row')).find(row => {
+      const icon = row.querySelector('.stat-icon.hp');
+      return icon && icon.textContent.includes('❤️');
+    });
+
+    let currentHP = null, maxHP = null;
+    if (hpRow) {
+      const statValue = hpRow.querySelector('.stat-value');
+      if (statValue) {
+        // Extract both numbers, even if separated by <br> or whitespace
+        const numbers = statValue.textContent.replace(/\s+/g, '').split('/');
+        if (numbers.length === 2) {
+          currentHP = numbers[0];
+          maxHP = numbers[1];
+        }
       }
+    }
+
+    if (hpBar && currentHP && maxHP && !hpBar.querySelector('.hp-numbers')) {
+      // Create HP numbers overlay
+      const hpNumbers = document.createElement('div');
+      hpNumbers.className = 'hp-numbers';
+      hpNumbers.textContent = `${currentHP} / ${maxHP}`;
+      // Make sure hp-bar is positioned relatively
+      hpBar.style.position = 'relative';
+      hpBar.appendChild(hpNumbers);
     }
   }
 
