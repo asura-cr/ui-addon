@@ -1533,8 +1533,25 @@ function parseAttackLogs(html) {
         staminaElem.textContent = newStamina;
       }
 
+        console.log('[BattleModal] Updating monster card for:', updatedMonster);
       // Update modal with new monster data
       showBattleModal(updatedMonster);
+      // Update monster card UI with new data
+      // Update monsterList with the latest monster
+      let found = false;
+      for (let i = 0; i < monsterList.length; i++) {
+        if (monsterList[i].id == updatedMonster.id) {
+          monsterList[i] = updatedMonster;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        monsterList.push(updatedMonster);
+      }
+        console.log('[BattleModal] monsterList after update:', monsterList);
+      updateMonsterUI();
+        console.log('[BattleModal] updateMonsterUI called');
       // Check if monster is defeated
       if (updatedMonster.currentHp <= 0) {
         showNotification('Monster defeated!', '#f39c12');
@@ -1823,7 +1840,21 @@ function parseAttackLogs(html) {
 
   // Find monster by ID from current page data
   function findMonsterById(monsterId) {
-    const monsterCards = document.querySelectorAll('.monster-card, .wave-monster');
+    // First, try to find a card with data-monster-id attribute
+    let card = document.querySelector(`[data-monster-id='${monsterId}']`);
+    if (card) {
+      // If the element is a button or link, get its parent card
+      if (card.classList.contains('join-btn') || card.tagName === 'A') {
+        // Traverse up to find the card container
+        let parent = card.closest('.monster-card, .wave-monster, .battle-card');
+        if (parent) return parent;
+      } else {
+        // If it's already a card
+        return card;
+      }
+    }
+    // Fallback to previous logic
+    const monsterCards = document.querySelectorAll('.monster-card, .wave-monster, .battle-card');
     for (const card of monsterCards) {
       const joinBtn = card.querySelector('a[href*="battle.php"], button[onclick*="battle"]');
       if (joinBtn) {
@@ -1890,7 +1921,7 @@ function parseAttackLogs(html) {
     const staminaElem = doc.querySelector('.sidebar-stamina, .stamina-value, [class*="stamina"]');
     if (staminaElem) {
       const staminaMatch = staminaElem.textContent.match(/(\d+)/);
-      if (staminaMatch) data.stamina = parseInt(staminaMatch[1]);
+      if (staminaMatch) data.stamina = parseIn t(staminaMatch[1]);
     }
     
     const expElem = doc.querySelector('.sidebar-exp, .exp-value, [class*="exp"]');
@@ -1917,10 +1948,29 @@ function parseAttackLogs(html) {
     monsterList.forEach(monster => {
       const card = findMonsterById(monster.id);
       if (card) {
-        const hpElem = card.querySelector('.monster-hp, .hp-bar, .hp-text');
-        if (hpElem) {
-          hpElem.textContent = `${monster.currentHp} / ${monster.maxHp}`;
+        // Try to update .hp-numbers first
+        const hpNumbersElem = card.querySelector('.hp-numbers');
+        const hpFillElem = card.querySelector('.hp-fill');
+        if (hpNumbersElem) {
+          console.log(`[updateMonsterUI] Updating .hp-numbers for monster ID ${monster.id} (${monster.monsterName}): HP ${monster.currentHp} / ${monster.maxHp}`);
+          hpNumbersElem.textContent = `${monster.currentHp.toLocaleString()} / ${monster.maxHp.toLocaleString()}`;
+          if (hpFillElem && monster.maxHp > 0) {
+            const percent = Math.max(0, Math.min(100, (monster.currentHp / monster.maxHp) * 100));
+            hpFillElem.style.width = percent.toFixed(4) + '%';
+            console.log(`[updateMonsterUI] Updated .hp-fill width for monster ID ${monster.id}: ${percent.toFixed(4)}%`);
+          }
+        } else {
+          // Fallback to previous selectors
+          const hpElem = card.querySelector('.monster-hp, .hp-bar, .hp-text');
+          if (hpElem) {
+            console.log(`[updateMonsterUI] Updating fallback HP element for monster ID ${monster.id} (${monster.monsterName}): HP ${monster.currentHp} / ${monster.maxHp}`);
+            hpElem.textContent = `${monster.currentHp} / ${monster.maxHp}`;
+          } else {
+            console.log(`[updateMonsterUI] No HP element found for monster ID ${monster.id} (${monster.monsterName})`);
+          }
         }
+      } else {
+        console.log(`[updateMonsterUI] No card found for monster ID ${monster.id} (${monster.monsterName})`);
       }
     });
   }
