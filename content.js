@@ -1412,10 +1412,15 @@ function parseLeaderboardFromHtml(html) {
         await showBattleModal(monster);
       }
     } catch (error) {
-      console.error('Error joining battle:', error);
-      showNotification('Error joining battle', '#e74c3c');
-      btn.textContent = 'Join';
-      btn.disabled = false;
+      if (error.message.includes('Invalid monster')) {
+        showNotification('Monster already died', '#e74c3c');
+        btn.textContent = 'Join';
+      } else {
+        console.error('Error joining battle:', error);
+        showNotification('Error joining battle', '#e74c3c');
+        btn.textContent = 'Join';
+        btn.disabled = false;
+      }
     }
   }
 
@@ -1921,7 +1926,7 @@ function parseAttackLogs(html) {
     const staminaElem = doc.querySelector('.sidebar-stamina, .stamina-value, [class*="stamina"]');
     if (staminaElem) {
       const staminaMatch = staminaElem.textContent.match(/(\d+)/);
-      if (staminaMatch) data.stamina = parseIn t(staminaMatch[1]);
+      if (staminaMatch) data.stamina = parseInt (staminaMatch[1]);
     }
     
     const expElem = doc.querySelector('.sidebar-exp, .exp-value, [class*="exp"]');
@@ -1976,9 +1981,37 @@ function parseAttackLogs(html) {
   }
 
   // ===== Update Data ====
+  // Periodically update all monster cards and detect new cards
   const updateData = async (manual = false) => {
     await updateWaveData(manual);
+    // Extract monsters from the current DOM
+    const monsters = await extractMonsters(document);
+    let updated = false;
+    monsters.forEach(monster => {
+      const existing = monsterList.find(m => m.id == monster.id);
+      if (!existing) {
+        monsterList.push(monster);
+        updated = true;
+        console.log(`[updateData] New monster card detected: ${monster.id} (${monster.monsterName})`);
+      } else {
+        // Update HP and other info if changed
+        if (existing.currentHp !== monster.currentHp || existing.maxHp !== monster.maxHp) {
+          existing.currentHp = monster.currentHp;
+          existing.maxHp = monster.maxHp;
+          updated = true;
+          console.log(`[updateData] Monster card updated: ${monster.id} (${monster.monsterName}) HP: ${monster.currentHp} / ${monster.maxHp}`);
+        }
+      }
+    });
+    if (updated) {
+      updateMonsterUI();
+    }
   };
+
+  // Set up periodic refresh every 5 seconds
+  setInterval(() => {
+    updateData();
+  }, 5000);
 
   // ===== END BATTLE MODAL SYSTEM =====
 
