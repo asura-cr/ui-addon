@@ -1332,6 +1332,9 @@ function parseLeaderboardFromHtml(html) {
         if (joinMsg.toLowerCase().includes('You can only join 5 monsters at a time in this wave')) {
           showNotification('Cannot join battle: You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
           btn.textContent = 'Join';
+        } else if (joinMsg.toLowerCase().includes('Invalid monster')) {
+          showNotification('Monster already died', '#e74c3c');
+          btn.textContent = 'Join';
         } else {
           throw new Error(joinMsg || 'Failed to join battle');
         }
@@ -1363,7 +1366,35 @@ function parseLeaderboardFromHtml(html) {
         newBtn.addEventListener('click', () => {
           showBattleModal(monster);
         });
-    
+
+        // Move monster card to Continue Battle section
+        let continueSection = document.getElementById('continue-battle-content');
+        if (!continueSection) {
+          // Create the section and container if missing
+          const section = document.createElement('div');
+          section.className = 'monster-section';
+          section.innerHTML = `
+            <div class="monster-section-header">
+              <h3 style="color: #f38ba8; margin: 0; flex: 1;">⚔️ Continue Battle</h3>
+              <button class="section-toggle-btn" id="continue-battle-toggle">–</button>
+            </div>
+            <div class="monster-section-content" id="continue-battle-content" style="display: block;">
+              <div class="monster-container" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 18px;"></div>
+            </div>
+          `;
+          // Insert at top of .content-area (or body)
+          const contentArea = document.querySelector('.monster-container') || document.body;
+          contentArea.insertBefore(section, contentArea.firstChild);
+          continueSection = section.querySelector('#continue-battle-content');
+        }
+        // Remove from current parent and append to continueContainer
+        if (monsterCard.parentNode) {
+          monsterCard.parentNode.removeChild(monsterCard);
+        }
+        // Append monster card to the monster-container inside continueSection
+        const continueContainer = continueSection.querySelector('.monster-container');
+        continueContainer.appendChild(monsterCard);
+
         // Now fetch the battle page to show in modal
         const html = await fetchBattlePageHtml(monsterId);
         const parsed = parseBattleHtml(html);
@@ -5237,17 +5268,7 @@ function parseAttackLogs(html) {
                       <input type="checkbox" id="battle-modal-show-leaderboard" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
                       <span>Show leaderboard</span>
                     </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-compact" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #fab387; border-radius: 4px; background-color: transparent;">
-                      <span>Compact mode (smaller modal)</span>
-                    </label>
                   </div>
-                </div>
-
-                <div style="margin: 15px 0;">
-                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Zoom Scale:</label>
-                  <input type="range" id="battle-modal-zoom" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 200px; margin-right: 10px;">
-                  <span id="battle-modal-zoom-value" style="color: #cdd6f4;">100%</span>
                 </div>
               </div>
             </div>
