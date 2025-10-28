@@ -498,8 +498,6 @@ function parseLeaderboardFromHtml(html) {
       const curr = parseInt(match[1].replace(/,/g, ''));
       const max = parseInt(match[2].replace(/,/g, ''));
       
-      console.log('Found HP match:', curr, '/', max);
-      
       // Take the match with the highest max HP (monster HP is usually the biggest)
       if (max > bestMaxHp) {
         bestMaxHp = max;
@@ -510,7 +508,6 @@ function parseLeaderboardFromHtml(html) {
     if (bestMatch) {
       currentHp = bestMatch.curr;
       maxHp = bestMatch.max;
-      console.log('Selected HP:', currentHp, '/', maxHp);
     } else {
       // Fallback: look for HP patterns without "HP" text
       const hpElements = doc.querySelectorAll('div, span, p');
@@ -524,7 +521,6 @@ function parseLeaderboardFromHtml(html) {
             currentHp = curr;
             maxHp = max;
             bestMaxHp = max;
-            console.log('Found HP in fallback:', currentHp, '/', maxHp);
           }
         }
       }
@@ -535,7 +531,6 @@ function parseLeaderboardFromHtml(html) {
     const playerMatch = allText.match(/Players?\s*(?:Joined)?[:\s]*(\d+)\s*\/\s*(\d+)/i);
     if (playerMatch) {
       playerCount = parseInt(playerMatch[1]);
-      console.log('Found player count:', playerCount, '/', playerMatch[2]);
     }
     
     // Extract damage done
@@ -543,7 +538,6 @@ function parseLeaderboardFromHtml(html) {
     const damageMatch = allText.match(/(?:Your\s+)?Damage(?:\s+Done)?[:\s]*([\d,]+)/i);
     if (damageMatch) {
       damageDone = parseInt(damageMatch[1].replace(/,/g, ''));
-      console.log('Found damage:', damageDone);
     }
     
     // Extract skill buttons - look for attack buttons
@@ -575,7 +569,6 @@ function parseLeaderboardFromHtml(html) {
               name: nameText,
               element: btn.outerHTML
             });
-            console.log('Found skill button:', nameText, 'ID:', skillId);
           }
         }
     
@@ -1324,8 +1317,6 @@ function parseLeaderboardFromHtml(html) {
       }
       // First, submit the join action to the server
       const joinPayload = 'monster_id=' + monsterId + '&user_id=' + userId;
-      console.log('[handleJoin] Attempting join: monsterId=' + monsterId + ', userId=' + userId);
-      console.log('[handleJoin] Join payload:', joinPayload);
       const joinResponse = await fetch('user_join_battle.php', {
         method: 'POST',
         headers: {
@@ -1335,7 +1326,6 @@ function parseLeaderboardFromHtml(html) {
         referrer: 'https://demonicscans.org/battle.php?id=' + monsterId
       });
       const joinData = await joinResponse.text();
-      console.log('[handleJoin] Join server response:', joinData);
       const joinMsg = (joinData || '').trim();
       const joinSuccess = joinMsg.toLowerCase().startsWith('you have successfully');
       if (!joinSuccess) {
@@ -1559,8 +1549,6 @@ function parseAttackLogs(html) {
     modal.id = 'battle-modal';
     content.id = 'battle-modal-content';
     modal.appendChild(content);
-      
-    console.log('[BattleModal] Showing modal for monster:', monster);
 
     // Fix ReferenceError: compact is not defined
     let compact = false;  
