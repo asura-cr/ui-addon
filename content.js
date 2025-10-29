@@ -12637,6 +12637,15 @@ window.toggleSection = function(header) {
         panel.parentNode.removeChild(panel);
       }
     });
+      // Move loot button into .battle-actions-card after .battle-actions-head
+      const lootButton = document.getElementById('loot-button');
+      const actionsCard = document.querySelector('.battle-actions-card');
+      const actionsHead = actionsCard ? actionsCard.querySelector('.battle-actions-head') : null;
+      if (lootButton && actionsCard && actionsHead) {
+        if (!actionsCard.contains(lootButton)) {
+          actionsHead.insertAdjacentElement('afterend', lootButton);
+        }
+      }
     // Update log-panel width
     const style = document.createElement('style');
     style.textContent = `
