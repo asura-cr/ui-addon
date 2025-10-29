@@ -1829,7 +1829,6 @@ function parseAttackLogs(html) {
     if (extensionSettings.battleModal.showAttackLogs && monster.battleLog && monster.battleLog.length > 0) {
       html += `
         <div style="background: #181825; padding: ${compact ? '10px' : '15px'}; border-radius: 8px; margin-bottom: ${compact ? '10px' : '15px'}; max-height: ${compact ? '120px' : '200px'}; overflow-y: auto;">
-          <h3 style="margin: 0 0 10px 0; color: #89b4fa; font-size: ${compact ? '14px' : '16px'};">Battle Log</h3>
           <div style="max-height: 120px; overflow-y: auto;">
           ${monster.battleLog.slice(0, 10).map((entry, i) => `
             <div style="display: flex; justify-content: space-between; padding: 6px; background: ${i % 2 === 0 ? '#11111b' : 'transparent'}; border-radius: 4px; font-size: 11px;">
@@ -4280,13 +4279,13 @@ function parseAttackLogs(html) {
       
 
       /* Make leaderboard and attack log side by side */
-      .leaderboard-panel, .log-panel {
+      .leaderboard-panel, .log-panel .main-panel {
         display: inline-block !important;
         vertical-align: top !important;
         width: 48% !important;
         box-sizing: border-box !important;
       }
-      .log-panel {
+      .log-panel, .main-panel {
         margin-top: 1% !important;
         margin-bottom: 16px !important;
       }
@@ -12775,7 +12774,7 @@ window.toggleSection = function(header) {
           logPanel2.removeChild(brNode);
           // Create a new battle card for the log
           let logBattleCard = document.createElement('div');
-          logBattleCard.className = 'battle-card monster-card log-battle-card';
+          logBattleCard.className = 'battle-card log-battle-card';
           logNodes.forEach(n => logBattleCard.appendChild(n));
 
           // Create a flex container for side-by-side layout
@@ -12794,6 +12793,42 @@ window.toggleSection = function(header) {
           flexContainer.appendChild(logBattleCard);
         }
       }
+      // Rename log-panel to main-panel and remove log-panel CSS
+      if (logPanel) {
+        logPanel.classList.remove('log-panel');
+        logPanel.classList.add('main-panel');
+      }
+      // new invisible log panel to find later
+      const invisibleLogPanel = document.createElement('div');
+      invisibleLogPanel.className = 'panel log-panel';
+      invisibleLogPanel.style.display = 'none';
+      logPanel.parentNode.appendChild(invisibleLogPanel);
+      // update the battle-card log-battle-card when attacks happen
+      const battleObserver = new MutationObserver(() => {
+        const logBattleCard = document.querySelector('.battle-card.log-battle-card');
+        if (logBattleCard) {
+          // Clear existing content
+          logBattleCard.innerHTML = '';
+          // Find the invisible log panel
+          const invisibleLogPanel = document.querySelector('.panel.log-panel');
+          if (invisibleLogPanel) {
+            // Find the <br> node that starts the log
+            let brNode = Array.from(invisibleLogPanel.childNodes).find(n => n.nodeName === 'BR');
+            if (brNode) {
+              // Collect all nodes after <br>
+              let logNodes = [];
+              let next = brNode.nextSibling;
+              while (next) {
+                logNodes.push(next);
+                next = next.nextSibling;
+              }
+              // Append these nodes to the log battle card
+              logNodes.forEach(n => logBattleCard.appendChild(n.cloneNode(true)));
+            }
+          }
+        }
+      });
+      battleObserver.observe(invisibleLogPanel, { childList: true, subtree: true });
     }
   }
 
