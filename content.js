@@ -2113,35 +2113,6 @@ function parseAttackLogs(html) {
     return data;
   }
 
-  // Render the current `monsterList` into the page's .monster-container
-  function updateMonsterUI() {
-    const container = document.querySelector('.monster-container, .wave-monsters');
-    if (!container || monsterList.length === 0) return;
-    
-    // Update existing monster cards instead of replacing
-    monsterList.forEach(monster => {
-      const card = findMonsterById(monster.id);
-      if (card) {
-        // Try to update .hp-numbers first
-        const hpNumbersElem = card.querySelector('.hp-numbers');
-        const hpFillElem = card.querySelector('.hp-fill');
-        if (hpNumbersElem) {
-          hpNumbersElem.textContent = `${monster.currentHp.toLocaleString()} / ${monster.maxHp.toLocaleString()}`;
-          if (hpFillElem && monster.maxHp > 0) {
-            const percent = Math.max(0, Math.min(100, (monster.currentHp / monster.maxHp) * 100));
-            hpFillElem.style.width = percent.toFixed(4) + '%';
-          }
-        } else {
-          // Fallback to previous selectors
-          const hpElem = card.querySelector('.monster-hp, .hp-bar, .hp-text');
-          if (hpElem) {
-            hpElem.textContent = `${monster.currentHp} / ${monster.maxHp}`;
-          } 
-        }
-      } 
-    });
-  }
-
   // ===== Update Data ====
   // Periodically update all monster cards and detect new cards
   const updateData = async (manual = false) => {
@@ -2164,9 +2135,6 @@ function parseAttackLogs(html) {
         }
       }
     });
-    if (updated) {
-      updateMonsterUI();
-    }
   };
 
   // Set up periodic refresh every 5 seconds
