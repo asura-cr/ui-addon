@@ -1329,10 +1329,10 @@ function parseLeaderboardFromHtml(html) {
       const joinMsg = (joinData || '').trim();
       const joinSuccess = joinMsg.toLowerCase().startsWith('you have successfully');
       if (!joinSuccess) {
-        if (joinMsg.toLowerCase().includes('You can only join 5 monsters at a time in this wave')) {
+        if (joinMsg.toLowerCase().includes('you can only join 5 monsters at a time in this wave')) {
           showNotification('Cannot join battle: You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
           btn.textContent = 'Join';
-        } else if (joinMsg.toLowerCase().includes('Invalid monster')) {
+        } else if (joinMsg.toLowerCase().includes('invalid monster')) {
           showNotification('Monster already died', '#e74c3c');
           btn.textContent = 'Join';
         } else {
@@ -4199,8 +4199,14 @@ function parseAttackLogs(html) {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 10px !important;
-        flex-basis: 350px !important;
         min-width: 250px !important;
+        max-width: 50% !important;
+      }
+
+      .log-battle-card {
+        max-height:400px;
+        overflow-y: scroll;
+        height:400px;
       }
 
       .battle-images-hidden #extension-loot-container {
@@ -4278,17 +4284,20 @@ function parseAttackLogs(html) {
         display: inline-block !important;
         vertical-align: top !important;
         width: 48% !important;
-        margin: 1% !important;
         box-sizing: border-box !important;
       }
-      
-      /* Ensure proper spacing between side-by-side panels */
-      .leaderboard-panel {
-        margin-right: 2% !important;
-      }
-      
       .log-panel {
-        margin-left: 2% !important;
+        margin-top: 1% !important;
+        margin-bottom: 16px !important;
+      }
+      .leaderboard-panel {
+        max-height: 400px !important;
+        height: 400px !important;
+      }
+
+      .monster-card {
+        border: none !important;
+        box-shadow: none !important;
       }
       
       /* Ensure leaderboard spacing is preserved */
@@ -8650,100 +8659,6 @@ window.toggleSection = function(header) {
         applyCustomBackgrounds();
         applyMonsterBackgrounds();
       }, 200);
-      
-      // Also try again after a longer delay to ensure elements are loaded
-      if (window.location.pathname.includes('battle.php')) {
-        setTimeout(() => {
-          // Remove monster card from battle grid if present
-          const battleGrid = document.querySelector('.battle-grid');
-          if (battleGrid) {
-            const monsterCard = battleGrid.querySelector('.monster-card');
-            if (monsterCard) monsterCard.remove();
-          }
-
-          // Find log panel and monster-display
-          const logPanel = document.querySelector('.log-panel');
-          const monsterDisplay = document.getElementById('monster-display');
-          if (logPanel && monsterDisplay) {
-            // Remove any existing injected monster card
-            const oldInjected = monsterDisplay.querySelector('.card.monster-card');
-            if (oldInjected) oldInjected.remove();
-
-            // Get monster name, ATK, DEF, HP, image
-            const monsterName = document.querySelector('.card-title')?.textContent?.trim() || '';
-            const monsterAtk = document.querySelector('.stat-block .label:contains("ATK")')?.nextElementSibling?.textContent?.trim() || '0';
-            const monsterDef = document.querySelector('.stat-block .label:contains("DEF")')?.nextElementSibling?.textContent?.trim() || '0';
-            const monsterImg = document.getElementById('monsterImage')?.src || '';
-            const monsterHP = document.getElementById('hpText')?.textContent?.trim() || '';
-            const monsterHPBar = document.getElementById('hpFill')?.style?.width || '100%';
-
-            // Build stat-line-mobs div
-            let statLine = document.createElement('div');
-            statLine.className = 'stat-line-mobs';
-            statLine.style = 'margin-top:6px;position: absolute;display: flex;gap: 8px;z-index: 2;';
-            statLine.innerHTML = `
-              <div class="stat-block">
-                <span class="label">ATK</span>
-                <strong>${monsterAtk}</strong>
-              </div>
-              <div class="stat-block">
-                <span class="label">DEF</span>
-                <strong>${monsterDef}</strong>
-              </div>
-            `;
-
-            // Build monster card HTML (compact)
-            let card = document.createElement('div');
-            card.className = 'card monster-card';
-            card.innerHTML = `
-              <div class="card-headline">
-                <div class="card-title">${monsterName}</div>
-              </div>
-              <div class="battle-actions-card">
-                <div class="battle-actions-head">
-                  <div class="label-left">
-                    ⚔ Action
-                    <span class="chip" style="background: rgb(42, 59, 32); border: 1px solid rgb(59, 90, 43); border-radius: 999px; padding: 2px 8px; font-size: 11px; color: rgb(201, 255, 201);">Not in battle</span>
-                  </div>
-                  <div style="font-size: 11px; color: rgb(154, 160, 184);">Tap to join instantly</div>
-                </div>
-                <div class="battle-actions-body">
-                  <button id="join-battle" class="btn btn-join" style="width:100%;" draggable="false">👉 Join the Battle</button>
-                </div>
-              </div>
-              <div>
-                <div class="hp-bar" style="justify-self: normal;">
-                  <div class="hp-fill hp-fill--monster" id="hpFill" style="width:${monsterHPBar}"></div>
-                </div>
-                <div class="hp-text" id="hpText" style="font-size:13px;">${monsterHP}</div>
-              </div>
-            `;
-
-            // Clear monsterDisplay and inject statLine and monster image
-            monsterDisplay.innerHTML = '';
-            monsterDisplay.appendChild(statLine);
-            // Monster image
-            let img = document.createElement('img');
-            img.className = 'monster_image';
-            img.id = 'monsterImage';
-            img.src = monsterImg;
-            img.style = 'width: 100%;height: auto;border-radius: 12px;border: 1px solid rgb(43, 46, 73);background: rgb(15, 16, 26);padding: 8px;box-shadow: rgba(0, 0, 0, 0.6) 0px 12px 32px;margin: 6px auto 10px;display: block;max-height: 400px;';
-            monsterDisplay.appendChild(img);
-            // Inject monster card below image
-            monsterDisplay.appendChild(card);
-          }
-        }, 300);
-      }
-      setTimeout(() => {
-        applyCustomBackgrounds();
-        applyMonsterBackgrounds();
-      }, 1000);
-      
-      // Try one more time after a longer delay for slow-loading pages
-      setTimeout(() => {
-        applyCustomBackgrounds();
-        applyMonsterBackgrounds();
-      }, 2000);
   }
 
   // Enhanced Quick Access Pinning System - Universal Sidebar Shortcuts
@@ -11594,20 +11509,8 @@ window.toggleSection = function(header) {
         if (monsterImage) {
           // Restore original image size
           monsterImage.style.maxHeight = '400px';
-          
-          // Check if wrapper already exists
-          let imageWrapper = document.querySelector('.monster-image-wrapper');
-          if (!imageWrapper) {
-            // Create a wrapper for the monster image to handle grayscale properly
-            imageWrapper = document.createElement('div');
-            imageWrapper.className = 'monster-image-wrapper';
-            imageWrapper.style.position = 'relative';
-            imageWrapper.style.display = 'inline-block';
-            
-            // Move the image into the wrapper
-            imageWrapper.appendChild(monsterImage);
-          }
-          monsterDisplay.append(imageWrapper);
+          monsterImage.style.width = '50%';
+          monsterDisplay.append(monsterImage);
         }
 
         // Find and move ALL monster-related content into monster display
@@ -12719,41 +12622,178 @@ window.toggleSection = function(header) {
   }
 
   function initBattleMods(){
-    initReducedImageSize()
-    initTotalOwnDamage()
-    initAnyClickClosesModal()
-    addBattleHideImagesToggle()
-    initBattleLayoutSideBySide()
-    
+    //initReducedImageSize();
+    initTotalOwnDamage();
+    updateBattlePage();
+    //initAnyClickClosesModal();
+    //addBattleHideImagesToggle();
+    //initBattleLayoutSideBySide();
+
     // Initialize battle modal if enabled
     if (extensionSettings.battleModal.enabled) {
       initBattlePageModal();
     }
-    
+
     // Apply initial monster backgrounds
-    applyMonsterBackgrounds()
-    applyLootPanelColors()
-    
+    applyMonsterBackgrounds();
+    applyLootPanelColors();
+
     // Initialize leaderboard highlighting
     setTimeout(() => {
       highlightCurrentUserInLeaderboard();
     }, 1000);
-    
+
     // Set up observer for panel changes
     const observer = new MutationObserver(() => {
       applyMonsterBackgrounds();
       applyLootPanelColors();
       highlightCurrentUserInLeaderboard();
     });
-    
+
     // Observe the container that holds panels
     const container = document.querySelector('.container, #content');
     if (container) {
-      observer.observe(container, { 
-        childList: true, 
+      observer.observe(container, {
+        childList: true,
         subtree: true,
         characterData: true
       });
+    }
+  }
+
+  function updateBattlePage(){
+    // Remove the loot panel containing '🎁 Possible Loot'
+    const lootPanels = document.querySelectorAll('.panel');
+    lootPanels.forEach(panel => {
+      const strong = panel.querySelector('strong');
+      if (strong && strong.textContent.includes('🎁 Possible Loot')) {
+        panel.parentNode.removeChild(panel);
+      }
+    });
+    // Update log-panel width
+    const style = document.createElement('style');
+    style.textContent = `
+      .log-panel {
+        width: 100% !important;
+      }
+    `;
+    document.head.appendChild(style);
+    // Move .battle-grid below .panel.log-panel
+    const logPanel = document.querySelector('.panel.log-panel');
+    const battleGrid = document.querySelector('.battle-grid');
+    if (logPanel && battleGrid) {
+      logPanel.parentNode.insertBefore(battleGrid, logPanel.nextSibling);
+    }
+
+    // Move warning chip above log-panel if present
+    if (logPanel) {
+      const chips = Array.from(document.querySelectorAll('.chip'));
+      const warningChip = chips.find(chip => chip.textContent.trim().includes("You're above this monster’s reward cap"));
+      if (warningChip && warningChip.parentNode !== logPanel.parentNode) {
+        logPanel.parentNode.insertBefore(warningChip, logPanel);
+      }
+    }
+
+    // Move .battle-card.monster-card below monster image inside .panel.log-panel
+    if (logPanel) {
+      const monsterImage = logPanel.querySelector('img.monster_image');
+      const monsterCard = document.querySelector('.battle-card.monster-card');
+      if (monsterImage && monsterCard) {
+        monsterImage.parentNode.insertBefore(monsterCard, monsterImage.nextSibling);
+      }
+      // Remove <div class="card-sub">HP ...</div> from logPanel
+      const cardSubDiv = logPanel.querySelector('div.card-sub');
+      if (cardSubDiv && cardSubDiv.parentNode) {
+        cardSubDiv.parentNode.removeChild(cardSubDiv);
+      }
+
+      // Add stat-line to the right of monster image
+      const statLine = document.querySelector('.stat-line');
+      if (monsterImage && statLine) {
+        // Create a flex container if not already present
+        let flexWrap = monsterImage.parentNode;
+        if (!flexWrap.classList.contains('monster-flex-wrap')) {
+          const wrapper = document.createElement('div');
+          wrapper.style.display = 'flex';
+          wrapper.style.alignItems = 'flex-start';
+          wrapper.className = 'monster-flex-wrap';
+          monsterImage.parentNode.insertBefore(wrapper, monsterImage);
+          wrapper.appendChild(monsterImage);
+          flexWrap = wrapper;
+        }
+        // Move stat-line to the right of the image
+        flexWrap.appendChild(statLine);
+        // Remove <div class="eyebrow">Monster</div>
+        const monsterEyebrow = Array.from(document.querySelectorAll('.eyebrow')).find(e => e.textContent.trim() === 'Monster');
+        if (monsterEyebrow && monsterEyebrow.parentNode) {
+          monsterEyebrow.parentNode.removeChild(monsterEyebrow);
+        }
+        // Remove <div><strong>📜 Attack Log</strong></div> from logPanel
+        const logStrongDiv = Array.from(logPanel.querySelectorAll('div')).find(div => {
+          const strong = div.querySelector('strong');
+          return strong && strong.textContent.trim() === '📜 Attack Log';
+        });
+        if (logStrongDiv && logStrongDiv.parentNode) {
+          logStrongDiv.parentNode.removeChild(logStrongDiv);
+        }
+      }
+      // Ensure .stat-line has margin-top: 14px
+      const statLineStyle = document.createElement('style');
+      statLineStyle.textContent = `
+        .stat-line {
+          margin-top: 14px !important;
+          margin-left: 16px !important;
+        }
+        .stat-block {
+          min-width: 100px !important;
+        }
+        .battle-grid {
+          display: block !important;
+        }
+        .battle-card {
+          display: block !important;
+        }
+      `;
+      document.head.appendChild(statLineStyle);
+      // Move only the attack log to a battle card next to the leaderboard panel
+      const leaderboardPanel2 = document.querySelector('.leaderboard-panel');
+      let logPanel2 = document.querySelector('.log-panel');
+      if (leaderboardPanel2 && logPanel2) {
+        // Find the <br> node that starts the log
+        let brNode = Array.from(logPanel2.childNodes).find(n => n.nodeName === 'BR');
+        if (brNode) {
+          // Collect all nodes after <br>
+          let logNodes = [];
+          let next = brNode.nextSibling;
+          while (next) {
+            logNodes.push(next);
+            next = next.nextSibling;
+          }
+          // Remove these nodes from logPanel
+          logNodes.forEach(n => logPanel2.removeChild(n));
+          // Remove the <br> itself
+          logPanel2.removeChild(brNode);
+          // Create a new battle card for the log
+          let logBattleCard = document.createElement('div');
+          logBattleCard.className = 'battle-card monster-card log-battle-card';
+          logNodes.forEach(n => logBattleCard.appendChild(n));
+
+          // Create a flex container for side-by-side layout
+          let flexContainer = leaderboardPanel2.parentNode;
+          if (!flexContainer.classList.contains('side-by-side-wrap')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'side-by-side-wrap';
+            wrapper.style.display = 'flex';
+            wrapper.style.gap = '20px';
+            wrapper.style.alignItems = 'flex-start';
+            flexContainer.insertBefore(wrapper, leaderboardPanel2);
+            wrapper.appendChild(leaderboardPanel2);
+            flexContainer = wrapper;
+          }
+          // Add the log battle card next to leaderboard
+          flexContainer.appendChild(logBattleCard);
+        }
+      }
     }
   }
 
