@@ -1296,6 +1296,46 @@ function parseLeaderboardFromHtml(html) {
 
   // ===== BATTLE MODAL SYSTEM =====
 
+  // Helper: update a join button to show player count if available
+  function enhanceJoinButtonWithPlayers(btn, monsterCard) {
+    try {
+      if (!btn) return;
+      // Look for nearby player text in the card
+      let playerText = null;
+      if (monsterCard) {
+        // Common selectors / heuristics
+        playerText = monsterCard.querySelector(".player-count, .players-joined, .monster-players, .chip, .meta, .monster-meta, .panel") || monsterCard.querySelector('div, span');
+        // Also try to find any element containing the phrase
+        const candidate = Array.from(monsterCard.querySelectorAll('div, span, p'))
+          .find(el => /Players Joined|Players Joined|Players Joined|👥|Players Joined/i.test(el.textContent));
+        if (candidate) playerText = candidate;
+      }
+
+      if (!playerText) {
+        // fallback: try to find a global players text near the button
+        playerText = btn.closest('.monster-card')?.querySelector('div, span, p');
+      }
+
+      const text = playerText?.textContent || '';
+      // Try several regex patterns to extract numbers
+      let m = text.match(/(\d{1,3}(?:,\d{3})*)\s*\/\s*(\d{1,3}(?:,\d{3})*)/);
+      if (!m) m = text.match(/Players\s*Joined\s*(\d+)\s*\/\s*(\d+)/i);
+      if (!m) m = text.match(/👥\s*Players\s*Joined\s*(\d+)\s*\/\s*(\d+)/i);
+
+      if (m) {
+        const current = m[1].replace(/,/g, '');
+        const max = m[2].replace(/,/g, '');
+        btn.innerHTML = `⚔️ Join (${current}/${max})`;
+        btn.dataset.enhanced = 'true';
+      } else {
+        btn.textContent = 'Join';
+      }
+    } catch (e) {
+      // Safe fallback
+      try { btn.textContent = 'Join'; } catch (e2) {}
+    }
+  }
+
   // Handle joining a battle with modal option
   async function handleJoin(monsterId, btn) {
     if (!extensionSettings.battleModal.enabled) {
@@ -1330,11 +1370,11 @@ function parseLeaderboardFromHtml(html) {
       const joinSuccess = joinMsg.toLowerCase().startsWith('you have successfully');
       if (!joinSuccess) {
         if (joinMsg.toLowerCase().includes('you can only join 5 monsters at a time in this wave')) {
-          showNotification('Cannot join battle: You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
-          btn.textContent = 'Join';
+          showNotification('You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
+          enhanceJoinButtonWithPlayers(btn, monsterCard);
         } else if (joinMsg.toLowerCase().includes('invalid monster')) {
           showNotification('Monster already died', '#e74c3c');
-          btn.textContent = 'Join';
+          enhanceJoinButtonWithPlayers(btn, monsterCard);
         } else {
           throw new Error(joinMsg || 'Failed to join battle');
         }
@@ -1414,11 +1454,11 @@ function parseLeaderboardFromHtml(html) {
     } catch (error) {
       if (error.message.includes('Invalid monster')) {
         showNotification('Monster already died', '#e74c3c');
-        btn.textContent = 'Join';
+        enhanceJoinButtonWithPlayers(btn, monsterCard);
       } else {
         console.error('Error joining battle:', error);
         showNotification('Error joining battle', '#e74c3c');
-        btn.textContent = 'Join';
+        enhanceJoinButtonWithPlayers(btn, monsterCard);
         btn.disabled = false;
       }
     }
