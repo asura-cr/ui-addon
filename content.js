@@ -2732,6 +2732,46 @@ function parseAttackLogs(html) {
     return menuHTML;
   }
 
+  // Fetch open gates from the dashboard (either from current DOM if on game_dash.php,
+  // or by fetching the dashboard HTML). Returns array of { href, name }.
+  async function fetchOpenGatesFromDash() {
+    try {
+      let doc = null;
+      if (window.location.pathname && window.location.pathname.includes('game_dash.php')) {
+        doc = document;
+      } else {
+        const res = await fetch('game_dash.php');
+        const text = await res.text();
+        const parser = new DOMParser();
+        doc = parser.parseFromString(text, 'text/html');
+      }
+
+      if (!doc) return [];
+
+      // Find the section card whose header contains "Open Gates" (case-insensitive)
+      const sections = Array.from(doc.querySelectorAll('.section.card'));
+      const openSection = sections.find(sec => {
+        const header = sec.querySelector('.header, .card-header, .header-text');
+        if (!header) return false;
+        return /open gates/i.test(header.textContent || header.innerText || '');
+      });
+
+      if (!openSection) return [];
+
+      const links = Array.from(openSection.querySelectorAll('a.gate-link'));
+      const gates = links.map(a => {
+        const href = a.getAttribute('href') || '';
+        const name = (a.querySelector('.gate-card-name') && a.querySelector('.gate-card-name').textContent.trim()) || a.textContent.trim() || href;
+        return { href, name };
+      });
+
+      return gates;
+    } catch (err) {
+      console.error('Error fetching open gates from dashboard:', err);
+      return [];
+    }
+  }
+
   function updateGameSideDrawer() {
     const sidebar = document.getElementById('sideDrawer');
     if (!sidebar) return;
@@ -2739,6 +2779,8 @@ function parseAttackLogs(html) {
     sidebar.style.marginTop = '66px';
     sidebar.style.maxHeight = 'calc(100% - 66px)';
     sidebar.style.width = '250px';
+
+    
 
     // Safely find and remove the side overlay if present. Avoid calling
     // getElementById on the element (not a function) and use removeChild/remove.
@@ -2770,6 +2812,38 @@ function parseAttackLogs(html) {
       const sidebarContent = sidebar.querySelector('.side-nav');
       if (sidebarContent) {
         try {
+          // Dynamically inject Open Gates from the dashboard into the side-nav
+          try {
+            fetchOpenGatesFromDash().then(gates => {
+              if (!gates || !gates.length) return;
+              const nav = sidebarContent;
+              gates.forEach(g => {
+                try {
+                  // Avoid duplicates by href
+                  if (nav.querySelector(`a.side-nav-item[href="${g.href}"]`)) return;
+                  const li = document.createElement('li');
+                  li.className = 'side-nav-item-wrap';
+                  const ael = document.createElement('a');
+                  ael.className = 'side-nav-item';
+                  ael.setAttribute('href', g.href);
+                  const icon = document.createElement('span');
+                  icon.textContent = '🌊';
+                  icon.classList.add('side-icon');
+                  const navName = document.createElement('span');
+                  navName.classList.add('side-label');
+                  navName.textContent = g.name;
+                  ael.appendChild(icon);
+                  ael.appendChild(navName);
+                  li.appendChild(ael);
+                  nav.appendChild(li);
+                } catch (e) {
+                  console.error('Error inserting gate into sidebar:', e);
+                }
+              });
+            }).catch(err => console.error('Error fetching open gates for sidebar:', err));
+          } catch (err) {
+            console.error('Error scheduling open gates injection:', err);
+          }
           // Loop over every side-nav-item link and inspect its href
           const items = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
           items.forEach(a => {
@@ -2984,27 +3058,49 @@ function parseAttackLogs(html) {
                 }
 
                 let panelLoaded = false;
-                const populateBattlePassPanel = async () => {
-                  if (panel.dataset.inited) return;
+                const populateBattlePassPanel = async (force = false) => {
+                  if (panel.dataset.inited && !force) return;
                   panel.dataset.inited = '1';
-                  panel.innerHTML = '<div class="battlepass-panel-loading">Loading...</div>';
+                  panel.innerHTML = `
+                    <div class="battle-pass-section">
+                      <div class="battle-pass-header">
+                        <span>Daily Quests</span>
+                        <button class="refresh-btn" id="battle-pass-refresh-btn" title="Refresh Daily Quests" draggable="false">🔄</button>
+                      </div>
+                      <div id="battle-pass-quests" class="battle-pass-quests-container">
+                        <div class="loading-text">Loading quests...</div>
+                      </div>
+                    </div>
+                  `;
+
                   try {
-                    const battlePassStats = await fetchBattlePassStats();
-                    let html = '<div class="battlepass-stats-list" style="display:flex;flex-direction:column;gap:6px;color:#cfcfe0;font-size:13px;">';
-                    if (battlePassStats && typeof battlePassStats === 'object') {
-                      Object.keys(battlePassStats).forEach(k => {
-                        const v = battlePassStats[k] === null || battlePassStats[k] === undefined ? '' : battlePassStats[k];
-                        html += '<div class="bp-row" style="display:flex;justify-content:space-between;"><span style="opacity:0.9">' + k + '</span><span style="color:#89b4fa">' + v + '</span></div>';
+                    // Delegate fetching/parsing/rendering to existing loader which scrapes
+                    // `battle_pass.php` and populates the #battle-pass-quests container.
+                    await loadBattlePassQuests();
+
+                    // Wire refresh button to re-run the loader
+                    const refreshBtn = panel.querySelector('#battle-pass-refresh-btn');
+                    const container = panel.querySelector('#battle-pass-quests');
+                    if (refreshBtn) {
+                      refreshBtn.addEventListener('click', async (ev) => {
+                        ev.preventDefault(); ev.stopPropagation();
+                        try {
+                          if (container) container.innerHTML = '<div class="loading-text">Refreshing quests...</div>';
+                          await loadBattlePassQuests();
+                          showNotification('Battle Pass refreshed', '#89b4fa');
+                        } catch (err) {
+                          if (container) container.innerHTML = '<div class="quest-error">Error loading battle pass data</div>';
+                          console.error('Error refreshing battle pass panel:', err);
+                          showNotification('Failed to refresh', '#e74c3c');
+                        }
                       });
-                    } else {
-                      html += '<div>No battle pass data</div>';
                     }
-                    html += '</div>';
-                    panel.innerHTML = html;
                   } catch (err) {
-                    panel.innerHTML = '<div class="error">Error loading battle pass data</div>';
+                    const container = panel.querySelector('#battle-pass-quests');
+                    if (container) container.innerHTML = '<div class="quest-error">Error loading battle pass data</div>';
                     console.error('Error populating battle pass panel:', err);
                   }
+
                   panelLoaded = true;
                 };
 
