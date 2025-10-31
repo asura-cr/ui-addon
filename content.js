@@ -13096,7 +13096,7 @@ window.toggleSection = function(header) {
 
   // NEW: Define initDungeonLocationMods to fix the ReferenceError
   function initDungeonLocationMods() {
-    applyCustomBackgrounds();
+    initDungeonPageTransformation();
   }
 
   // ===== ADVANCED PET TEAMS SYSTEM =====
@@ -15449,4 +15449,2113 @@ window.toggleSection = function(header) {
         }
       }, 1000);
     }
+  }
+  function initDungeonPageTransformation() {
+    // Only run on dungeon pages
+    if (!window.location.pathname.includes('guild_dungeon')) {
+      return;
+    }
+
+    console.log('Initializing dungeon page transformation...');
+
+    // Add custom styles for dungeon pages
+    const dungeonStyle = document.createElement('style');
+    dungeonStyle.id = 'dungeon-transformation-styles';
+    dungeonStyle.textContent = `
+      /* Full page background */
+      body.dungeon-transformed {
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        background-attachment: fixed !important;
+        position: relative;
+      }
+
+      /* Dark overlay for readability */
+      body.dungeon-transformed::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      /* Collapsible leaderboard panel */
+      .leaderboard-sidebar {
+        position: fixed;
+        top: 74px;
+        right: 0;
+        width: 350px;
+        height: calc(100vh - 74px);
+        background: rgba(26, 27, 37, 0.92);
+        backdrop-filter: blur(10px);
+        border-left: 2px solid rgba(255, 211, 105, 0.3);
+        box-shadow: -5px 0 25px rgba(0, 0, 0, 0.5);
+        overflow-y: auto;
+        z-index: 999;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        padding: 20px;
+      }
+
+      .leaderboard-sidebar.collapsed {
+        transform: translateX(100%);
+      }
+
+      /* Toggle button */
+      .leaderboard-toggle {
+        position: fixed;
+        top: 50%;
+        right: 350px;
+        transform: translateY(-50%);
+        background: rgba(26, 27, 37, 0.95);
+        border: 2px solid rgba(255, 211, 105, 0.4);
+        border-right: none;
+        color: #FFD369;
+        padding: 15px 8px;
+        cursor: pointer;
+        font-size: 18px;
+        border-radius: 8px 0 0 8px;
+        z-index: 1000;
+        transition: all 0.3s ease;
+        box-shadow: -3px 0 15px rgba(0, 0, 0, 0.4);
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+      }
+
+      .leaderboard-toggle:hover {
+        background: rgba(26, 27, 37, 1);
+        border-color: rgba(255, 211, 105, 0.6);
+        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.6);
+      }
+
+      .leaderboard-toggle.collapsed {
+        right: 0;
+        border-left: 2px solid rgba(255, 211, 105, 0.4);
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+      }
+
+      /* Arrow rotation */
+      .leaderboard-toggle .arrow {
+        transition: transform 0.3s ease;
+        display: inline-block;
+      }
+
+      .leaderboard-toggle.collapsed .arrow {
+        transform: rotate(180deg);
+      }
+
+      /* Adjust main content when sidebar is visible */
+      body.dungeon-transformed .wrap {
+        margin-right: 370px;
+        transition: margin-right 0.3s ease;
+        max-width: none !important;
+      }
+
+      body.dungeon-transformed .wrap.sidebar-collapsed {
+        margin-right: 0;
+      }
+
+      /* Remove grid restrictions */
+      body.dungeon-transformed .grid {
+        display: block !important;
+        grid-template-columns: none !important;
+      }
+
+      /* Enhanced leaderboard styling */
+      .leaderboard-sidebar .h {
+        color: #FFD369;
+        font-size: 22px;
+        margin-bottom: 15px;
+        text-align: center;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        border-bottom: 2px solid rgba(255, 211, 105, 0.3);
+        padding-bottom: 10px;
+      }
+
+      .leaderboard-sidebar .lb-row {
+        background: rgba(18, 21, 34, 0.6);
+        margin: 8px 0;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(35, 36, 55, 0.8);
+        transition: all 0.2s ease;
+      }
+
+      .leaderboard-sidebar .lb-row:hover {
+        background: rgba(18, 21, 34, 0.9);
+        border-color: rgba(255, 211, 105, 0.4);
+        transform: translateX(-5px);
+      }
+
+      /* Scrollbar styling */
+      .leaderboard-sidebar::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .leaderboard-sidebar::-webkit-scrollbar-track {
+        background: rgba(18, 21, 34, 0.5);
+        border-radius: 4px;
+      }
+
+      .leaderboard-sidebar::-webkit-scrollbar-thumb {
+        background: rgba(255, 211, 105, 0.4);
+        border-radius: 4px;
+      }
+
+      .leaderboard-sidebar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 211, 105, 0.6);
+      }
+
+      /* Monster section organization */
+      .monster-section {
+        margin-bottom: 30px;
+        background: rgba(30, 30, 46, 0.5);
+        border-radius: 8px;
+        overflow: hidden;
+        width: 100%;
+      }
+
+      .monster-section-header {
+        display: flex;
+        align-items: center;
+        padding: 15px 20px;
+        background: rgba(203, 166, 247, 0.1);
+        cursor: pointer;
+        border-bottom: 1px solid rgba(88, 91, 112, 0.3);
+      }
+
+      .monster-section-header:hover {
+        background: rgba(203, 166, 247, 0.15);
+      }
+
+      .section-toggle-btn {
+        background: none;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #e0e0e0;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        min-width: 24px;
+      }
+
+      .section-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .monster-section-content {
+        padding: 15px 20px;
+      }
+
+      .monster-section-content.collapsed {
+        display: none;
+      }
+
+      /* Monster card styling - FULL WIDTH FLOW */
+      .dungeon-monster-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        width: 100%;
+        max-width: none !important;
+      }
+
+      .dungeon-monster-card {
+        background: rgba(30, 30, 46, 0.9);
+        border-radius: 12px;
+        width: 250px;
+        flex: 0 0 250px;
+        padding: 16px;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid rgba(35, 36, 55, 0.9);
+      }
+
+      .dungeon-monster-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+
+      .dungeon-monster-card.monster-dead {
+        opacity: 0.7;
+      }
+
+      .dungeon-monster-card h3 {
+        color: #f39c12;
+        font-size: 18px;
+        margin: 10px 0;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .dungeon-monster-img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 211, 105, 0.3);
+      }
+
+      .dungeon-monster-img.grayscale {
+        filter: grayscale(100%);
+      }
+
+      .dungeon-monster-card .dungeon-hp-bar {
+        background: #333;
+        height: 16px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 8px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .dungeon-monster-card .dungeon-hp-fill {
+        height: 100%;
+        background: linear-gradient(to right, #55ff55, #00cc00);
+        transition: width 0.3s ease;
+      }
+
+      .dungeon-monster-card .dungeon-join-btn {
+        background: #3498db;
+        border: none;
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        transition: all 0.2s ease;
+        width: 100%;
+      }
+
+      .dungeon-monster-card .dungeon-join-btn:hover {
+        background: #2980b9;
+        transform: translateY(-2px);
+      }
+
+      .dungeon-monster-card .dungeon-btn {
+        margin: 0;
+        padding: 10px 14px;
+        background: #6c7086;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.2s ease;
+      }
+
+      .dungeon-monster-card .dungeon-btn:hover {
+        background: #7c8096;
+        transform: translateY(-2px);
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 900px) {
+        .leaderboard-sidebar {
+          width: 280px;
+        }
+
+        .leaderboard-toggle {
+          right: 280px;
+        }
+
+        .leaderboard-toggle.collapsed {
+          right: 0;
+        }
+
+        body.dungeon-transformed .wrap {
+          margin-right: 300px;
+        }
+
+        .dungeon-monster-card {
+          width: 220px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .leaderboard-sidebar {
+          width: 100%;
+          max-width: 320px;
+        }
+
+        .leaderboard-toggle {
+          right: 100%;
+          max-width: 320px;
+        }
+
+        body.dungeon-transformed .wrap {
+          margin-right: 0;
+        }
+
+        body.dungeon-transformed .wrap.sidebar-visible {
+          display: none;
+        }
+
+        .dungeon-monster-card {
+          width: 90%;
+        }
+      }
+
+      /* Filter controls */
+      .dungeon-filter-controls {
+        background: rgba(30, 30, 46, 0.95);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(88, 91, 112, 0.5);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .dungeon-filter-row {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+      }
+
+      .dungeon-filter-row:last-child {
+        margin-bottom: 0;
+      }
+
+      .dungeon-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .dungeon-filter-group label {
+        color: #cdd6f4;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .dungeon-search-input {
+        flex: 1;
+        min-width: 200px;
+        padding: 8px 12px;
+        border: 1px solid rgba(88, 91, 112, 0.5);
+        border-radius: 6px;
+        background: rgba(17, 17, 27, 0.8);
+        color: #cdd6f4;
+        font-size: 14px;
+        transition: all 0.2s ease;
+      }
+
+      .dungeon-search-input:focus {
+        outline: none;
+        border-color: #89b4fa;
+        box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.2);
+      }
+
+      .dungeon-search-input::placeholder {
+        color: #6c7086;
+      }
+
+      .dungeon-toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: rgba(137, 180, 250, 0.2);
+        border: 1px solid rgba(137, 180, 250, 0.4);
+        color: #89b4fa;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .dungeon-toggle-btn:hover {
+        background: rgba(137, 180, 250, 0.3);
+        border-color: rgba(137, 180, 250, 0.6);
+      }
+
+      .dungeon-toggle-btn.active {
+        background: rgba(137, 180, 250, 0.4);
+        border-color: #89b4fa;
+      }
+
+      .dungeon-view-toggle {
+        display: flex;
+        gap: 8px;
+        background: rgba(17, 17, 27, 0.6);
+        padding: 4px;
+        border-radius: 8px;
+        border: 1px solid rgba(88, 91, 112, 0.5);
+      }
+
+      .dungeon-view-btn {
+        padding: 8px 16px;
+        background: transparent;
+        border: none;
+        color: #6c7086;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dungeon-view-btn:hover {
+        color: #cdd6f4;
+        background: rgba(88, 91, 112, 0.3);
+      }
+
+      .dungeon-view-btn.active {
+        background: rgba(137, 180, 250, 0.2);
+        color: #89b4fa;
+        border: 1px solid rgba(137, 180, 250, 0.4);
+      }
+
+      /* List view styles */
+      .dungeon-monster-container.list-view {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-monster-card {
+        width: 100%;
+        max-width: none;
+        flex: none;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 20px;
+        padding: 16px 20px;
+        text-align: left;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-monster-img {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-monster-card h3 {
+        min-height: auto;
+        justify-content: flex-start;
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-monster-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-hp-bar {
+        max-width: 300px;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-stats-container {
+        justify-content: flex-start;
+        max-width: 400px;
+      }
+
+      .dungeon-monster-container.list-view .dungeon-monster-card > div:last-child {
+        margin-top: 0;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+
+      /* Hide images styles */
+      .dungeon-monster-container.hide-images .dungeon-monster-img {
+        display: none;
+      }
+
+      .dungeon-monster-container.hide-images.list-view .dungeon-monster-card {
+        padding-left: 20px;
+      }
+
+      /* No results message */
+      .dungeon-no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c7086;
+        font-size: 16px;
+      }
+    `;
+    document.head.appendChild(dungeonStyle);
+
+    // Wait for page to load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', transformDungeonPage);
+    } else {
+      transformDungeonPage();
+    }
+  }
+
+  function transformDungeonPage() {
+    // Find the banner image panel (optional)
+    const panels = document.querySelectorAll('.panel');
+    let bannerPanel = null;
+    let bannerImage = null;
+
+    for (let panel of panels) {
+      const img = panel.querySelector('.loc-banner');
+      if (img) {
+        bannerPanel = panel;
+        bannerImage = img.src;
+        break;
+      }
+    }
+
+    // Set background image if banner found
+    if (bannerPanel && bannerImage) {
+      document.body.style.backgroundImage = `url('${bannerImage}')`;
+      document.body.classList.add('dungeon-transformed');
+      // Remove the banner panel
+      bannerPanel.remove();
+    }
+
+    // Transform monster cards (always run this)
+    transformDungeonMonsterCards();
+
+    // Find leaderboard in right column
+    const grid = document.querySelector('.grid');
+    if (!grid) return;
+
+    const rightColumn = grid.children[1];
+    if (!rightColumn) return;
+
+    // Find all panels in right column
+    const rightPanels = rightColumn.querySelectorAll('.panel');
+    let leaderboardPanel = null;
+
+    for (let panel of rightPanels) {
+      if (panel.textContent.includes('Leaderboard') ||
+          panel.textContent.includes('Top Players') ||
+          panel.querySelector('.lb-row')) {
+        leaderboardPanel = panel;
+        break;
+      }
+    }
+
+    if (!leaderboardPanel) {
+      console.log('Leaderboard panel not found');
+      return;
+    }
+
+    // Create sidebar container
+    const sidebar = document.createElement('div');
+    sidebar.className = 'leaderboard-sidebar';
+    sidebar.innerHTML = leaderboardPanel.innerHTML;
+
+    // Create toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'leaderboard-toggle';
+    toggleBtn.innerHTML = '<span class="arrow">▶</span>';
+    toggleBtn.setAttribute('aria-label', 'Toggle Leaderboard');
+
+    // Get main wrap element
+    const wrap = document.querySelector('.wrap');
+
+    // Toggle functionality
+    let isCollapsed = false;
+    toggleBtn.addEventListener('click', () => {
+      isCollapsed = !isCollapsed;
+
+      if (isCollapsed) {
+        sidebar.classList.add('collapsed');
+        toggleBtn.classList.add('collapsed');
+        if (wrap) wrap.classList.add('sidebar-collapsed');
+      } else {
+        sidebar.classList.remove('collapsed');
+        toggleBtn.classList.remove('collapsed');
+        if (wrap) wrap.classList.remove('sidebar-collapsed');
+      }
+      
+      // Save state
+      localStorage.setItem('dungeon-leaderboard-collapsed', isCollapsed);
+    });
+
+    // Remove original leaderboard panel
+    leaderboardPanel.remove();
+
+    // If right column is now empty, adjust grid
+    if (rightColumn.children.length === 0) {
+      grid.style.gridTemplateColumns = '1fr';
+    }
+
+    // Add to page
+    document.body.appendChild(sidebar);
+    document.body.appendChild(toggleBtn);
+
+    // Restore saved state
+    const savedState = localStorage.getItem('dungeon-leaderboard-collapsed');
+    if (savedState === 'true') {
+      isCollapsed = true;
+      sidebar.classList.add('collapsed');
+      toggleBtn.classList.add('collapsed');
+      if (wrap) wrap.classList.add('sidebar-collapsed');
+    }
+  }
+
+  function transformDungeonMonsterCards() {
+    // Find all monster entries
+    const monsters = document.querySelectorAll('.mon');
+
+    if (monsters.length === 0) return;
+
+    // Group monsters by state
+    const lootable = [];
+    const joinable = [];
+    const continuing = [];
+    const completed = [];
+
+    monsters.forEach(mon => {
+      const pills = mon.querySelectorAll('.pill');
+      const isDead = mon.classList.contains('dead');
+      const isJoined = Array.from(pills).some(p => p.textContent.trim() === 'joined');
+      const hasLoot = Array.from(pills).some(p => p.textContent.trim() === 'looted');
+
+      if (isDead && isJoined && !hasLoot) {
+        lootable.push(mon);
+      } else if (!isDead && !isJoined) {
+        joinable.push(mon);
+      } else if (!isDead && isJoined) {
+        continuing.push(mon);
+      } else {
+        completed.push(mon);
+      }
+    });
+
+    // Create filter controls
+    const filterControls = document.createElement('div');
+    filterControls.className = 'dungeon-filter-controls';
+    filterControls.innerHTML = `
+      <div class="dungeon-filter-row">
+        <div class="dungeon-filter-group" style="flex: 1;">
+          <label for="dungeon-search">🔍 Search:</label>
+          <input 
+            type="text" 
+            id="dungeon-search" 
+            class="dungeon-search-input" 
+            placeholder="Search by monster name..."
+          />
+        </div>
+        <div class="dungeon-filter-group">
+          <div style="position: relative; display: inline-block;">
+            <button id="dungeon-monster-type-toggle" style="padding: 5px 10px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; cursor: pointer; min-width: 120px; text-align: left;">
+              Monster Types ▼
+            </button>
+            <div id="dungeon-monster-type-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 200px; max-height: 200px; overflow-y: auto;">
+              <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Dungeon Monster Types</div>
+              <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
+                  <input type="checkbox" value="orc" class="dungeon-monster-type-checkbox cyberpunk-checkbox"> Orc
+              </label>
+              <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
+                  <input type="checkbox" value="warchief" class="dungeon-monster-type-checkbox cyberpunk-checkbox"> Warchief
+              </label>
+              <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
+                  <input type="checkbox" value="king" class="dungeon-monster-type-checkbox cyberpunk-checkbox"> King
+              </label>
+              <div style="margin-top: 8px; padding-top: 5px; border-top: 1px solid #45475a;">
+                <button id="dungeon-select-all-monsters" style="padding: 3px 8px; background: #a6e3a1; color: #1e1e2e; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">Select All</button>
+                <button id="dungeon-clear-monsters" style="padding: 3px 8px; background: #f38ba8; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dungeon-filter-group">
+          <select id="dungeon-hp-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
+            <option value="">All HP</option>
+            <option value="low">Low HP (&lt;50%)</option>
+            <option value="medium">Medium HP (50-80%)</option>
+            <option value="high">High HP (&gt;80%)</option>
+            <option value="full">Full HP (100%)</option>
+          </select>
+        </div>
+        <div class="dungeon-filter-group">
+          <select id="dungeon-player-count-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
+            <option value="">All Players</option>
+            <option value="empty">Empty (0 players)</option>
+            <option value="few">Few (&lt;2 players)</option>
+            <option value="many">Many (&gt;2 players)</option>
+            <option value="full">Full (4 players)</option>
+          </select>
+        </div>
+        <div class="dungeon-filter-group">
+          <select id="dungeon-sort" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 120px;">
+            <option value="">Default Order</option>
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+            <option value="hp-asc">HP (Low to High)</option>
+            <option value="hp-desc">HP (High to Low)</option>
+            <option value="players-asc">Players (Few to Many)</option>
+            <option value="players-desc">Players (Many to Few)</option>
+            <option value="status">Status (Available First)</option>
+          </select>
+        </div>
+      </div>
+      <div class="dungeon-filter-row">
+        <button class="dungeon-toggle-btn" id="dungeon-hide-images-btn">
+          <span>🖼️</span>
+          <span>Hide Images</span>
+        </button>
+        <button class="dungeon-toggle-btn" id="dungeon-loot-all-btn" style="background: rgba(255, 211, 105, 0.2); border-color: rgba(255, 211, 105, 0.4); color: #ffd369;">
+          <span>💰</span>
+          <span>Loot All (<span id="dungeon-loot-count">0</span>)</span>
+        </button>
+        <div class="dungeon-view-toggle">
+          <button class="dungeon-view-btn active" data-view="grid">
+            <span>⊞</span>
+            <span>Grid</span>
+          </button>
+          <button class="dungeon-view-btn" data-view="list">
+            <span>☰</span>
+            <span>List</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Create main container
+    const mainContainer = document.createElement('div');
+    mainContainer.className = 'dungeon-monster-container';
+    mainContainer.style.display = 'block';
+
+    // Create sections
+    if (lootable.length > 0) {
+      mainContainer.appendChild(createDungeonSection('💰 Available Loot', lootable, 'loot', false));
+    }
+
+    if (continuing.length > 0) {
+      mainContainer.appendChild(createDungeonSection('⚔️ Continue Battle', continuing, 'continue', false));
+    }
+
+    if (joinable.length > 0) {
+      mainContainer.appendChild(createDungeonSection('🆕 Join a Battle', joinable, 'join', false));
+    }
+
+    if (completed.length > 0) {
+      mainContainer.appendChild(createDungeonSection('✅ Completed', completed, 'completed', false));
+    }
+
+    // Find the monsters panel and replace it completely
+    const panels = document.querySelectorAll('.panel');
+    let monstersPanel = null;
+
+    for (let panel of panels) {
+      if (panel.textContent.includes('Monsters in this location') ||
+          panel.querySelector('.mon')) {
+        monstersPanel = panel;
+        break;
+      }
+    }
+
+    if (monstersPanel) {
+      // Insert filter controls first
+      monstersPanel.parentNode.insertBefore(filterControls, monstersPanel);
+      // Insert the new container
+      monstersPanel.parentNode.insertBefore(mainContainer, monstersPanel);
+      // Remove the old panel
+      monstersPanel.remove();
+    }
+
+    // Initialize filter functionality
+    initDungeonFilters(mainContainer);
+  }
+
+  function createDungeonSection(title, monsters, id, collapsed) {
+    const section = document.createElement('div');
+    section.className = 'monster-section';
+
+    const header = document.createElement('div');
+    header.className = 'monster-section-header';
+
+    const titleElement = document.createElement('h3');
+    titleElement.style.cssText = 'margin: 0; flex: 1;';
+    titleElement.textContent = `${title} (${monsters.length})`;
+
+    // Color based on section type
+    if (id === 'loot') titleElement.style.color = '#f9e2af';
+    else if (id === 'join') titleElement.style.color = '#a6e3a1';
+    else if (id === 'continue') titleElement.style.color = '#89dceb';
+    else titleElement.style.color = '#6c7086';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'section-toggle-btn';
+    toggleBtn.textContent = collapsed ? '+' : '−';
+    toggleBtn.onclick = () => {
+      content.classList.toggle('collapsed');
+      toggleBtn.textContent = content.classList.contains('collapsed') ? '+' : '−';
+    };
+
+    header.appendChild(titleElement);
+    header.appendChild(toggleBtn);
+
+    const content = document.createElement('div');
+    content.className = 'monster-section-content';
+    if (collapsed) content.classList.add('collapsed');
+
+    const cardsContainer = document.createElement('div');
+    cardsContainer.className = 'dungeon-monster-container';
+    cardsContainer.style.display = 'flex';
+
+    monsters.forEach(mon => {
+      const card = createDungeonMonsterCard(mon);
+      if (card) {
+        cardsContainer.appendChild(card);
+      }
+    });
+
+    content.appendChild(cardsContainer);
+    section.appendChild(header);
+    section.appendChild(content);
+
+    return section;
+  }
+
+  function createDungeonMonsterCard(monElement) {
+    // Extract data from original element
+    const img = monElement.querySelector('img');
+    const nameElement = monElement.querySelector('[style*="font-weight:700"]');
+    const hpElement = monElement.querySelector('.muted');
+    const pills = monElement.querySelectorAll('.pill');
+    const statpills = monElement.querySelectorAll('.statpill');
+    const viewLink = monElement.querySelector('a[href*="dungeon_battle"]');
+
+    if (!img || !nameElement) return null;
+
+    // Get monster state
+    const isDead = monElement.classList.contains('dead');
+    const isJoined = Array.from(pills).some(p => p.textContent.trim() === 'joined');
+    const hasLoot = Array.from(pills).some(p => p.textContent.trim() === 'looted');
+
+    // Extract name (remove pill texts)
+    let monsterName = nameElement.textContent;
+    // Remove all status-related text from the name
+    monsterName = monsterName.replace(/\b(not joined|joined|no loot|looted|dead)\b/gi, '').trim();
+    // Also remove any remaining "not" that might be orphaned
+    monsterName = monsterName.replace(/\bnot\b/gi, '').trim();
+
+    // Extract HP
+    const hpText = hpElement ? hpElement.textContent.trim() : '0 / 0 HP';
+    const hpMatch = hpText.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+    const currentHP = hpMatch ? parseInt(hpMatch[1].replace(/,/g, '')) : 0;
+    const maxHP = hpMatch ? parseInt(hpMatch[2].replace(/,/g, '')) : 1;
+    const hpPercent = (currentHP / maxHP) * 100;
+
+    // Extract stats
+    const stats = {};
+    statpills.forEach(pill => {
+      const key = pill.querySelector('.k')?.textContent.trim();
+      const val = pill.querySelector('.v')?.textContent.trim();
+      if (key && val) {
+        stats[key] = val;
+      }
+    });
+
+    // Extract players joined
+    let playersJoined = 0;
+    let playersMax = 4; // default for dungeon
+    const allText = monElement.textContent;
+    const playersMatch = allText.match(/Players?\s*Joined?\s*(\d+)\/(\d+)/i) || allText.match(/(\d+)\/(\d+)\s*players?/i);
+    if (playersMatch) {
+      playersJoined = parseInt(playersMatch[1]);
+      playersMax = parseInt(playersMatch[2]);
+    }
+
+    // If not found in text, try to fetch from battle page
+    if (playersJoined === 0 && viewLink) {
+      const battleUrl = viewLink.href;
+      fetch(battleUrl)
+        .then(response => response.text())
+        .then(text => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'text/html');
+          // Look for leaderboard rows
+          const lbRows = doc.querySelectorAll('.lb-row');
+          if (lbRows.length > 0) {
+            playersJoined = lbRows.length;
+            playersValSpan.textContent = playersJoined >= 25 ? "25+" : `${playersJoined}`;
+          }
+        })
+        .catch(err => console.warn('Failed to fetch dungeon battle page for players count:', err));
+    }
+
+    // Create card
+    const card = document.createElement('div');
+    card.className = 'dungeon-monster-card';
+    if (isDead) {
+      card.classList.add('monster-dead');
+    }
+
+    // Monster image
+    const cardImg = document.createElement('img');
+    cardImg.src = img.src;
+    cardImg.className = 'dungeon-monster-img';
+    cardImg.alt = monsterName;
+    if (isDead) {
+      cardImg.classList.add('grayscale');
+    }
+
+    // Monster name
+    const title = document.createElement('h3');
+    title.textContent = monsterName;
+
+    // HP bar
+    const hpBar = document.createElement('div');
+    hpBar.className = 'dungeon-hp-bar';
+    const hpFill = document.createElement('div');
+    hpFill.className = 'dungeon-hp-fill';
+    hpFill.style.width = `${hpPercent}%`;
+    hpBar.appendChild(hpFill);
+
+    // HP text
+    const hpTextDiv = document.createElement('div');
+    hpTextDiv.textContent = `❤️ ${currentHP.toLocaleString()} / ${maxHP.toLocaleString()} HP`;
+    hpTextDiv.style.fontSize = '14px';
+    hpTextDiv.style.marginTop = '8px';
+
+    // Stats display with damage and EXP pills
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'dungeon-stats-container';
+    statsDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center;';
+
+    // Add damage pill if damage pills are enabled
+    if (extensionSettings.dungeonWave.showDamagePills) {
+      // Calculate expected damage based on monster HP
+      const expectedDamage = calculateExpectedDamage(currentHP, maxHP);
+      const damagePill = document.createElement('span');
+      damagePill.className = 'dungeon-stat-pill damage-pill';
+      damagePill.style.cssText = 'background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;';
+      damagePill.innerHTML = `
+        <span style="font-weight: 600;">⚔️ DMG</span>
+        <span style="color: #f87171;">${expectedDamage.toLocaleString()}</span>
+      `;
+      statsDiv.appendChild(damagePill);
+
+      // Add EXP pill
+      const expectedExp = calculateExpectedExp(currentHP, maxHP);
+      const expPill = document.createElement('span');
+      expPill.className = 'dungeon-stat-pill exp-pill';
+      expPill.style.cssText = 'background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;';
+      expPill.innerHTML = `
+        <span style="font-weight: 600;">⭐ EXP</span>
+        <span style="color: #4ade80;">${expectedExp.toLocaleString()}</span>
+      `;
+      statsDiv.appendChild(expPill);
+    }
+
+    if (Object.keys(stats).length > 0) {
+      Object.entries(stats).forEach(([key, value]) => {
+        const statPill = document.createElement('span');
+        statPill.className = 'dungeon-stat-pill';
+        statPill.style.cssText = 'background: rgba(137, 180, 250, 0.15); border: 1px solid rgba(137, 180, 250, 0.3); color: #89b4fa; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;';
+
+        const keySpan = document.createElement('span');
+        keySpan.style.fontWeight = '600';
+        keySpan.textContent = key;
+
+        const valSpan = document.createElement('span');
+        valSpan.style.color = '#cdd6f4';
+        valSpan.textContent = value;
+
+        statPill.appendChild(keySpan);
+        statPill.appendChild(valSpan);
+        statsDiv.appendChild(statPill);
+      });
+    }
+
+    // Add players pill with zero joined display
+    const playersPill = document.createElement('span');
+    playersPill.className = 'dungeon-stat-pill players-pill';
+    playersPill.style.cssText = 'background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.3); color: #4CAF50; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;';
+
+    const playersKeySpan = document.createElement('span');
+    playersKeySpan.style.fontWeight = '600';
+    playersKeySpan.textContent = '👥 Joined';
+
+    const playersValSpan = document.createElement('span');
+    playersValSpan.style.color = '#cdd6f4';
+    // Show "0 joined" if no players and zero joined display is enabled
+    if (playersJoined === 0 && extensionSettings.dungeonWave.showZeroJoined) {
+      playersValSpan.textContent = '0 joined';
+      playersPill.style.background = 'rgba(107, 114, 128, 0.15)';
+      playersPill.style.borderColor = 'rgba(107, 114, 128, 0.3)';
+      playersPill.style.color = '#6b7280';
+    } else {
+      playersValSpan.textContent = `${playersJoined}/${playersMax}`;
+    }
+
+    playersPill.appendChild(playersKeySpan);
+    playersPill.appendChild(playersValSpan);
+    statsDiv.appendChild(playersPill);
+
+    // Action buttons
+    const actionsDiv = document.createElement('div');
+    actionsDiv.style.display = 'flex';
+    actionsDiv.style.gap = '8px';
+    actionsDiv.style.marginTop = '12px';
+
+    // Determine which buttons to show based on state
+    if (isDead && !isJoined) {
+      // Not joined and dead - only view button
+      const viewBtn = document.createElement('a');
+      viewBtn.href = viewLink ? viewLink.href : '#';
+      viewBtn.className = 'dungeon-btn';
+      viewBtn.style.flex = '1';
+      viewBtn.style.textAlign = 'center';
+      viewBtn.style.textDecoration = 'none';
+      viewBtn.innerHTML = '👁️ View';
+      actionsDiv.appendChild(viewBtn);
+    } else if (isDead && isJoined && !hasLoot) {
+      // Joined, dead, not looted - loot + view buttons
+      const lootBtn = document.createElement('button');
+      lootBtn.className = 'dungeon-join-btn';
+      lootBtn.style.flex = '1';
+      lootBtn.style.background = '#ffd369';
+      lootBtn.style.color = '#1e1e2e';
+      lootBtn.innerHTML = '💰 Loot';
+
+      const battleHref = viewLink ? viewLink.href : '#';
+
+      lootBtn.onclick = async (e) => {
+        e.preventDefault();
+
+        // Extract monster ID from the link
+        const urlParams = new URLSearchParams(battleHref.split('?')[1]);
+        const monsterId = urlParams.get('dgmid');
+
+        if (!monsterId) {
+          showNotification('Invalid monster ID', '#e74c3c');
+          return;
+        }
+
+        // Initialize user data if needed
+        if (!userData.userID) {
+          initUserData();
+        }
+
+        lootBtn.disabled = true;
+        lootBtn.innerHTML = '⏳ Looting...';
+
+        try {
+          // Use the handleLoot function for instant looting
+          await handleLoot(monsterId, monsterName, lootBtn);
+
+          // After successful loot, update the card
+          cardImg.classList.add('grayscale');
+          card.classList.add('monster-dead');
+          card._hasLoot = true;
+
+          // Wait longer before moving to completed section to allow viewing loot modal
+          setTimeout(() => {
+            moveDungeonCardToSection(card, 'completed');
+          }, 3000);
+
+        } catch (error) {
+          console.error('Loot error:', error);
+          showNotification('Error looting', '#e74c3c');
+          lootBtn.disabled = false;
+          lootBtn.innerHTML = '💰 Loot';
+        }
+      };
+
+      actionsDiv.appendChild(lootBtn);
+
+      const viewBtn = document.createElement('a');
+      viewBtn.href = battleHref;
+      viewBtn.className = 'dungeon-btn';
+      viewBtn.style.flex = '1';
+      viewBtn.style.textAlign = 'center';
+      viewBtn.style.textDecoration = 'none';
+      viewBtn.innerHTML = '👁️ View';
+      actionsDiv.appendChild(viewBtn);
+    } else if (isDead && isJoined && hasLoot) {
+      // Already looted - just view
+      const viewBtn = document.createElement('a');
+      viewBtn.href = viewLink ? viewLink.href : '#';
+      viewBtn.className = 'dungeon-btn';
+      viewBtn.style.flex = '1';
+      viewBtn.style.textAlign = 'center';
+      viewBtn.style.textDecoration = 'none';
+      viewBtn.innerHTML = '👁️ View';
+      actionsDiv.appendChild(viewBtn);
+    } else if (!isDead && isJoined) {
+      // Alive and joined - continue + view buttons
+      const continueBtn = document.createElement('button');
+      continueBtn.className = 'dungeon-join-btn';
+      continueBtn.style.flex = '1';
+      continueBtn.style.background = '#ffd369';
+      continueBtn.style.color = '#1e1e2e';
+      continueBtn.innerHTML = '⚔️ Continue';
+      continueBtn.onclick = () => {
+        window.location.href = viewLink ? viewLink.href : '#';
+      };
+      actionsDiv.appendChild(continueBtn);
+
+    } else if (!isDead && !isJoined) {
+      // Alive and not joined - join + view buttons
+      const joinBtn = document.createElement('button');
+      joinBtn.className = 'dungeon-join-btn';
+      joinBtn.style.flex = '1';
+      joinBtn.innerHTML = '⚔️ Insta Join';
+
+      // Store the battle link for later use
+      const battleHref = viewLink ? viewLink.href : '#';
+
+      joinBtn.onclick = async (e) => {
+        e.preventDefault();
+
+        // Extract monster ID from the link
+        const urlParams = new URLSearchParams(battleHref.split('?')[1]);
+        const monsterId = urlParams.get('id');
+
+        if (!monsterId) {
+          showNotification('Invalid monster ID', '#e74c3c');
+          return;
+        }
+
+        // Join the battle
+        joinBtn.disabled = true;
+        joinBtn.innerHTML = '⏳ Joining...';
+
+        try {
+          const { status, text } = await postAction('user_join_battle.php', {
+            monster_id: monsterId,
+            user_id: userId
+          });
+
+          const msg = (text || '').trim();
+          const ok = msg.toLowerCase().startsWith('you have successfully');
+
+          if (ok) {
+            showNotification('Battle joined successfully!', '#2ecc71');
+
+            // Update the card to show it's now joined
+            card.classList.add('dungeon-joined');
+
+            // Change button to Continue
+            joinBtn.innerHTML = '⚔️ Continue';
+            joinBtn.style.background = '#ffd369';
+            joinBtn.style.color = '#1e1e2e';
+            joinBtn.disabled = false;
+            joinBtn.onclick = () => {
+              window.location.href = battleHref;
+            };
+
+            // Move card to Continue Battle section
+            moveDungeonCardToSection(card, 'continue');
+          } else {
+            showNotification(msg || 'Failed to join battle', '#e74c3c');
+            joinBtn.disabled = false;
+            joinBtn.innerHTML = '⚔️ Join Battle';
+          }
+        } catch (error) {
+          console.error('Join battle error:', error);
+          showNotification('Server error. Please try again.', '#e74c3c');
+          joinBtn.disabled = false;
+          joinBtn.innerHTML = '⚔️ Join Battle';
+        }
+      };
+
+      actionsDiv.appendChild(joinBtn);
+
+      const viewBtn = document.createElement('a');
+      viewBtn.href = battleHref;
+      viewBtn.className = 'dungeon-btn';
+      viewBtn.style.flex = '1';
+      viewBtn.style.textAlign = 'center';
+      viewBtn.style.textDecoration = 'none';
+      viewBtn.innerHTML = '👁️ View';
+      actionsDiv.appendChild(viewBtn);
+    }
+
+    // Assemble card
+    card.setAttribute('data-monster-name', monsterName.toLowerCase());
+
+    // Store monster ID for later use
+    if (viewLink) {
+      const urlParams = new URLSearchParams(viewLink.href.split('?')[1]);
+      // Dungeon battles use 'dgmid' parameter
+      const monsterId = urlParams.get('dgmid') || urlParams.get('id');
+      if (monsterId) {
+        card.setAttribute('data-monster-id', monsterId);
+      }
+    }
+
+    // Store references for easy updates
+    card._imgElement = cardImg;
+    card._hpBar = hpFill;
+    card._hpText = hpTextDiv;
+    card._actionsDiv = actionsDiv;
+    card._currentHP = currentHP;
+    card._maxHP = maxHP;
+    card._isDead = isDead;
+    card._isJoined = isJoined;
+    card._hasLoot = hasLoot;
+    card._playersJoined = playersJoined;
+    card._battleHref = viewLink ? viewLink.href : '#';
+
+    // Monster image
+    card.appendChild(cardImg);
+
+    // Create info wrapper for list view
+    const infoWrapper = document.createElement('div');
+    infoWrapper.className = 'dungeon-monster-info';
+    infoWrapper.appendChild(title);
+    infoWrapper.appendChild(hpBar);
+    infoWrapper.appendChild(hpTextDiv);
+    if (statsDiv.children.length > 0) {
+      infoWrapper.appendChild(statsDiv);
+    }
+    card.appendChild(infoWrapper);
+
+    card.appendChild(actionsDiv);
+
+    return card;
+  }
+
+  // Calculate expected damage based on monster HP
+  function calculateExpectedDamage(currentHP, maxHP) {
+    // Base damage calculation using the existing formula
+    const hpRatio = currentHP / maxHP;
+    const baseDamage = Math.round(1000 * Math.pow(currentHP, 0.25));
+
+    // Adjust based on HP percentage (lower HP = less damage)
+    const hpMultiplier = 0.5 + (hpRatio * 0.5); // 50-100% of base damage
+
+    return Math.round(baseDamage * hpMultiplier);
+  }
+
+  // Calculate expected EXP based on monster HP
+  function calculateExpectedExp(currentHP, maxHP) {
+    // Use the existing calculateExpectedExp function if available and not this one
+    if (
+      typeof window.calculateExpectedExp === 'function' &&
+      window.calculateExpectedExp !== calculateExpectedExp
+    ) {
+      return window.calculateExpectedExp(currentHP, maxHP);
+    }
+
+    // Fallback calculation based on HP
+    const hpRatio = currentHP / maxHP;
+    const baseExp = Math.round(currentHP * 0.1); // Base 10% of current HP
+    const levelMultiplier = 1 + (hpRatio * 0.5); // Up to 50% bonus for full HP
+
+    return Math.round(baseExp * levelMultiplier);
+  }
+
+  // Initialize filter functionality for dungeon pages
+  function initDungeonFilters(mainContainer) {
+    const searchInput = document.getElementById('dungeon-search');
+    const monsterTypeToggle = document.getElementById('dungeon-monster-type-toggle');
+    const monsterTypeDropdown = document.getElementById('dungeon-monster-type-dropdown');
+    const selectAllMonstersBtn = document.getElementById('dungeon-select-all-monsters');
+    const clearMonstersBtn = document.getElementById('dungeon-clear-monsters');
+    const hpFilter = document.getElementById('dungeon-hp-filter');
+    const playerCountFilter = document.getElementById('dungeon-player-count-filter');
+    const sortSelect = document.getElementById('dungeon-sort');
+    const hideImagesBtn = document.getElementById('dungeon-hide-images-btn');
+    const lootAllBtn = document.getElementById('dungeon-loot-all-btn');
+    const lootCountSpan = document.getElementById('dungeon-loot-count');
+    const viewBtns = document.querySelectorAll('.dungeon-view-btn');
+    
+    // Update loot count
+    function updateLootCount() {
+      const lootSection = Array.from(document.querySelectorAll('.monster-section')).find(s => {
+        const h = s.querySelector('.monster-section-header h3');
+        return h && h.textContent.toLowerCase().includes('available loot');
+      });
+      
+      if (lootSection) {
+        const lootCards = lootSection.querySelectorAll('.dungeon-monster-card:not([style*="display: none"])');
+        const count = lootCards.length;
+        if (lootCountSpan) {
+          lootCountSpan.textContent = count;
+        }
+        if (lootAllBtn) {
+          lootAllBtn.disabled = count === 0;
+          lootAllBtn.style.opacity = count === 0 ? '0.5' : '1';
+        }
+      }
+    }
+    
+    // Initial count
+    updateLootCount();
+    
+    // Loot All functionality
+    if (lootAllBtn) {
+      lootAllBtn.addEventListener('click', async () => {
+        const lootSection = Array.from(document.querySelectorAll('.monster-section')).find(s => {
+          const h = s.querySelector('.monster-section-header h3');
+          return h && h.textContent.toLowerCase().includes('available loot');
+        });
+        
+        if (!lootSection) {
+          showNotification('No loot available', '#e74c3c');
+          return;
+        }
+        
+        const lootCards = lootSection.querySelectorAll('.dungeon-monster-card:not([style*="display: none"])');
+        
+        if (lootCards.length === 0) {
+          showNotification('No loot available', '#e74c3c');
+          return;
+        }
+        
+        // Initialize user data if needed
+        if (!userData.userID) {
+          initUserData();
+        }
+        
+        lootAllBtn.disabled = true;
+        lootAllBtn.innerHTML = '<span>⏳</span><span>Looting...</span>';
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        // Parallelize all loot requests for speed
+        const allLootItems = [];
+        const aggregatedRewards = { exp: 0, gold: 0 };
+
+        // Prepare tasks for each card
+        const tasks = Array.from(lootCards).map(card => {
+          return (async () => {
+            const monsterId = card.getAttribute('data-monster-id');
+            const monsterName = card.getAttribute('data-monster-name');
+            if (!monsterId) return { ok: false, card, error: 'missing id' };
+
+            // Find the loot button in the card and disable UI early
+            const lootBtn = Array.from(card.querySelectorAll('button')).find(b => (b.textContent || '').includes('💰'));
+            try {
+              if (lootBtn) { lootBtn.innerHTML = '⏳'; lootBtn.disabled = true; }
+
+              // Find instance_id similar to single-loot handler
+              let params = new URLSearchParams(window.location.search);
+              let instance_id = params.get('instance_id') || card.getAttribute('data-instance-id') || card.dataset.instanceId;
+              if (!instance_id) {
+                const viewLink = card.querySelector('a[href*="dungeon_battle.php"]');
+                if (viewLink) {
+                  try { instance_id = (new URL(viewLink.href, window.location.origin)).searchParams.get('instance_id'); } catch(e){}
+                }
+              }
+              if (!instance_id) return { ok: false, card, error: 'missing instance_id' };
+
+              const body = 'dgmid='+encodeURIComponent(monsterId)+'&instance_id='+encodeURIComponent(instance_id);
+              const res = await fetch('dungeon_loot.php', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+              const ct = res.headers.get('content-type') || '';
+              const raw = await res.text();
+              let data = null; if (ct.includes('application/json')) { try { data = JSON.parse(raw); } catch(e){} }
+
+              if (!res.ok || !data) return { ok: false, card, error: (data && data.message) || raw.slice(0,400) || ('HTTP '+res.status) };
+
+              if (String(data.status).trim() === 'success') {
+                // Collect items & rewards
+                if (Array.isArray(data.items)) allLootItems.push(...data.items);
+                if (data.rewards) { aggregatedRewards.exp += Number(data.rewards.exp || 0); aggregatedRewards.gold += Number(data.rewards.gold || 0); }
+
+                // Update card appearance
+                const img = card.querySelector('.dungeon-monster-img'); if (img) img.classList.add('grayscale');
+                card.classList.add('monster-dead'); card._hasLoot = true;
+
+                return { ok: true, card, data };
+              }
+
+              return { ok: false, card, error: data.message || 'failed' };
+            } catch (err) {
+              return { ok: false, card, error: err?.message || String(err) };
+            }
+          })();
+        });
+
+        // Run all requests in parallel
+        const results = await Promise.allSettled(tasks.map(t => t));
+        // Tally results
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            const v = r.value;
+            if (v && v.ok) successCount++; else failCount++;
+          } else {
+            failCount++;
+          }
+        }
+
+        // Show summary and aggregated modal if any items
+        if (successCount > 0) {
+          showNotification(`Successfully looted ${successCount} monster${successCount > 1 ? 's' : ''}!`, '#2ecc71');
+          if (allLootItems.length > 0) {
+            renderDungeonLootModal({ items: allLootItems, rewards: aggregatedRewards, note: 'Batch loot summary' });
+          }
+        }
+        
+        // Show summary
+        if (successCount > 0) {
+          showNotification(`Successfully looted ${successCount} monster${successCount > 1 ? 's' : ''}!`, '#2ecc71');
+          
+          // Move looted cards to completed section after a delay
+          setTimeout(() => {
+            lootCards.forEach(card => {
+              if (card._hasLoot) {
+                moveDungeonCardToSection(card, 'completed');
+              }
+            });
+          }, 1500);
+        }
+        
+        if (failCount > 0) {
+          showNotification(`Failed to loot ${failCount} monster${failCount > 1 ? 's' : ''}`, '#e74c3c');
+        }
+        
+        lootAllBtn.innerHTML = '<span>💰</span><span>Loot All (<span id="dungeon-loot-count">0</span>)</span>';
+        lootAllBtn.disabled = false;
+        
+        // Re-attach the span reference
+        const newLootCountSpan = document.getElementById('dungeon-loot-count');
+        if (newLootCountSpan) {
+          setTimeout(() => updateLootCount(), 2000);
+        }
+      });
+    }
+    
+    // Function to save filter settings
+    function saveDungeonFilterSettings() {
+      const settings = {
+        nameFilter: searchInput?.value || '',
+        monsterTypeFilter: Array.from(document.querySelectorAll('.dungeon-monster-type-checkbox:checked')).map(cb => cb.value),
+        hpFilter: hpFilter?.value || '',
+        playerCountFilter: playerCountFilter?.value || '',
+        sortBy: sortSelect?.value || ''
+      };
+      localStorage.setItem('dungeonFiltersSettings', JSON.stringify(settings));
+    }
+    
+    // Load saved preferences
+    const savedHideImages = localStorage.getItem('dungeon-hide-images') === 'true';
+    const savedView = localStorage.getItem('dungeon-view') || 'grid';
+    const savedFilters = JSON.parse(localStorage.getItem('dungeonFiltersSettings') || '{}');
+    
+    // Apply saved preferences
+    if (savedHideImages) {
+      hideImagesBtn.classList.add('active');
+      document.querySelectorAll('.dungeon-monster-container').forEach(container => {
+        container.classList.add('hide-images');
+      });
+    }
+    
+    // Apply saved view
+    viewBtns.forEach(btn => {
+      if (btn.dataset.view === savedView) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    if (savedView === 'list') {
+      document.querySelectorAll('.dungeon-monster-container').forEach(container => {
+        container.classList.add('list-view');
+      });
+    }
+    
+    // Apply saved filter settings
+    if (savedFilters.nameFilter) {
+      searchInput.value = savedFilters.nameFilter;
+    }
+    if (savedFilters.monsterTypeFilter && Array.isArray(savedFilters.monsterTypeFilter)) {
+      savedFilters.monsterTypeFilter.forEach(type => {
+        const checkbox = document.querySelector(`.dungeon-monster-type-checkbox[value="${type}"]`);
+        if (checkbox) checkbox.checked = true;
+      });
+    }
+    if (savedFilters.hpFilter) {
+      hpFilter.value = savedFilters.hpFilter;
+    }
+    if (savedFilters.playerCountFilter) {
+      playerCountFilter.value = savedFilters.playerCountFilter;
+    }
+    if (savedFilters.sortBy) {
+      sortSelect.value = savedFilters.sortBy;
+    }
+    
+    // Apply initial filters and sorting
+    filterMonsters(searchInput?.value.toLowerCase().trim() || '');
+    if (savedFilters.sortBy) {
+      sortDungeonMonsters();
+    }
+    
+    // Search functionality
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        filterMonsters(searchTerm);
+        updateLootCount();
+        saveDungeonFilterSettings();
+      });
+    }
+    
+    // Monster type dropdown toggle
+    if (monsterTypeToggle && monsterTypeDropdown) {
+      monsterTypeToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = monsterTypeDropdown.style.display !== 'none';
+        monsterTypeDropdown.style.display = isVisible ? 'none' : 'block';
+      });
+      
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!monsterTypeToggle.contains(e.target) && !monsterTypeDropdown.contains(e.target)) {
+          monsterTypeDropdown.style.display = 'none';
+        }
+      });
+    }
+    
+    // Select all monster types
+    if (selectAllMonstersBtn) {
+      selectAllMonstersBtn.addEventListener('click', () => {
+        document.querySelectorAll('.dungeon-monster-type-checkbox').forEach(checkbox => {
+          checkbox.checked = true;
+        });
+        filterMonsters();
+        updateLootCount();
+        saveDungeonFilterSettings();
+      });
+    }
+    
+    // Clear all monster types
+    if (clearMonstersBtn) {
+      clearMonstersBtn.addEventListener('click', () => {
+        document.querySelectorAll('.dungeon-monster-type-checkbox').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+        filterMonsters();
+        updateLootCount();
+        saveDungeonFilterSettings();
+      });
+    }
+    
+    // Monster type checkbox listeners
+    document.querySelectorAll('.dungeon-monster-type-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        filterMonsters();
+        updateLootCount();
+        saveDungeonFilterSettings();
+      });
+    });
+    
+    // HP filter
+    if (hpFilter) {
+      hpFilter.addEventListener('change', () => {
+        filterMonsters();
+        updateLootCount();
+        saveDungeonFilterSettings();
+      });
+    }
+    
+    // Player count filter
+    if (playerCountFilter) {
+      playerCountFilter.addEventListener('change', () => {
+        filterMonsters();
+        updateLootCount();
+        saveDungeonFilterSettings();
+      });
+    }
+    
+    // Sort functionality
+    if (sortSelect) {
+      sortSelect.addEventListener('change', () => {
+        sortDungeonMonsters();
+        saveDungeonFilterSettings();
+      });
+    }
+    
+    // Hide images toggle
+    if (hideImagesBtn) {
+      hideImagesBtn.addEventListener('click', () => {
+        const isHidden = hideImagesBtn.classList.toggle('active');
+        document.querySelectorAll('.dungeon-monster-container').forEach(container => {
+          container.classList.toggle('hide-images', isHidden);
+        });
+        localStorage.setItem('dungeon-hide-images', isHidden);
+      });
+    }
+    
+    // View toggle
+    viewBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view;
+        
+        // Update active button
+        viewBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update view
+        document.querySelectorAll('.dungeon-monster-container').forEach(container => {
+          if (view === 'list') {
+            container.classList.add('list-view');
+          } else {
+            container.classList.remove('list-view');
+          }
+        });
+        
+        localStorage.setItem('dungeon-view', view);
+      });
+    });
+    
+    function filterMonsters(searchTerm) {
+      const sections = document.querySelectorAll('.monster-section');
+      const selectedMonsterTypes = Array.from(document.querySelectorAll('.dungeon-monster-type-checkbox:checked')).map(cb => cb.value);
+      const hpFilterValue = document.getElementById('dungeon-hp-filter')?.value || '';
+      const playerCountFilterValue = document.getElementById('dungeon-player-count-filter')?.value || '';
+      
+      sections.forEach(section => {
+        const cards = section.querySelectorAll('.dungeon-monster-card');
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+          const monsterName = (card.getAttribute('data-monster-name') || '').toLowerCase();
+          let shouldShow = true;
+          
+          // Search filter
+          if (searchTerm && !monsterName.includes(searchTerm)) {
+            shouldShow = false;
+          }
+          
+          // Monster type filter
+          if (shouldShow && selectedMonsterTypes.length > 0) {
+            const matchesType = selectedMonsterTypes.some(type => {
+              switch (type) {
+                case 'orc':
+                  return monsterName.includes('orc') && !monsterName.includes('king');
+                case 'warchief':
+                  return monsterName.includes('warchief') || monsterName.includes('chief');
+                case 'king':
+                  return monsterName.includes('king');
+                default:
+                  return false;
+              }
+            });
+            if (!matchesType) {
+              shouldShow = false;
+            }
+          }
+          
+          // HP filter
+          if (shouldShow && hpFilterValue) {
+            const currentHP = card._currentHP || 0;
+            const maxHP = card._maxHP || 1;
+            const hpPercentage = maxHP > 0 ? (currentHP / maxHP) * 100 : 0;
+            
+            switch (hpFilterValue) {
+              case 'low':
+                if (hpPercentage >= 50) shouldShow = false;
+                break;
+              case 'medium':
+                if (hpPercentage < 50 || hpPercentage > 80) shouldShow = false;
+                break;
+              case 'high':
+                if (hpPercentage <= 80) shouldShow = false;
+                break;
+              case 'full':
+                if (hpPercentage < 100) shouldShow = false;
+                break;
+            }
+          }
+          
+          // Player count filter
+          if (shouldShow && playerCountFilterValue) {
+            const playersJoined = card._playersJoined || 0;
+            
+            switch (playerCountFilterValue) {
+              case 'empty':
+                if (playersJoined > 0) shouldShow = false;
+                break;
+              case 'few':
+                if (playersJoined >= 2) shouldShow = false;
+                break;
+              case 'many':
+                if (playersJoined <= 2) shouldShow = false;
+                break;
+              case 'full':
+                if (playersJoined < 4) shouldShow = false;
+                break;
+            }
+          }
+          
+          // Apply visibility
+          if (shouldShow) {
+            card.style.display = '';
+            visibleCount++;
+          } else {
+            card.style.display = 'none';
+          }
+        });
+        
+        // Update section title count
+        const titleElement = section.querySelector('.monster-section-header h3');
+        if (titleElement) {
+          const originalText = titleElement.textContent.replace(/\(\d+\)/, '').trim();
+          titleElement.textContent = `${originalText} (${visibleCount})`;
+        }
+        
+        // Show/hide section based on visible cards
+        if (visibleCount === 0) {
+          section.style.display = 'none';
+        } else {
+          section.style.display = '';
+        }
+      });
+      
+      // Check if any sections are visible
+      const visibleSections = Array.from(sections).filter(s => s.style.display !== 'none');
+      
+      // Show "no results" message if nothing visible
+      let noResults = document.querySelector('.dungeon-no-results');
+      if (visibleSections.length === 0 && (searchTerm || selectedMonsterTypes.length > 0 || hpFilterValue || playerCountFilterValue)) {
+        if (!noResults) {
+          noResults = document.createElement('div');
+          noResults.className = 'dungeon-no-results';
+          noResults.textContent = `No monsters found matching the current filters`;
+          mainContainer.appendChild(noResults);
+        }
+      } else if (noResults) {
+        noResults.remove();
+      }
+    }
+    
+    function sortDungeonMonsters() {
+      const sortBy = document.getElementById('dungeon-sort')?.value || '';
+      if (!sortBy) return;
+      
+      const sections = document.querySelectorAll('.monster-section');
+      
+      sections.forEach(section => {
+        const cards = Array.from(section.querySelectorAll('.dungeon-monster-card'));
+        
+        cards.sort((a, b) => {
+          switch (sortBy) {
+            case 'name-asc':
+              const nameA = (a.getAttribute('data-monster-name') || '').toLowerCase();
+              const nameB = (b.getAttribute('data-monster-name') || '').toLowerCase();
+              return nameA.localeCompare(nameB);
+              
+            case 'name-desc':
+              const nameADesc = (a.getAttribute('data-monster-name') || '').toLowerCase();
+              const nameBDesc = (b.getAttribute('data-monster-name') || '').toLowerCase();
+              return nameBDesc.localeCompare(nameADesc);
+              
+            case 'hp-asc':
+              const hpAPerc = a._maxHP > 0 ? (a._currentHP / a._maxHP) : 0;
+              const hpBPerc = b._maxHP > 0 ? (b._currentHP / b._maxHP) : 0;
+              return hpAPerc - hpBPerc;
+              
+            case 'hp-desc':
+              const hpADescPerc = a._maxHP > 0 ? (a._currentHP / a._maxHP) : 0;
+              const hpBDescPerc = b._maxHP > 0 ? (b._currentHP / b._maxHP) : 0;
+              return hpBDescPerc - hpADescPerc;
+              
+            case 'players-asc':
+              return (a._playersJoined || 0) - (b._playersJoined || 0);
+              
+            case 'players-desc':
+              return (b._playersJoined || 0) - (a._playersJoined || 0);
+              
+            case 'status':
+              // Available first (not joined), then continuing (joined but not dead), then lootable (dead and joined)
+              const getStatusPriority = (card) => {
+                if (card._isDead && card._isJoined && !card._hasLoot) return 3; // Lootable
+                if (!card._isDead && card._isJoined) return 2; // Continuing
+                if (!card._isDead && !card._isJoined) return 1; // Available
+                return 4; // Completed
+              };
+              return getStatusPriority(a) - getStatusPriority(b);
+              
+            default:
+              return 0;
+          }
+        });
+        
+        // Re-append sorted cards
+        const container = section.querySelector('.monster-section-content');
+        if (container) {
+          cards.forEach(card => container.appendChild(card));
+        }
+      });
+    }
+  }
+
+  // Initialize dungeon page transformation
+  initDungeonPageTransformation();
+
+  // Dungeon wave: intercept Join Battle clicks and auto-send join request then redirect
+  try {
+    if (window.location.pathname.includes('guild_dungeon_location.php')) {
+      // Use event delegation so dynamically added cards are covered
+      document.addEventListener('click', async function dungeonWaveJoinHandler(e) {
+        const btn = e.target.closest && e.target.closest('.dungeon-join-btn');
+        if (!btn) return;
+        // If this is a Loot button variant, don't handle it here - let the loot handler process it
+        const _btnText = (btn.textContent || '').toLowerCase();
+        if (_btnText.includes('loot') || _btnText.includes('💰')) return;
+        // Prevent double handling for actual join buttons
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Find the monster card and ids
+        const card = btn.closest('.dungeon-monster-card');
+        if (!card) return;
+        const dgmid = card.getAttribute('data-monster-id') || card.dataset.monsterId;
+        // instance_id might be in URL or on the page (data attribute or link)
+        let params = new URLSearchParams(window.location.search);
+        let instance_id = params.get('instance_id') || card.getAttribute('data-instance-id') || card.dataset.instanceId;
+        // Fallback: try to find view link href containing instance_id
+        if (!instance_id) {
+          const viewLink = card.querySelector('a[href*="dungeon_battle.php"]');
+          if (viewLink) {
+            try {
+              const hrefParams = new URL(viewLink.href, window.location.origin).searchParams;
+              instance_id = hrefParams.get('instance_id');
+            } catch (e) { /* ignore */ }
+          }
+        }
+
+        if (!dgmid) return showNotification('Missing monster id', 'error');
+        if (!instance_id) return showNotification('Missing instance id', 'error');
+
+        // Disable button while processing
+        const origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Joining...';
+
+        try {
+          const body = `dgmid=${encodeURIComponent(dgmid)}&instance_id=${encodeURIComponent(instance_id)}`;
+          const res = await fetch('dungeon_join_battle.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+          const txt = await res.text();
+          const msg = (txt || '').trim();
+          const ok = msg.toLowerCase().startsWith('you have successfully') || msg.toLowerCase().includes('joined');
+          showNotification(msg || 'Unknown response', ok ? 'success' : 'error');
+          if (ok) {
+            // Redirect to the dungeon battle page for that monster
+            const target = `dungeon_battle.php?dgmid=${encodeURIComponent(dgmid)}&instance_id=${encodeURIComponent(instance_id)}`;
+            setTimeout(() => { window.location.href = target; }, 800);
+            return;
+          }
+        } catch (err) {
+          console.error('Join dungeon error', err);
+          showNotification('Server error while joining. Please try again.', 'error');
+        } finally {
+          // restore button if we didn't redirect
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+      });
+    }
+  } catch (e) {
+    console.error('Dungeon join init error', e);
+  }
+
+  // Dungeon insta-loot: claim loot from dungeon wave cards and show a centered modal
+  try {
+    if (window.location.pathname.includes('guild_dungeon_location.php')) {
+      if (!window.__dungeonLootHandlerInstalled) {
+        window.__dungeonLootHandlerInstalled = true;
+
+        function ensureDungeonLootModal() {
+          if (document.getElementById('lootOverlay') && document.getElementById('lootModal')) return;
+          const overlay = document.createElement('div'); overlay.id = 'lootOverlay'; overlay.hidden = true;
+          overlay.style.cssText = 'display:none; position:fixed; inset:0; z-index:9998;';
+
+          const modal = document.createElement('div'); modal.id = 'lootModal'; modal.hidden = true;
+          modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;';
+
+          const inner = document.createElement('div');
+          inner.style.cssText = 'background:#2a2a3d; border-radius:12px; padding:15px; max-width:90%; width:380px; text-align:center; color:white; overflow-y:auto; max-height:80%;';
+          // Ensure modal uses flex layout so inner content centers correctly
+          modal.style.display = 'none';
+          modal.style.alignItems = 'center';
+          modal.style.justifyContent = 'center';
+          inner.innerHTML = '\n            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">\n              <h2 id="lootModalTitle" style="margin:0; font-size:18px;">🎁 Loot Claimed</h2>\n              <button id="lootCloseBtn" class="join-btn" style="min-width:32px;">✖</button>\n            </div>\n            <div id="lootBody" style="margin-top:10px; text-align:left;"></div>\n          ';
+
+          modal.appendChild(inner);
+          document.body.appendChild(overlay);
+          document.body.appendChild(modal);
+
+          overlay.addEventListener('click', function(){ closeLootModal(); });
+          modal.addEventListener('click', function (e) { if (e.target === modal) closeLootModal(); });
+          document.getElementById('lootCloseBtn')?.addEventListener('click', closeLootModal);
+        }
+
+  function openLootModal(){ const lootOverlay = document.getElementById('lootOverlay'); const lootModal = document.getElementById('lootModal'); if (!lootOverlay || !lootModal) return; lootOverlay.hidden=false; lootModal.hidden=false; lootOverlay.style.display='block'; lootModal.style.display='flex'; document.body.style.overflow='hidden'; document.getElementById('lootCloseBtn')?.focus(); }
+        function closeLootModal(){ const lootOverlay = document.getElementById('lootOverlay'); const lootModal = document.getElementById('lootModal'); if (!lootOverlay || !lootModal) return; lootOverlay.style.display='none'; lootModal.style.display='none'; lootOverlay.hidden=true; lootModal.hidden=true; document.body.style.overflow=''; }
+
+        function renderDungeonLootModal(data){
+          const rewards = data.rewards || {};
+          const items = Array.isArray(data.items) ? data.items : [];
+          const note = (data.note && String(data.note).trim()) || '';
+
+          // Group items by a stable key (prefer ID, fallback to NAME)
+          const groups = {};
+          items.forEach(it => {
+            const idKey = (it.ID || it.id || it.ITEM_ID || it.item_id || it.NAME || it.name || JSON.stringify(it)).toString();
+            if (!groups[idKey]) {
+              groups[idKey] = Object.assign({}, it);
+              groups[idKey].count = 1;
+            } else {
+              groups[idKey].count = (groups[idKey].count || 1) + 1;
+            }
+          });
+
+          const parts = [];
+          parts.push('<div>You earned <strong>'+num(rewards.exp||0)+'</strong> EXP and <strong>'+num(rewards.gold||0)+'</strong> Gold.</div>');
+          if (note) parts.push('<div style="margin-top:6px;color:#cfd4ff;">'+escapeHtml(note)+'</div>');
+
+          if (items.length) {
+            parts.push('<div class="loot-row" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">');
+
+            Object.values(groups).forEach(it => {
+              const img = escapeAttr(it.IMAGE_URL || 'images/default_item.png');
+              const name = escapeHtml(it.NAME || it.name || 'Unknown item');
+              const tier = it.TIER || it.tier || '';
+              const dropRatio = it.DROP_RATIO != null ? num(it.DROP_RATIO) : null;
+              const count = Number(it.count || 1);
+
+              parts.push('<div class="loot-card unlocked" style="position:relative; background:#1e1e2f; border-radius:8px; padding:8px; width:110px; text-align:center;">');
+              parts.push('<div class="loot-img-wrap"><img src="'+img+'" alt="'+name+'" style="width:64px; height:64px; object-fit:contain;"></div>');
+              parts.push('<div class="loot-meta"><div class="loot-name" style="margin-top:6px; font-weight:600;">'+name+'</div>');
+              parts.push('<div class="loot-stats" style="margin-top:4px; font-size:12px; color:#bfc7ff;">');
+              if (dropRatio) parts.push('<span class="chip">Drop: '+dropRatio+'%</span>');
+              if (tier) parts.push('<span class="chip tierchip '+escapeAttr(String(tier).toLowerCase())+'" style="margin-left:6px;">'+escapeHtml(tier)+'</span>');
+              parts.push('</div></div>');
+              if (count > 1) {
+                parts.push('<div style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:999px; font-weight:700; font-size:12px;">x'+num(count)+'</div>');
+              }
+              parts.push('</div>');
+            });
+
+            parts.push('</div>');
+          } else {
+            parts.push('<div style="margin-top:10px;">No item dropped this time.</div>');
+          }
+
+          const lootBody = document.getElementById('lootBody'); if (lootBody) lootBody.innerHTML = parts.join(''); openLootModal();
+        }
+
+        function num(x){ try{ return new Intl.NumberFormat().format(Number(x)||0); }catch{ return x; } }
+        function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]; }); }
+        function escapeAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+        document.addEventListener('click', async function dungeonLootHandler(e){
+          const btn = e.target.closest && e.target.closest('#loot-button, .dungeon-loot-btn, .loot-button, .dungeon-join-btn');
+          if (!btn) return; const card = btn.closest && btn.closest('.dungeon-monster-card'); if (!card) return;
+          // If this is a generic .dungeon-join-btn ensure it's the Loot variant before proceeding
+          const _t = (btn.textContent || '').toLowerCase();
+          if (btn.classList.contains('dungeon-join-btn') && !_t.includes('loot') && !_t.includes('💰') && btn.id !== 'loot-button' && !btn.classList.contains('dungeon-loot-btn') && !btn.classList.contains('loot-button')) return;
+          e.preventDefault(); e.stopPropagation();
+          ensureDungeonLootModal();
+          const origText = btn.textContent; btn.disabled = true; btn.textContent = 'Processing…';
+          const dgmid = card.getAttribute('data-monster-id') || card.dataset.monsterId;
+          let params = new URLSearchParams(window.location.search);
+          let instance_id = params.get('instance_id') || card.getAttribute('data-instance-id') || card.dataset.instanceId;
+          if (!instance_id){ const viewLink = card.querySelector('a[href*="dungeon_battle.php"]'); if (viewLink){ try{ instance_id = (new URL(viewLink.href, window.location.origin)).searchParams.get('instance_id'); } catch(e){} } }
+          if (!dgmid || !instance_id){ showNotification('Missing dgmid or instance_id', 'error'); btn.disabled=false; btn.textContent=origText; return; }
+
+          try{
+            const body = 'dgmid='+encodeURIComponent(dgmid)+'&instance_id='+encodeURIComponent(instance_id);
+            const res = await fetch('dungeon_loot.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+            const ct = res.headers.get('content-type') || '';
+            const raw = await res.text();
+            let data = null; if (ct.includes('application/json')){ try{ data = JSON.parse(raw); } catch(e){} }
+            if (!res.ok || !data){ const msg = (data && data.message) || raw.slice(0,400) || ('HTTP '+res.status); showNotification(msg, 'error'); btn.disabled=false; btn.textContent=origText; return; }
+            if (String(data.status).trim() === 'success'){
+              showNotification(data.message || 'Loot claimed!', 'success'); try{ btn.remove(); } catch(e){ btn.disabled=true; }
+              // Add monster name to the loot modal
+              const monsterName = card.getAttribute('data-monster-name') || 'Unknown Monster';
+              renderDungeonLootModal({...data, note: `Loot from ${monsterName}`});
+            } else {
+              const msg = (data.message || 'Failed to loot.').trim(); showNotification(msg, 'error'); if (/already claimed/i.test(msg)){ const note = document.createElement('div'); note.textContent='✅ You already claimed your loot.'; btn.replaceWith(note); } else { btn.disabled=false; btn.textContent=origText; }
+            }
+          } catch(err){ console.error('Dungeon loot error', err); showNotification(err?.message || 'Server error', 'error'); btn.disabled=false; btn.textContent=origText; }
+        });
+
+        // Also bind direct listeners to existing buttons (and future ones) in case delegation is blocked
+        function bindDungeonLootButtons() {
+          document.querySelectorAll('.dungeon-monster-card .dungeon-join-btn').forEach(btn => {
+            try {
+              const t = (btn.textContent||'').toLowerCase();
+              if (!(t.includes('loot') || t.includes('💰'))) return;
+              if (btn.dataset.__dungeonLootBound) return;
+              btn.dataset.__dungeonLootBound = '1';
+              btn.addEventListener('click', function (ev) {
+                ev.preventDefault(); ev.stopPropagation();
+                // Trigger the same logic as the delegated handler by dispatching a click on the button that the delegated handler listens for
+                // But call our handler directly to avoid any propagation issues
+                (async function(btnRef){
+                  try {
+                    ensureDungeonLootModal();
+                    const origText = btnRef.textContent; btnRef.disabled = true; btnRef.textContent = 'Processing…';
+                    const card = btnRef.closest && btnRef.closest('.dungeon-monster-card');
+                    const dgmid = card.getAttribute('data-monster-id') || card.dataset.monsterId;
+                    let params = new URLSearchParams(window.location.search);
+                    let instance_id = params.get('instance_id') || card.getAttribute('data-instance-id') || card.dataset.instanceId;
+                    if (!instance_id){ const viewLink = card.querySelector('a[href*="dungeon_battle.php"]'); if (viewLink){ try{ instance_id = (new URL(viewLink.href, window.location.origin)).searchParams.get('instance_id'); } catch(e){} } }
+                    if (!dgmid || !instance_id){ showNotification('Missing dgmid or instance_id', 'error'); btnRef.disabled=false; btnRef.textContent=origText; return; }
+                    const body = 'dgmid='+encodeURIComponent(dgmid)+'&instance_id='+encodeURIComponent(instance_id);
+                    const res = await fetch('dungeon_loot.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+                    const ct = res.headers.get('content-type') || '';
+                    const raw = await res.text();
+                    let data = null; if (ct.includes('application/json')){ try{ data = JSON.parse(raw); } catch(e){} }
+                    if (!res.ok || !data){ const msg = (data && data.message) || raw.slice(0,400) || ('HTTP '+res.status); showNotification(msg, 'error'); btnRef.disabled=false; btnRef.textContent=origText; return; }
+                    if (String(data.status).trim() === 'success'){ showNotification(data.message || 'Loot claimed!', 'success'); try{ btnRef.remove(); } catch(e){ btnRef.disabled=true; } 
+                      // Add monster name to the loot modal
+                      const monsterName = card.getAttribute('data-monster-name') || 'Unknown Monster';
+                      renderDungeonLootModal({...data, note: `Loot from ${monsterName}`});
+                    }
+                    else { const msg = (data.message || 'Failed to loot.').trim(); showNotification(msg, 'error'); if (/already claimed/i.test(msg)){ const note = document.createElement('div'); note.textContent='✅ You already claimed your loot.'; btnRef.replaceWith(note); } else { btnRef.disabled=false; btnRef.textContent=origText; } }
+                  } catch (err) { console.error('Dungeon loot error', err); showNotification(err?.message || 'Server error', 'error'); try{ btnRef.disabled=false; btnRef.textContent='Loot'; } catch{} }
+                })(btn);
+              }, { passive: false });
+            } catch (e) { /* ignore individual binding errors */ }
+          });
+        }
+
+        // Observe for new dungeon cards and bind to their loot buttons
+        const dungeonCardsContainer = document.querySelector('.dungeon-container') || document.body;
+        const _observer = new MutationObserver((mutations) => {
+          let added = false;
+          for (const m of mutations) {
+            if (m.addedNodes && m.addedNodes.length) { added = true; break; }
+          }
+          if (added) bindDungeonLootButtons();
+        });
+        _observer.observe(dungeonCardsContainer, { childList: true, subtree: true });
+
+        // Initial bind
+        bindDungeonLootButtons();
+      }
+    }
+  } catch (e) { console.error('Dungeon insta-loot init error', e); }
+
+  // Initialize quest widget
+  initSidebarQuestWidget();
+
+  // Start periodic user data update from wave page
+  if (!userDataUpdateInterval && window.location.pathname.includes('/active_wave.php')) {
+    userDataUpdateInterval = setInterval(updateUserDataFromWavePage, 1000);
   }
