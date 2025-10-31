@@ -1342,24 +1342,6 @@ function parseLeaderboardFromHtml(html) {
           }
         }
       }
-
-      // 3) Conservative fallback: only parse whole card text if it explicitly mentions Players/Joined/👥
-      const cardText = monsterCard?.textContent || '';
-      if (/\bPlayers\b|\bJoined\b|👥/i.test(cardText)) {
-        const m3 = cardText.match(/Players\s*Joined\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/i) || cardText.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
-        if (m3) {
-          const current = (m3[1] || '').replace(/,/g, '');
-          const max = (m3[2] || '').replace(/,/g, '');
-          if (current && max) {
-            btn.innerHTML = `⚔️ Join (${current}/${max})`;
-            btn.dataset.enhanced = 'true';
-            return;
-          }
-        }
-      }
-
-      // No reliable players info found — keep default join text
-      btn.textContent = 'Join';
     } catch (e) {
       try { btn.textContent = 'Join'; } catch (e2) {}
     }
@@ -1401,6 +1383,7 @@ function parseLeaderboardFromHtml(html) {
         if (joinMsg.toLowerCase().includes('you can only join 5 monsters at a time in this wave')) {
           showNotification('You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
           enhanceJoinButtonWithPlayers(btn, monsterCard);
+          btn.disabled = false;
         } else if (joinMsg.toLowerCase().includes('invalid monster')) {
           showNotification('Monster already died', '#e74c3c');
           enhanceJoinButtonWithPlayers(btn, monsterCard);
@@ -1623,31 +1606,14 @@ function parseAttackLogs(html) {
       if (!found) {
         monsterList.push(updatedMonster);
       }
-        console.log('[BattleModal] monsterList after update:', monsterList);
-      updateMonsterUI();
-        console.log('[BattleModal] updateMonsterUI called');
-      // Check if monster is defeated
-      if (updatedMonster.currentHp <= 0) {
-        showNotification('Monster defeated!', '#f39c12');
-        if (extensionSettings.battleModal.autoClose) {
-          setTimeout(() => {
-            const modal = document.getElementById('battle-modal');
-            if (modal) modal.remove();
-            setModalOpen(false);
-            updateWaveData(true);
-          }, 1500);
-        }
-      }
-      btn.textContent = originalText;
-      btn.disabled = false;
+      return result;
     } catch (error) {
+      const originalText = btn.textContent;
       console.error('[BattleModal] Error attacking:', error);
       showNotification('Error attacking monster', '#e74c3c');
       btn.textContent = originalText || 'Attack';
       btn.disabled = false;
     }
-
-    return result;
   }
 
   // Show battle modal
