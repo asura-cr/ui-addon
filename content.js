@@ -2732,6 +2732,328 @@ function parseAttackLogs(html) {
     return menuHTML;
   }
 
+  function updateGameSideDrawer() {
+    const sidebar = document.getElementById('sideDrawer');
+    if (!sidebar) return;
+
+    sidebar.style.marginTop = '66px';
+    sidebar.style.maxHeight = 'calc(100% - 66px)';
+    sidebar.style.width = '250px';
+
+    // Safely find and remove the side overlay if present. Avoid calling
+    // getElementById on the element (not a function) and use removeChild/remove.
+    const sideOverlay = sidebar.querySelector('#sideOverlay') || document.getElementById('sideOverlay');
+    if (sideOverlay) {
+      try {
+        if (sideOverlay.parentNode) sideOverlay.parentNode.removeChild(sideOverlay);
+        else if (typeof sideOverlay.remove === 'function') sideOverlay.remove();
+      } catch (e) {
+        // Non-fatal — log for debugging
+        console.warn('Failed to remove sideOverlay:', e);
+      }
+    }
+
+    const sidebarInner = document.querySelector('.side-drawer-inner');
+    if (sidebarInner) {
+      sidebarInner.style.width = '250px';
+    }
+
+    const sideHeader = document.querySelector('.side-head');
+    if (sideHeader) {
+      const sideHeaderTitle = sideHeader.querySelector('.side-title');
+      if (sideHeaderTitle) {
+        sideHeaderTitle.parentNode.removeChild(sideHeaderTitle);
+      }
+    }
+
+    if (sidebar) {
+      const sidebarContent = sidebar.querySelector('.side-nav');
+      if (sidebarContent) {
+        try {
+          // Loop over every side-nav-item link and inspect its href
+          const items = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
+          items.forEach(a => {
+            const rawHref = a.getAttribute('href') || '';
+            let pathname = rawHref;
+            try {
+              // Normalize to pathname (handles absolute or relative URLs)
+              pathname = new URL(rawHref, location.origin).pathname;
+            } catch (e) {
+              // keep rawHref if URL parsing fails
+              pathname = rawHref;
+            }
+
+            if (pathname.endsWith('/stats.php') || pathname === 'stats.php') {
+              try {
+                // Don't add multiple toggles
+                if (a.dataset.statsEnhanced) return;
+                a.dataset.statsEnhanced = 'true';
+
+                // Create toggle button (will sit to the right of the anchor)
+                const toggle = document.createElement('button');
+                toggle.className = 'stats-toggle-btn';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', extensionSettings.statsExpanded ? 'true' : 'false');
+                toggle.textContent = extensionSettings.statsExpanded ? '−' : '+';
+                toggle.style.cssText = 'margin-left:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); color:#89b4fa; padding:2px 6px; border-radius:4px; cursor:pointer; font-weight:700;';
+
+                // Create expand panel (hidden by default) that will be inserted right after the anchor wrapper
+                const panel = document.createElement('div');
+                panel.className = 'stats-expand-panel';
+                panel.style.cssText = 'display:' + (extensionSettings.statsExpanded ? 'block' : 'none') + '; padding:8px; margin-top:8px; margin-bottom:8px; background:rgba(20,20,26,0.6); border-radius:6px; border:1px solid rgba(69,71,90,0.4);';
+
+                // Place the toggle inside the <a> so it appears on the right-hand side of the stats item
+                try {
+                  // Make the anchor a flex container so the label stays left and the toggle sits right
+                  a.classList.add('sidebar-menu-expandable');
+                  a.style.display = a.style.display || 'flex';
+                  a.style.alignItems = a.style.alignItems || 'center';
+                  a.style.justifyContent = a.style.justifyContent || 'space-between';
+
+                  // Create a non-navigable control area inside the anchor and put the toggle there
+                  const controlArea = document.createElement('div');
+                  controlArea.className = 'side-control';
+                  controlArea.style.cssText = 'margin-left:8px; display:flex; align-items:center; gap:6px;';
+                  // Prevent clicks in the control area from triggering anchor navigation
+                  controlArea.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+                  controlArea.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') { ev.preventDefault(); ev.stopPropagation(); } });
+                  controlArea.appendChild(toggle);
+                  a.appendChild(controlArea);
+
+                  // Insert the panel directly after the anchor so it expands downward under the stats item
+                  const parent = a.parentNode;
+                  if (parent) parent.insertBefore(panel, a.nextSibling);
+                } catch (e) {
+                  // Fallback: append toggle after anchor
+                  a.parentNode.insertBefore(toggle, a.nextSibling);
+                  a.parentNode.insertBefore(panel, toggle.nextSibling);
+                }
+
+                // Track whether the panel content has been initialized for this DOM element
+                let iframeLoaded = false;
+
+                const populateStatsPanel = () => {
+                  if (panel.dataset.inited) return;
+                  panel.dataset.inited = '1';
+                  panel.innerHTML = `
+                          <div class="stats-allocation-section">
+                            <div class="upgrade-section">
+                              <div class="stat-upgrade-row" data-stat="attack">
+                                <div class="stat-info">
+                                  <span>⚔️</span>
+                                  <span id="sidebar-attack-alloc">-</span>
+                                </div>
+                                <div class="upgrade-controls">
+                                  <button class="upgrade-btn" data-amount="1" draggable="false">+1</button>
+                                  <button class="upgrade-btn" data-amount="5" draggable="false">+5</button>
+                                </div>
+                              </div>
+                              <div class="stat-upgrade-row" data-stat="defense">
+                                <div class="stat-info">
+                                  <span>🛡️</span>
+                                  <span id="sidebar-defense-alloc">-</span>
+                                </div>
+                                <div class="upgrade-controls">
+                                  <button class="upgrade-btn" data-amount="1" draggable="false">+1</button>
+                                  <button class="upgrade-btn" data-amount="5" draggable="false">+5</button>
+                                </div>
+                              </div>
+                              <div class="stat-upgrade-row" data-stat="stamina">
+                                <div class="stat-info">
+                                  <span>⚡</span>
+                                  <span id="sidebar-stamina-alloc">-</span>
+                                </div>
+                                <div class="upgrade-controls">
+                                  <button class="upgrade-btn" data-amount="1" draggable="false">+1</button>
+                                  <button class="upgrade-btn" data-amount="5" draggable="false">+5</button>
+                                </div>
+                              </div>
+                            </div>
+                            <div style="text-align: center; margin-top: 8px; color: rgb(136, 136, 136);">
+                              Points Available: <span id="sidebar-points-alloc">-</span>
+                            </div>
+                          </div>
+                      `;
+
+                  setTimeout(() => {
+                    try {
+                      fetchAndUpdateSidebarStats();
+                      panel.querySelectorAll('.stat-upgrade-row').forEach(row => {
+                        const stat = row.dataset.stat;
+                        row.querySelectorAll('.upgrade-btn').forEach(btn => {
+                          btn.addEventListener('click', async (ev) => {
+                            ev.preventDefault(); ev.stopPropagation();
+                            const amount = parseInt(btn.getAttribute('data-amount') || btn.textContent.replace(/[^0-9\-]/g, ''), 10) || 0;
+                            if (!stat || !amount) return;
+                            btn.disabled = true;
+                            const res = await postAction('stats_ajax.php', { action: 'allocate', stat: stat, amount: amount });
+                            if (res && res.success) {
+                              showNotification(res.message || 'Allocated points', '#2ecc71');
+                            } else {
+                              showNotification(res.message || 'Allocation failed', '#e74c3c');
+                            }
+                            await fetchAndUpdateSidebarStats();
+                            btn.disabled = false;
+                          });
+                        });
+                      });
+                    } catch (err) {
+                      console.error('Error initializing stats panel:', err);
+                    }
+                  }, 50);
+
+                  iframeLoaded = true;
+                };
+                // If the panel should be open on load, populate it now so the content isn't empty after reload
+                if (extensionSettings.statsExpanded) {
+                  try { populateStatsPanel(); } catch (e) { console.error('Error auto-populating stats panel on load', e); }
+                }
+
+                // Toggle handler (prevents anchor navigation when interacting with the toggle)
+                const handleToggle = (e) => {
+                  if (e) { e.preventDefault(); e.stopPropagation(); }
+                  const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                  if (expanded) {
+                    // collapse
+                    panel.style.display = 'none';
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.textContent = '+';
+                    extensionSettings.statsExpanded = false;
+                    try { localStorage.setItem('demonGameExtensionSettings', JSON.stringify(extensionSettings)); } catch (err) {}
+                  } else {
+                    // expand
+                    panel.style.display = 'block';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.textContent = '−';
+                    extensionSettings.statsExpanded = true;
+                    try { localStorage.setItem('demonGameExtensionSettings', JSON.stringify(extensionSettings)); } catch (err) {}
+                    if (!iframeLoaded) {
+                      populateStatsPanel();
+                    }
+                  }
+                };
+
+                toggle.addEventListener('click', handleToggle);
+                // Prevent Enter/Space from triggering the parent link navigation — handle keyboard activation
+                toggle.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleToggle(e);
+                  }
+                });
+              } catch (e) {
+                console.error('Error adding stats expand toggle:', e);
+              }
+            } else if (pathname.endsWith('/battle_pass.php') || pathname === 'battle_pass.php') {
+              try {
+                // Add expandable panel for Battle Pass (mirrors Stats expandable behavior)
+                if (a.dataset.battlePassEnhanced) return;
+                a.dataset.battlePassEnhanced = 'true';
+
+                const toggle = document.createElement('button');
+                toggle.className = 'battlepass-toggle-btn';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', extensionSettings.battlePassExpanded ? 'true' : 'false');
+                toggle.textContent = extensionSettings.battlePassExpanded ? '−' : '+';
+                toggle.style.cssText = 'margin-left:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); color:#89b4fa; padding:2px 6px; border-radius:4px; cursor:pointer; font-weight:700;';
+
+                const panel = document.createElement('div');
+                panel.className = 'battlepass-expand-panel';
+                panel.style.cssText = 'display:' + (extensionSettings.battlePassExpanded ? 'block' : 'none') + '; padding:8px; margin-top:8px; margin-bottom:8px; background:rgba(20,20,26,0.6); border-radius:6px; border:1px solid rgba(69,71,90,0.4);';
+
+                try {
+                  a.classList.add('sidebar-menu-expandable');
+                  a.style.display = a.style.display || 'flex';
+                  a.style.alignItems = a.style.alignItems || 'center';
+                  a.style.justifyContent = a.style.justifyContent || 'space-between';
+
+                  const controlArea = document.createElement('div');
+                  controlArea.className = 'side-control';
+                  controlArea.style.cssText = 'margin-left:8px; display:flex; align-items:center; gap:6px;';
+                  controlArea.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+                  controlArea.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') { ev.preventDefault(); ev.stopPropagation(); } });
+                  controlArea.appendChild(toggle);
+                  a.appendChild(controlArea);
+
+                  const parent = a.parentNode;
+                  if (parent) parent.insertBefore(panel, a.nextSibling);
+                } catch (e) {
+                  a.parentNode.insertBefore(toggle, a.nextSibling);
+                  a.parentNode.insertBefore(panel, toggle.nextSibling);
+                }
+
+                let panelLoaded = false;
+                const populateBattlePassPanel = async () => {
+                  if (panel.dataset.inited) return;
+                  panel.dataset.inited = '1';
+                  panel.innerHTML = '<div class="battlepass-panel-loading">Loading...</div>';
+                  try {
+                    const battlePassStats = await fetchBattlePassStats();
+                    let html = '<div class="battlepass-stats-list" style="display:flex;flex-direction:column;gap:6px;color:#cfcfe0;font-size:13px;">';
+                    if (battlePassStats && typeof battlePassStats === 'object') {
+                      Object.keys(battlePassStats).forEach(k => {
+                        const v = battlePassStats[k] === null || battlePassStats[k] === undefined ? '' : battlePassStats[k];
+                        html += '<div class="bp-row" style="display:flex;justify-content:space-between;"><span style="opacity:0.9">' + k + '</span><span style="color:#89b4fa">' + v + '</span></div>';
+                      });
+                    } else {
+                      html += '<div>No battle pass data</div>';
+                    }
+                    html += '</div>';
+                    panel.innerHTML = html;
+                  } catch (err) {
+                    panel.innerHTML = '<div class="error">Error loading battle pass data</div>';
+                    console.error('Error populating battle pass panel:', err);
+                  }
+                  panelLoaded = true;
+                };
+
+                if (extensionSettings.battlePassExpanded) {
+                  try { populateBattlePassPanel(); } catch (e) { console.error('Error auto-populating battle pass panel on load', e); }
+                }
+
+                const handleToggle = (e) => {
+                  if (e) { e.preventDefault(); e.stopPropagation(); }
+                  const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                  if (expanded) {
+                    panel.style.display = 'none';
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.textContent = '+';
+                    extensionSettings.battlePassExpanded = false;
+                    try { localStorage.setItem('demonGameExtensionSettings', JSON.stringify(extensionSettings)); } catch (err) {}
+                  } else {
+                    panel.style.display = 'block';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.textContent = '−';
+                    extensionSettings.battlePassExpanded = true;
+                    try { localStorage.setItem('demonGameExtensionSettings', JSON.stringify(extensionSettings)); } catch (err) {}
+                    if (!panelLoaded) {
+                      populateBattlePassPanel();
+                    }
+                  }
+                };
+
+                toggle.addEventListener('click', handleToggle);
+                toggle.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleToggle(e);
+                  }
+                });
+              } catch (e) {
+                console.error('Error adding battle pass expand toggle:', e);
+              }
+            }
+
+          });
+        } catch (err) {
+          console.error('Error processing sidebar nav items:', err);
+        }
+      }
+    }
+  }
+
   function initSideBar(){
     const noContainerPage = !document.querySelector('.container') && !document.querySelector('.wrap');
     const mainWrapper = document.createElement('div');
@@ -3168,12 +3490,6 @@ function parseAttackLogs(html) {
         padding: 8px;
         background: rgba(255, 255, 255, 0.05);
         border-radius: 6px;
-      }
-
-      .stat-info {
-        display: flex;
-        justify-content: space-between;
-        min-width: 120px;
       }
 
       .upgrade-controls {
@@ -8598,6 +8914,8 @@ window.toggleSection = function(header) {
     
     // Initialize sidebar
     safeExecute(() => initSideBar(), 'Sidebar Initialization');
+
+    safeExecute(() => updateGameSideDrawer(), 'Game Side Drawer Update');
     
     // Disable dragging on interactive elements
     safeExecute(() => initDraggableFalse(), 'Disable Dragging');
