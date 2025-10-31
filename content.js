@@ -1300,38 +1300,67 @@ function parseLeaderboardFromHtml(html) {
   function enhanceJoinButtonWithPlayers(btn, monsterCard) {
     try {
       if (!btn) return;
-      // Look for nearby player text in the card
-      let playerText = null;
+
+      // 1) Prefer the structured monster-stats block when present (avoids picking HP)
       if (monsterCard) {
-        // Common selectors / heuristics
-        playerText = monsterCard.querySelector(".player-count, .players-joined, .monster-players, .chip, .meta, .monster-meta, .panel") || monsterCard.querySelector('div, span');
-        // Also try to find any element containing the phrase
-        const candidate = Array.from(monsterCard.querySelectorAll('div, span, p'))
-          .find(el => /Players Joined|Players Joined|Players Joined|👥|Players Joined/i.test(el.textContent));
-        if (candidate) playerText = candidate;
+        const stats = monsterCard.querySelector('.monster-stats');
+        if (stats) {
+          // Find the stat-row that represents joined players (icon.grp or label 'Players Joined')
+          const rows = Array.from(stats.querySelectorAll('.stat-row'));
+          for (const row of rows) {
+            const label = (row.querySelector('.stat-label')?.textContent || '').trim();
+            const iconClass = (row.querySelector('.stat-icon')?.className || '').toLowerCase();
+            if (/players\s*joined/i.test(label) || /\bgrp\b/.test(iconClass) || /👥/.test(row.textContent)) {
+              // Look for party-chip or a mini-chip inside stat-value
+              const chip = row.querySelector('.party-chip, .mini-chip.party-chip, .stat-value .mini-chip') || row.querySelector('.stat-value');
+              const text = (chip?.textContent || row.textContent || '').trim();
+              const m = text.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+              if (m) {
+                const current = m[1].replace(/,/g, '');
+                const max = m[2].replace(/,/g, '');
+                btn.innerHTML = `⚔️ Join (${current}/${max})`;
+                btn.dataset.enhanced = 'true';
+                return;
+              }
+            }
+          }
+        }
       }
 
-      if (!playerText) {
-        // fallback: try to find a global players text near the button
-        playerText = btn.closest('.monster-card')?.querySelector('div, span, p');
+      // 2) If no structured stats, search for explicit elements mentioning Players/Joined or the 👥 emoji
+      if (monsterCard) {
+        const explicit = Array.from(monsterCard.querySelectorAll('div, span, p, small, label, li'))
+          .find(el => /\bPlayers\b|\bJoined\b|👥|party-chip/i.test(el.textContent));
+        if (explicit) {
+          const m2 = explicit.textContent.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+          if (m2) {
+            const current = m2[1].replace(/,/g, '');
+            const max = m2[2].replace(/,/g, '');
+            btn.innerHTML = `⚔️ Join (${current}/${max})`;
+            btn.dataset.enhanced = 'true';
+            return;
+          }
+        }
       }
 
-      const text = playerText?.textContent || '';
-      // Try several regex patterns to extract numbers
-      let m = text.match(/(\d{1,3}(?:,\d{3})*)\s*\/\s*(\d{1,3}(?:,\d{3})*)/);
-      if (!m) m = text.match(/Players\s*Joined\s*(\d+)\s*\/\s*(\d+)/i);
-      if (!m) m = text.match(/👥\s*Players\s*Joined\s*(\d+)\s*\/\s*(\d+)/i);
-
-      if (m) {
-        const current = m[1].replace(/,/g, '');
-        const max = m[2].replace(/,/g, '');
-        btn.innerHTML = `⚔️ Join (${current}/${max})`;
-        btn.dataset.enhanced = 'true';
-      } else {
-        btn.textContent = 'Join';
+      // 3) Conservative fallback: only parse whole card text if it explicitly mentions Players/Joined/👥
+      const cardText = monsterCard?.textContent || '';
+      if (/\bPlayers\b|\bJoined\b|👥/i.test(cardText)) {
+        const m3 = cardText.match(/Players\s*Joined\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/i) || cardText.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+        if (m3) {
+          const current = (m3[1] || '').replace(/,/g, '');
+          const max = (m3[2] || '').replace(/,/g, '');
+          if (current && max) {
+            btn.innerHTML = `⚔️ Join (${current}/${max})`;
+            btn.dataset.enhanced = 'true';
+            return;
+          }
+        }
       }
+
+      // No reliable players info found — keep default join text
+      btn.textContent = 'Join';
     } catch (e) {
-      // Safe fallback
       try { btn.textContent = 'Join'; } catch (e2) {}
     }
   }
