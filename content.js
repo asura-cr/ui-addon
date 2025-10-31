@@ -136,6 +136,9 @@
     ]
   };
 
+  // Preserve a deep-clone of the default settings so we can fully restore later
+  const DEFAULT_EXTENSION_SETTINGS = JSON.parse(JSON.stringify(extensionSettings));
+
   // Page-specific functionality mapping
   const extensionPageHandlers = {
     '/active_wave.php': initWaveMods,
@@ -269,28 +272,40 @@
       extensionSettings.menuCustomizationExpanded = false;
     }
     if (!extensionSettings.menuItems || !Array.isArray(extensionSettings.menuItems)) {
-      extensionSettings.menuItems = [
-        { id: 'pvp', name: 'PvP Arena', visible: true, order: 0 },
-        { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
-        { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
-        { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-        { id: 'battle_pass', name: 'Battle Pass', visible: true, order: 4 },
-        { id: 'guild', name: 'Guild', visible: true, order: 5 },
-        { id: 'legendary_forge', name: 'Legendary Forge', visible: true, order: 6 },
-        { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 7 },
-        { id: 'pets', name: 'Pets & Eggs', visible: true, order: 8 },
-        { id: 'stats', name: 'Stats', visible: true, order: 9 },
-        { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 10 },
-        { id: 'merchant', name: 'Merchant', visible: true, order: 11 },
-        { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 12 },
-        { id: 'achievements', name: 'Achievements', visible: true, order: 13 },
-        { id: 'collections', name: 'Collections', visible: true, order: 14 },
-        { id: 'guide', name: 'How To Play', visible: true, order: 15 },
-        { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 16 },
-        { id: 'chat', name: 'Global Chat', visible: true, order: 17 },
-        { id: 'patches', name: 'Patch Notes', visible: true, order: 18 },
-        { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 19 },
-      ];
+      // Prefer restoring menu names from localStorage if available (JSON array).
+      try {
+        const storedVal = localStorage.getItem('uiaddon_side_names');
+        if (storedVal) {
+          try {
+            const names = JSON.parse(storedVal);
+            if (Array.isArray(names) && names.length) {
+              const seen = new Set();
+              extensionSettings.menuItems = names.map((nm, idx) => {
+                const raw = String(nm || '').trim();
+                let baseId = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+                if (!baseId) baseId = `item_${idx}`;
+                let id = baseId;
+                let suffix = 1;
+                while (seen.has(id)) {
+                  id = `${baseId}_${suffix++}`;
+                }
+                seen.add(id);
+                return { id, name: raw || `Item ${idx + 1}`, visible: true, order: idx };
+              });
+            } else {
+              extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+            }
+          } catch (e) {
+            console.error('Failed to parse uiaddon_side_names from storage, using defaults', e);
+            extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+          }
+        } else {
+          extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+        }
+      } catch (err) {
+        console.error('Error reading uiaddon_side_names from storage, using defaults', err);
+        extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+      }
     } else {
       // Add new menu items to existing users if they don't exist
       const newMenuItems = [
@@ -640,6 +655,8 @@ function parseLeaderboardFromHtml(html) {
     if (goldElem && userData.gold !== undefined) {
       goldElem.textContent = userData.gold;
     }
+      // Update other UI elements if needed
+      updateCapNotice(userData.currentStamina);
   }
 
   // Update user data from wave page
@@ -2028,6 +2045,13 @@ function parseAttackLogs(html) {
 
   // Wave data update function
   async function updateWaveData(manual = false) {
+    // Defensive defaults: saved settings may be missing nested objects
+    if (typeof extensionSettings === 'undefined' || !extensionSettings) extensionSettings = {};
+    if (!extensionSettings.waveAutoRefresh) {
+      // fallback defaults match the initial defaults defined above
+      extensionSettings.waveAutoRefresh = { enabled: true, interval: 10 };
+    }
+
     if (!manual && !extensionSettings.waveAutoRefresh.enabled) return;
     
     try {
@@ -3276,6 +3300,37 @@ function parseAttackLogs(html) {
         }
       }
     }
+
+    // Save side drawer item names into localStorage so the settings UI can
+    // later read and present them. This writes a JSON array to
+    // `uiaddon_side_names` in localStorage.
+    function saveSideDrawerNamesToCookie(days = 365) {
+      try {
+        const sidebar = document.getElementById('sideDrawer');
+        if (!sidebar) return false;
+        const sidebarContent = sidebar.querySelector('.side-nav') || sidebar;
+        const anchors = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
+        const names = anchors.map(a => {
+          try {
+            const labelEl = a.querySelector('.side-label');
+            const txt = (labelEl && labelEl.textContent && labelEl.textContent.trim()) || (a.textContent && a.textContent.trim()) || '';
+            return txt;
+          } catch (e) { return null; }
+        }).filter(Boolean);
+        try {
+          localStorage.setItem('uiaddon_side_names', JSON.stringify(names));
+        } catch (e) {
+          console.error('Failed to save uiaddon_side_names to localStorage', e);
+          return false;
+        }
+        return true;
+      } catch (e) { console.error('saveSideDrawerNamesToCookie error', e); return false; }
+    }
+
+  // Attempt to save names each time we update the drawer so settings stay
+  // in sync without extra clicks.
+  try { saveSideDrawerNamesToCookie(); } catch (e) { /* ignore */ }
+
   }
 
   function initSideBar(){
@@ -5728,7 +5783,7 @@ function parseAttackLogs(html) {
             <div class="settings-section-content">
                     <p class="section-description">Choose a color theme for your side panel navigation.</p>
                     <div class="color-input-group">
-                      <input type="color" id="sidebar-custom-color" value="rgba(18,18,18,0.95)">
+                      <input type="color" id="sidebar-custom-color" value="rgb(18,18,18)">
                       <label>Custom Color</label>
             </div>
             </div>
@@ -6264,20 +6319,26 @@ window.toggleSection = function(header) {
     // Menu customization header click
     const header = document.getElementById('menu-customization-header');
     if (header) {
-      header.addEventListener('click', function() {
+      header.addEventListener('click', function(e) {
+        // Prevent the global header click listener from also toggling this section
+        if (e && typeof e.stopImmediatePropagation === 'function') {
+          e.stopImmediatePropagation();
+        }
+
         extensionSettings.menuCustomizationExpanded = !extensionSettings.menuCustomizationExpanded;
         const content = document.getElementById('menu-customization-content');
         const icon = document.getElementById('menu-customization-icon');
-        
+
         if (content && icon) {
-          content.style.display = extensionSettings.menuCustomizationExpanded ? 'block' : 'none';
+          // Use the same "expanded" class the global toggle uses to avoid conflicting display logic
+          content.classList.toggle('expanded', extensionSettings.menuCustomizationExpanded);
           icon.textContent = extensionSettings.menuCustomizationExpanded ? '–' : '+';
-          
+
           if (extensionSettings.menuCustomizationExpanded) {
             populateMenuItemsList();
           }
         }
-        
+
         saveSettings();
       });
     }
@@ -6286,31 +6347,45 @@ window.toggleSection = function(header) {
     const resetBtn = document.getElementById('reset-menu-customization');
     if (resetBtn) {
       resetBtn.addEventListener('click', function() {
-        // Reset to default menu items
-        extensionSettings.menuItems = [
-          { id: 'pvp', name: 'PvP Arena', visible: true, order: 0 },
-          { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
-          { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
-          { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-          { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 4 },
-          { id: 'pets', name: 'Pets & Eggs', visible: true, order: 5 },
-          { id: 'stats', name: 'Stats', visible: true, order: 7 },
-          { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
-          { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
-          { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 10 },
-          { id: 'achievements', name: 'Achievements', visible: true, order: 11 },
-          { id: 'collections', name: 'Collections', visible: true, order: 12 },
-          { id: 'guide', name: 'How To Play', visible: true, order: 13 },
-          { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 14 },
-          { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
-          { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
-          { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 },
-          { id: 'settings', name: 'Settings', visible: true, order: 18 }
-        ];
-        
+        // Try to restore menu items from localStorage 'uiaddon_side_names' first.
+        try {
+          const stored = localStorage.getItem('uiaddon_side_names');
+          if (stored) {
+            try {
+              const names = JSON.parse(stored);
+              if (Array.isArray(names) && names.length) {
+                const seen = new Set();
+                extensionSettings.menuItems = names.map((nm, idx) => {
+                  const raw = String(nm || '').trim();
+                  let baseId = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+                  if (!baseId) baseId = `item_${idx}`;
+                  let id = baseId;
+                  let suffix = 1;
+                  while (seen.has(id)) {
+                    id = `${baseId}_${suffix++}`;
+                  }
+                  seen.add(id);
+                  return { id, name: raw || `Item ${idx + 1}`, visible: true, order: idx };
+                });
+              } else {
+                extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+              }
+            } catch (e) {
+              console.error('Failed to parse uiaddon_side_names from storage, falling back to defaults', e);
+              extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+            }
+          } else {
+            // No stored value — restore default menu
+            extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+          }
+        } catch (err) {
+          console.error('Error resetting menu customization from storage, using defaults', err);
+          extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+        }
+
         saveSettings();
         populateMenuItemsList();
-        showNotification('Menu customization reset to default', 'success');
+        showNotification('Menu customization reset', 'success');
       });
     }
 
@@ -8752,28 +8827,60 @@ window.toggleSection = function(header) {
     });
   }
   function updateColorSelections() {
+      // Helper to normalize various color formats to #rrggbb for color inputs
+      const normalizeToHex = (val, fallback = '#000000') => {
+        if (!val) return fallback;
+        // Already a hex (#rrggbb or #rgb)
+        if (typeof val === 'string' && val.startsWith('#')) {
+          // Expand shorthand #rgb
+          if (val.length === 4) {
+            return '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+          }
+          return val;
+        }
+        // rgb() or rgba()
+        const rgbaMatch = String(val).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/i);
+        if (rgbaMatch) {
+          const r = parseInt(rgbaMatch[1], 10);
+          const g = parseInt(rgbaMatch[2], 10);
+          const b = parseInt(rgbaMatch[3], 10);
+          const toHex = (n) => ('0' + Math.max(0, Math.min(255, n)).toString(16)).slice(-2);
+          return '#' + toHex(r) + toHex(g) + toHex(b);
+        }
+        // As a last resort, try to compute using canvas (handles named colors)
+        try {
+          const ctx = document.createElement('canvas').getContext('2d');
+          ctx.fillStyle = '#000';
+          ctx.fillStyle = val;
+          const computed = ctx.fillStyle; // will be rgb(...) or #rrggbb
+          const m = String(computed).match(/#([0-9a-f]{6})/i);
+          if (m) return '#' + m[1];
+        } catch (e) { /* ignore */ }
+        return fallback;
+      };
+
       // Update sidebar color input
       const sidebarColorInput = document.getElementById('sidebar-custom-color');
       if (sidebarColorInput) {
-        sidebarColorInput.value = extensionSettings.sidebarColor;
+        sidebarColorInput.value = normalizeToHex(extensionSettings.sidebarColor, '#1e1e1e');
       }
 
       // Update background color input
       const backgroundColorInput = document.getElementById('background-custom-color');
       if (backgroundColorInput) {
-        backgroundColorInput.value = extensionSettings.backgroundColor;
+        backgroundColorInput.value = normalizeToHex(extensionSettings.backgroundColor, '#000000');
       }
 
       // Update monster image outline color input
       const monsterImageColorInput = document.getElementById('monster-image-custom-color');
       if (monsterImageColorInput) {
-        monsterImageColorInput.value = extensionSettings.monsterImageOutlineColor;
+        monsterImageColorInput.value = normalizeToHex(extensionSettings.monsterImageOutlineColor, '#ff6b6b');
       }
 
       // Update loot card border color input
       const lootCardColorInput = document.getElementById('loot-card-custom-color');
       if (lootCardColorInput) {
-        lootCardColorInput.value = extensionSettings.lootCardBorderColor;
+        lootCardColorInput.value = normalizeToHex(extensionSettings.lootCardBorderColor, '#f38ba8');
       }
   }
 
@@ -8801,7 +8908,9 @@ window.toggleSection = function(header) {
 
     // Sort menu items by order
     const sortedItems = [...extensionSettings.menuItems].sort((a, b) => a.order - b.order);
-    
+
+    console.log('Sorted Menu Items:', sortedItems);
+
     container.innerHTML = '';
     
     sortedItems.forEach((item, index) => {
@@ -8932,31 +9041,47 @@ window.toggleSection = function(header) {
   }
 
   window.resetMenuCustomization = function() {
-    // Reset to default menu items
-    extensionSettings.menuItems = [
-      { id: 'pvp', name: 'PvP Arena', visible: true, order: 0 },
-      { id: 'orc_cull', name: 'War Drums of GRAKTHAR', visible: true, order: 1 },
-      { id: 'event_battlefield', name: 'Event Battlefield', visible: true, order: 2 },
-      { id: 'gate_grakthar', name: 'Gate Grakthar', visible: true, order: 3 },
-      { id: 'inventory', name: 'Inventory & Equipment', visible: true, order: 4 },
-      { id: 'pets', name: 'Pets & Eggs', visible: true, order: 5 },
-      { id: 'stats', name: 'Stats', visible: true, order: 7 },
-      { id: 'blacksmith', name: 'Blacksmith', visible: true, order: 8 },
-      { id: 'merchant', name: 'Merchant', visible: true, order: 9 },
-      { id: 'inventory_quick', name: 'Inventory Quick Access', visible: true, order: 10 },
-      { id: 'achievements', name: 'Achievements', visible: true, order: 11 },
-      { id: 'collections', name: 'Collections', visible: true, order: 12 },
-      { id: 'guide', name: 'How To Play', visible: true, order: 13 },
-      { id: 'leaderboard', name: 'Weekly Leaderboard', visible: true, order: 14 },
-      { id: 'chat', name: 'Global Chat', visible: true, order: 15 },
-      { id: 'patches', name: 'Patch Notes', visible: true, order: 16 },
-      { id: 'manga', name: 'Manga-Manhwa-Manhua', visible: true, order: 17 },
-      { id: 'settings', name: 'Settings', visible: true, order: 18 }
-    ];
-    
+    // Try to build menu items from localStorage `uiaddon_side_names` (if present).
+    // Stored value expected to contain JSON array of names.
+    try {
+      const stored = localStorage.getItem('uiaddon_side_names');
+      if (stored) {
+        try {
+          const names = JSON.parse(stored);
+          if (Array.isArray(names) && names.length) {
+            const seen = new Set();
+            extensionSettings.menuItems = names.map((nm, idx) => {
+              const raw = String(nm || '').trim();
+              let baseId = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+              if (!baseId) baseId = `item_${idx}`;
+              let id = baseId;
+              let suffix = 1;
+              while (seen.has(id)) {
+                id = `${baseId}_${suffix++}`;
+              }
+              seen.add(id);
+              return { id, name: raw || `Item ${idx + 1}`, visible: true, order: idx };
+            });
+          } else {
+            // Fallback to defaults stored in DEFAULT_EXTENSION_SETTINGS
+            extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+          }
+        } catch (e) {
+          console.error('Failed to parse uiaddon_side_names from storage, falling back to defaults', e);
+          extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+        }
+      } else {
+        // No stored value present — restore default menu
+        extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+      }
+    } catch (err) {
+      console.error('Error resetting menu customization from storage, using defaults', err);
+      extensionSettings.menuItems = JSON.parse(JSON.stringify(DEFAULT_EXTENSION_SETTINGS.menuItems || []));
+    }
+
     saveSettings();
     populateMenuItemsList();
-    showNotification('Menu customization reset to default', 'success');
+    showNotification('Menu customization reset', 'success');
   };
 
   window.applyMenuCustomization = function() {
@@ -8994,7 +9119,7 @@ window.toggleSection = function(header) {
 
   function resetSettings() {
     extensionSettings = {
-      sidebarColor: 'rgba(18,18,18,0.95)',
+      sidebarColor: 'rgb(18,18,18)',
       backgroundColor: '#000000',
       statAllocationCollapsed: true,
       statsExpanded: false,
