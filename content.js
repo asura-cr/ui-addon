@@ -2410,11 +2410,21 @@ function parseAttackLogs(html) {
     }
 
   function applySettings() {
-    const sidebar = document.getElementById('game-sidebar');
+    const sidebar = document.querySelector('.side-drawer-inner')
     if (sidebar) {
-      sidebar.style.background = extensionSettings.sidebarColor + ' !important';
+      // Use CSSOM setProperty with priority so we can apply !important from JS
+      try {
+        sidebar.style.setProperty('background', extensionSettings.sidebarColor, 'important');
+      } catch (e) {
+        // Fallback to direct assignment if setProperty isn't available
+        sidebar.style.background = extensionSettings.sidebarColor;
+      }
     }
-    document.body.style.backgroundColor = extensionSettings.backgroundColor;
+    try {
+      document.body.style.setProperty('background-color', extensionSettings.backgroundColor, '');
+    } catch (e) {
+      document.body.style.backgroundColor = extensionSettings.backgroundColor;
+    }
     
     // Apply color settings to CSS variables
     document.documentElement.style.setProperty('--monster-image-outline-color', extensionSettings.monsterImageOutlineColor);
@@ -2885,6 +2895,7 @@ function parseAttackLogs(html) {
     const sidebarInner = document.querySelector('.side-drawer-inner');
     if (sidebarInner) {
       sidebarInner.style.width = '250px';
+      sidebarInner.style.backgroundColor = extensionSettings.sidebarColor;
     }
 
     const sideHeader = document.querySelector('.side-head');
@@ -2937,6 +2948,29 @@ function parseAttackLogs(html) {
             }).catch(err => console.error('Error fetching open gates for sidebar:', err));
           } catch (err) {
             console.error('Error scheduling open gates injection:', err);
+          }
+          // Add leaderboard link
+          if (!sidebarContent.querySelector('a.side-nav-item[href="weekly.php"]')) {
+            const li = document.createElement('li');
+            li.className = 'side-nav-item-wrap';
+            const ael = document.createElement('a');
+            const current = window.location.pathname;
+            if (current.endsWith('/weekly.php' ) || current === '/weekly.php') {
+              ael.className = 'side-nav-item active';
+            } else {
+              ael.className = 'side-nav-item';
+            }
+            ael.setAttribute('href', 'weekly.php');
+            const icon = document.createElement('span');
+            icon.textContent = '📋';
+            icon.classList.add('side-icon');
+            const navName = document.createElement('span');
+            navName.classList.add('side-label');
+            navName.textContent = 'Weekly Leaderboard';
+            ael.appendChild(icon);
+            ael.appendChild(navName);
+            li.appendChild(ael);
+            sidebarContent.appendChild(li);
           }
           // Loop over every side-nav-item link and inspect its href
           const items = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
@@ -3249,18 +3283,7 @@ function parseAttackLogs(html) {
     const mainWrapper = document.createElement('div');
     mainWrapper.className = 'main-wrapper';
 
-    const sidebar = document.createElement('aside');
-    sidebar.id = 'game-sidebar';
-    sidebar.innerHTML = `
-      <div class="sidebar-header">
-        <a href="game_dash.php" style="text-decoration:none;"><h2>Game Menu</h2></a>
-        <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" title="Toggle Sidebar">☰</button>
-      </div>
 
-      <ul class="sidebar-menu">
-        ${generateMenuItems()}
-      </ul>
-    `;
 
     const contentArea = document.createElement('div');
     contentArea.className = 'content-area';
@@ -3283,7 +3306,6 @@ function parseAttackLogs(html) {
     }
 
     // Append sidebar to main wrapper
-    mainWrapper.appendChild(sidebar);
     mainWrapper.appendChild(contentArea);
     document.body.appendChild(mainWrapper);
 
@@ -5706,7 +5728,7 @@ function parseAttackLogs(html) {
             <div class="settings-section-content">
                     <p class="section-description">Choose a color theme for your side panel navigation.</p>
                     <div class="color-input-group">
-                      <input type="color" id="sidebar-custom-color" value="#2a2a2a">
+                      <input type="color" id="sidebar-custom-color" value="rgba(18,18,18,0.95)">
                       <label>Custom Color</label>
             </div>
             </div>
@@ -6155,6 +6177,24 @@ window.toggleSection = function(header) {
       if (closeBtn) {
         closeBtn.addEventListener('click', () => {
           closeSettingsModal();
+        });
+      }
+
+      // Add event listener for the Reset button
+      const resetBtn = modal.querySelector('button[data-action="reset"]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          // Reset settings to defaults and update UI
+          resetSettings();
+          try { updateColorSelections(); } catch (e) {}
+        });
+      }
+
+      // Add event listener for the Clear All Data button
+      const clearBtn = modal.querySelector('button[data-action="clear"]');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          clearAllData();
         });
       }
 
@@ -8954,7 +8994,7 @@ window.toggleSection = function(header) {
 
   function resetSettings() {
     extensionSettings = {
-      sidebarColor: '#1e1e1e',
+      sidebarColor: 'rgba(18,18,18,0.95)',
       backgroundColor: '#000000',
       statAllocationCollapsed: true,
       statsExpanded: false,
