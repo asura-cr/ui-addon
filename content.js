@@ -2776,9 +2776,96 @@ function parseAttackLogs(html) {
     const sidebar = document.getElementById('sideDrawer');
     if (!sidebar) return;
 
+    // Ensure the side drawer is opened by default
+    try { sidebar.setAttribute('data-open', 'true'); } catch (e) { /* ignore if not possible */ }
+
     sidebar.style.marginTop = '66px';
     sidebar.style.maxHeight = 'calc(100% - 66px)';
     sidebar.style.width = '250px';
+    
+
+    // Wire the floating nav FAB to toggle the side drawer data-open attribute
+    try {
+      const navFab = document.getElementById('nav_fab');
+      const sideDrawer = document.getElementById('sideDrawer');
+      if (navFab && sideDrawer) {
+        // Initialize aria-pressed to reflect current state
+        const initialOpen = sideDrawer.getAttribute('data-open') === 'true';
+        navFab.setAttribute('aria-pressed', initialOpen ? 'true' : 'false');
+
+        (function(){
+          try {
+            const overlay = document.createElement('div');
+            overlay.className = 'uiaddon-navfab-overlay';
+            overlay.style.position = 'fixed';
+            overlay.style.background = 'transparent';
+            overlay.style.zIndex = '2147483647';
+            overlay.style.pointerEvents = 'none';
+            overlay.style.transition = 'none';
+            overlay.style.border = '0';
+            overlay.style.padding = '0';
+            overlay.style.margin = '0';
+            document.body.appendChild(overlay);
+
+            const update = () => {
+              try {
+                const rect = navFab.getBoundingClientRect();
+                overlay.style.left = rect.left + 'px';
+                overlay.style.top = rect.top + 'px';
+                overlay.style.width = rect.width + 'px';
+                overlay.style.height = rect.height + 'px';
+                // Only capture pointer events when the drawer is open.
+                const isOpen = sideDrawer.getAttribute('data-open') === 'true';
+                overlay.style.pointerEvents = isOpen ? 'auto' : 'none';
+                overlay.style.cursor = window.getComputedStyle(navFab).cursor || 'pointer';
+              } catch(e) { /* ignore */ }
+            };
+
+            // Keep overlay positioned on scroll/resize
+            window.addEventListener('resize', update);
+            window.addEventListener('scroll', update, true);
+
+            // Also observe changes to sideDrawer attributes (data-open)
+            try {
+              const mo = new MutationObserver((mutations) => update());
+              mo.observe(sideDrawer, { attributes: true, attributeFilter: ['data-open'] });
+            } catch(e) { /* ignore */ }
+
+            // When overlay is clicked (i.e., drawer is open), prevent the
+            // page's earlier handlers from executing and perform the close
+            // action locally by toggling the data-open attribute.
+            overlay.addEventListener('click', (ev) => {
+              try {
+                ev.stopPropagation();
+                ev.preventDefault();
+                const isOpen = sideDrawer.getAttribute('data-open') === 'true';
+                if (isOpen) {
+                  // Close the drawer. We update the attribute and aria state.
+                  sideDrawer.setAttribute('data-open', 'false');
+                  navFab.setAttribute('aria-pressed', 'false');
+                  // Notify any listeners on the drawer of a change (best-effort).
+                  try { sideDrawer.dispatchEvent(new Event('uiaddon:drawerClosed')); } catch(e){}
+                }
+              } catch(err) {
+                console.error('Error handling nav_fab overlay click:', err);
+              }
+            });
+
+            // Initial placement
+            update();
+
+            // If navFab moves in the DOM or is re-rendered, try to reattach/update
+            const bodyMo = new MutationObserver(() => {
+              if (!document.body.contains(navFab)) return;
+              update();
+            });
+            bodyMo.observe(document.body, { childList: true, subtree: true });
+          } catch(e) { console.error('Failed to create nav_fab overlay:', e); }
+        })();
+      }
+    } catch (err) {
+      console.error('Error wiring nav_fab toggle:', err);
+    }
 
     
 
@@ -2821,10 +2908,17 @@ function parseAttackLogs(html) {
                 try {
                   // Avoid duplicates by href
                   if (nav.querySelector(`a.side-nav-item[href="${g.href}"]`)) return;
+                  const current = new URLSearchParams(window.location.search).get('gate');
+
                   const li = document.createElement('li');
                   li.className = 'side-nav-item-wrap';
                   const ael = document.createElement('a');
-                  ael.className = 'side-nav-item';
+                  if (current && g.href.includes(`gate=${current}`)) {
+                    console.log('Marking gate as active in sidebar:', g.name);
+                    ael.className = 'side-nav-item active';
+                  } else {
+                    ael.className = 'side-nav-item';
+                  }
                   ael.setAttribute('href', g.href);
                   const icon = document.createElement('span');
                   icon.textContent = '🌊';
@@ -3222,6 +3316,10 @@ function parseAttackLogs(html) {
         opacity: 0;
         width: 0;
         height: 0;
+      }
+
+      .side-footer {
+        margin-bottom: 20px;
       }
 
       .neo-toggle {
@@ -10846,7 +10944,6 @@ window.toggleSection = function(header) {
     
     // Find all battle buttons (both links and buttons), but exclude loot buttons
     const continueButtons = document.querySelectorAll('a[href*="battle.php?id="], button[onclick*="battle"], .join-btn');
-    console.log('Found buttons:', continueButtons.length);
     
     continueButtons.forEach((btn, index) => {
       // Skip loot buttons
@@ -10877,45 +10974,32 @@ window.toggleSection = function(header) {
       if (!monsterId) {
         const monsterCard = btn.closest('.monster-card, .wave-monster, .battle-card');
         if (monsterCard) {
-          console.log(`Button ${index}: Found monster card, searching for link...`);
           // Look for ALL links, including hidden ones
           const cardLinks = monsterCard.querySelectorAll('a[href*="battle.php?id="], a[data-monster-id]');
           for (const cardLink of cardLinks) {
             // Try href first
             if (cardLink.href) {
-              console.log(`Button ${index}: Found card link:`, cardLink.href);
               match = cardLink.href.match(/battle\.php\?id=(\d+)/);
               if (match) {
                 monsterId = match[1];
-                console.log(`Button ${index}: Extracted ID from card href:`, monsterId);
                 break;
               }
             }
             // Try data-monster-id attribute
             if (!monsterId && cardLink.hasAttribute('data-monster-id')) {
               monsterId = cardLink.getAttribute('data-monster-id');
-              console.log(`Button ${index}: Extracted ID from card data attribute:`, monsterId);
               break;
             }
           }
-          if (!monsterId) {
-            console.log(`Button ${index}: No link found in card`);
-          }
-        } else {
-          console.log(`Button ${index}: No monster card parent found`);
         }
       }
       
       // Method 4: Check data-monster-id attribute
       if (!monsterId) {
         monsterId = btn.getAttribute('data-monster-id');
-        if (monsterId) {
-          console.log(`Button ${index}: Found ID in data attribute:`, monsterId);
-        }
       }
       
       if (monsterId) {
-        console.log(`Button ${index}: Final monster ID:`, monsterId, 'Button:', btn);
         
         // Store the monster ID on the button
         btn.setAttribute('data-monster-id', monsterId);
@@ -10936,7 +11020,6 @@ window.toggleSection = function(header) {
         btn.parentNode.replaceChild(newBtn, btn);
         
         newBtn.addEventListener('click', async (e) => {
-          console.log('BATTLE BUTTON CLICKED! Monster ID:', monsterId);
           e.preventDefault();
           e.stopPropagation();
 
@@ -10955,7 +11038,6 @@ window.toggleSection = function(header) {
               const html = await fetchBattlePageHtml(monsterId);
               const monster = parseBattleHtml(html);
               monster.id = monsterId;
-              console.log('Continuing battle for monster:', monster);
               showBattleModal(monster);
             } catch (err) {
               showNotification('Could not load battle info', '#e74c3c');
@@ -10965,8 +11047,6 @@ window.toggleSection = function(header) {
 
           await handleJoin(monsterId, newBtn);
         }, true); // Use capture phase to ensure we get the event first
-      } else {
-        console.log(`Button ${index}: No monster ID found for button:`, btn);
       }
     });
   }
@@ -12704,6 +12784,62 @@ window.toggleSection = function(header) {
     initContinueBattleModal()
     initMonsterStatOverlay()
   }
+
+  function initHighlightSideButton() {
+    const current = new URLSearchParams(window.location.search).get('gate');
+    if (!current) return;
+
+    const maxAttempts = 6;
+    const delayMs = 250;
+
+    const tryFind = (attempt = 0) => {
+      let foundAnchor = null;
+      const anchors = Array.from(document.querySelectorAll('a[href]'));
+      for (const a of anchors) {
+        try {
+          const raw = a.getAttribute('href');
+          if (!raw) continue;
+          const url = new URL(raw, location.origin);
+          const pathname = url.pathname || '';
+          const gateParam = url.searchParams.get('gate');
+          if ((pathname.endsWith('/active_wave.php') || pathname.endsWith('active_wave.php')) && gateParam === current) {
+            foundAnchor = a;
+            break;
+          }
+        } catch (err) {
+          const raw = a.getAttribute('href') || '';
+          if (raw.includes('active_wave.php') && raw.includes(`gate=${current}`)) {
+            foundAnchor = a;
+            break;
+          }
+        }
+      }
+
+      console.log('Highlighting side nav button for gate:', current, 'attempt', attempt, 'found:', !!foundAnchor);
+      console.log(foundAnchor);
+      console.log(anchors);
+      console.log(window.location.href);
+      console.log(document.referrer);
+      console.log(anchors.map(a => a.href));
+      console.log(anchors.map(a => a.textContent));
+      
+
+      if (foundAnchor) {
+        try { foundAnchor.classList.add('side-nav-item', 'active'); } catch (e) {
+          console.error('Failed to highlight side nav button:', e);
+         }
+        return;
+      }
+
+      if (attempt + 1 < maxAttempts) {
+        setTimeout(() => tryFind(attempt + 1), delayMs);
+      }
+    };
+
+    // Start attempts
+    tryFind(0);
+  }
+
   function initMonsterStatOverlay() {
 
     // Dynamically move ATK/DEF indicators to overlay above monster image
