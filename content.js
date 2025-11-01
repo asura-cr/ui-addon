@@ -3599,11 +3599,6 @@ function parseAttackLogs(html) {
         return false;
       }
     }
-
-  // Attempt to save names each time we update the drawer so settings stay
-  // in sync without extra clicks. Do not auto-save while the extension is
-  // initializing (it would overwrite persisted user settings with the
-  // page's default DOM state).
   try {
     if (!window._uiaddon_initing) {
       saveSideDrawerNamesToCookie();
