@@ -2455,6 +2455,8 @@ function parseAttackLogs(html) {
     document.documentElement.style.setProperty('--loot-card-border-color', extensionSettings.lootCardBorderColor);
       
       // Apply background images
+      // Apply menu customization (hide/reorder side drawer items)
+      try { applyMenuCustomization(); } catch (e) { console.error('applyMenuCustomization error', e); }
       applyCustomBackgrounds();
   }
 
@@ -2764,6 +2766,134 @@ function parseAttackLogs(html) {
     });
     
     return menuHTML;
+  }
+
+  // Apply menu customization to the actual side drawer DOM: hide or reorder items
+  function applyMenuCustomization() {
+    try {
+      const sideNav = document.querySelector('.side-nav') || document.querySelector('#sideDrawer .side-nav');
+      if (!sideNav) return;
+
+      // Helper mapping from menu id to a href snippet we can match against existing anchors
+      const idToHref = {
+        home: 'game_dash.php',
+        halloween_event: 'event_goblin_feast_of_shadows.php',
+        pvp: 'pvp.php',
+        inventory: 'inventory.php',
+        pets: 'pets.php',
+        stats: 'stats.php',
+        guild: 'guild_dash.php',
+        merchant: 'merchant.php',
+        blacksmith: 'blacksmith.php',
+        collections: 'collections.php',
+        achievements: 'achievements.php',
+        battle_pass: 'battle_pass.php',
+        legendary_forge: 'legendary_forge.php',
+        weekly_leaderboard: 'weekly.php',
+        guide: 'guide.php',
+        chat: 'chat.php'
+      };
+
+      // Collect existing anchors (wraps and direct anchors)
+      const anchors = Array.from(sideNav.querySelectorAll('a.side-nav-item, .side-nav a, li.side-nav-item-wrap a'));
+
+      // Build a map from id -> element (if we can match), and also collect unmatched anchors
+      const matched = new Map();
+      const unmatched = new Set(anchors);
+
+      anchors.forEach(a => {
+        const href = a.getAttribute('href') || '';
+        const pathname = (() => {
+          try { return new URL(href, location.origin).pathname.replace(/^\//, ''); } catch (e) { return href; }
+        })();
+
+        // Try to match by known hrefs
+        for (const [id, snippet] of Object.entries(idToHref)) {
+          if (pathname.includes(snippet) || href.includes(snippet)) {
+            if (!matched.has(id)) {
+              matched.set(id, a);
+              unmatched.delete(a);
+            }
+            return;
+          }
+        }
+
+        // Also try to match by visible label text -> lowercased
+        const label = (a.querySelector('.side-label')?.textContent || a.textContent || '').trim().toLowerCase();
+        for (const mi of extensionSettings.menuItems || []) {
+          if (!matched.has(mi.id) && mi.name && label.includes(mi.name.toLowerCase())) {
+            matched.set(mi.id, a);
+            unmatched.delete(a);
+            return;
+          }
+        }
+      });
+
+      // Reorder: iterate extensionSettings.menuItems sorted by order
+      const sorted = [...(extensionSettings.menuItems || [])].sort((a,b) => (a.order||0)-(b.order||0));
+
+      // We'll insert anchors inside sideNav in the desired order.
+      // To avoid breaking existing structure, we operate on the sideNav element directly.
+      sorted.forEach(item => {
+        const el = matched.get(item.id);
+        if (el) {
+          if (!item.visible) {
+            // hide element but preserve it in DOM
+            el.style.display = 'none';
+            // also hide follow-up expandable panel if present
+            const next = el.parentElement && el.parentElement.nextElementSibling;
+            if (next && (next.classList.contains('stats-expand-panel') || next.classList.contains('battlepass-expand-panel') || next.classList.contains('battle-pass-section') || next.className.includes('expand-panel') || next.classList.contains('sidebar-submenu') || next.classList.contains('stats-expand-panel'))) {
+              next.style.display = 'none';
+            }
+          } else {
+            // ensure visible
+            el.style.display = '';
+            // move into correct position - append to container in order
+            // We prefer placing inside a wrapper <li> if present
+            const li = el.closest('.side-nav-item-wrap') || el.closest('li') || el;
+            // Append or move the item (and its following panel if any)
+            if (li && li.parentNode === sideNav) {
+              sideNav.appendChild(li);
+              // move panel if present (next sibling)
+              const panel = li.nextElementSibling;
+              if (panel && (panel.classList.contains('stats-expand-panel') || panel.classList.contains('battlepass-expand-panel') || panel.classList.contains('battlepass-expand-panel') || panel.classList.contains('sidebar-submenu') || panel.className.includes('expand-panel'))) {
+                sideNav.appendChild(panel);
+              }
+            } else if (el.parentNode === sideNav) {
+              sideNav.appendChild(el);
+              const panel = el.nextElementSibling;
+              if (panel && (panel.classList.contains('stats-expand-panel') || panel.classList.contains('battlepass-expand-panel') || panel.classList.contains('sidebar-submenu') || panel.className.includes('expand-panel'))) {
+                sideNav.appendChild(panel);
+              }
+            } else {
+              // If the anchor is nested inside LI, move the LI; otherwise append the anchor itself
+              if (li) sideNav.appendChild(li);
+              else sideNav.appendChild(el);
+            }
+          }
+        } else {
+          // Not found in DOM. If visible and known href, create a simple anchor element and append.
+          if (item.visible && idToHref[item.id]) {
+            try {
+              const wrap = document.createElement('li');
+              wrap.className = 'side-nav-item-wrap';
+              const a = document.createElement('a');
+              a.className = 'side-nav-item';
+              a.setAttribute('href', idToHref[item.id]);
+              a.setAttribute('draggable', 'false');
+              const icon = document.createElement('span'); icon.className = 'side-icon'; icon.textContent = '•';
+              const lbl = document.createElement('span'); lbl.className = 'side-label'; lbl.textContent = item.name || item.id;
+              a.appendChild(icon); a.appendChild(lbl); wrap.appendChild(a); sideNav.appendChild(wrap);
+            } catch (e) { /* ignore creation errors */ }
+          }
+        }
+      });
+
+      // Optionally hide remaining unmatched anchors if they don't correspond to any menu item
+      // (keep them visible to avoid breaking other UI) - skipped by default.
+    } catch (err) {
+      console.error('applyMenuCustomization failed', err);
+    }
   }
 
   // Fetch open gates from the dashboard (either from current DOM if on game_dash.php,
@@ -3305,10 +3435,16 @@ function parseAttackLogs(html) {
     // later read and present them. This writes a JSON array to
     // `uiaddon_side_names` in localStorage.
     function saveSideDrawerNamesToCookie(days = 365) {
+      // NOTE: despite the name, this now merges sidebar names into extensionSettings.menuItems
       try {
-        const sidebar = document.getElementById('sideDrawer');
-        if (!sidebar) return false;
-        const sidebarContent = sidebar.querySelector('.side-nav') || sidebar;
+  // Try multiple selectors so the function works with different page layouts.
+  // Prefer the explicit `.side-nav` element if present (it may be the nav itself),
+  // otherwise try known wrappers `#sideDrawer` and `#game-sidebar`.
+  const sideNavEl = document.querySelector('.side-nav');
+  const sidebarWrapper = document.getElementById('sideDrawer') || document.getElementById('game-sidebar');
+  if (!sideNavEl && !sidebarWrapper) return false;
+  const sidebarContent = sideNavEl || (sidebarWrapper && (sidebarWrapper.querySelector('.side-nav') || sidebarWrapper));
+  if (!sidebarContent) return false;
         const anchors = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
         const names = anchors.map(a => {
           try {
@@ -3317,19 +3453,162 @@ function parseAttackLogs(html) {
             return txt;
           } catch (e) { return null; }
         }).filter(Boolean);
+
+        // Merge into extensionSettings.menuItems
         try {
-          localStorage.setItem('uiaddon_side_names', JSON.stringify(names));
+          if (!window.extensionSettings) window.extensionSettings = {};
+          if (!Array.isArray(window.extensionSettings.menuItems)) window.extensionSettings.menuItems = [];
+
+          const normalize = s => String(s || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+          const existing = window.extensionSettings.menuItems.slice();
+          const existingByName = new Map();
+          const existingIds = new Set();
+          existing.forEach(item => {
+            try {
+              existingByName.set(normalize(item.name), item);
+              existingIds.add(item.id);
+            } catch (e) { /* ignore */ }
+          });
+
+          const newMenu = [];
+          const usedNames = new Set();
+
+          names.forEach((nm, idx) => {
+            const raw = String(nm || '').trim();
+            const key = normalize(raw);
+            if (usedNames.has(key)) return; // dedupe duplicates in sidebar capture
+            usedNames.add(key);
+
+            const existingItem = existingByName.get(key);
+            if (existingItem) {
+              // update order and visibility
+              existingItem.name = raw;
+              existingItem.visible = true;
+              existingItem.order = idx;
+              newMenu.push(existingItem);
+            } else {
+              // create a new id based on name
+              let baseId = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+              if (!baseId) baseId = `item_${idx}`;
+              let id = baseId;
+              let suffix = 1;
+              while (existingIds.has(id) || newMenu.some(mi => mi.id === id)) {
+                id = `${baseId}_${suffix++}`;
+              }
+              existingIds.add(id);
+              const item = { id, name: raw, visible: true, order: idx };
+              newMenu.push(item);
+            }
+          });
+
+          // Save the merged menu (items not in `names` are removed per request)
+          window.extensionSettings.menuItems = newMenu;
+          // Persist full settings
+          try { saveSettings(); } catch (e) { console.error('Failed to save settings after merging menuItems', e); }
+
+          // Refresh the sidebar DOM and re-apply ordering/hiding
+          try { refreshSidebar(); } catch (e) { /* ignore */ }
+          try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('Failed to apply side drawer names after merging', e); }
+
+          return true;
         } catch (e) {
-          console.error('Failed to save uiaddon_side_names to localStorage', e);
+          console.error('Failed to merge uiaddon side names into extensionSettings.menuItems', e);
           return false;
         }
-        return true;
       } catch (e) { console.error('saveSideDrawerNamesToCookie error', e); return false; }
     }
 
+    // Read the saved side drawer names from localStorage and reorder/hide elements
+    function applySideDrawerNamesFromStorage() {
+      try {
+        if (!window.extensionSettings || !Array.isArray(window.extensionSettings.menuItems)) return false;
+        const menu = window.extensionSettings.menuItems;
+        if (!menu || !menu.length) return false;
+
+        const sidebar = document.getElementById('sideDrawer');
+        if (!sidebar) return false;
+        const sidebarContent = sidebar.querySelector('.side-nav') || sidebar;
+
+        const normalize = s => String(s || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        // Map current anchors by normalized label
+        const anchors = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
+        const labelMap = new Map();
+        anchors.forEach(a => {
+          try {
+            const labelEl = a.querySelector('.side-label');
+            const txt = (labelEl && labelEl.textContent) || a.textContent || '';
+            const key = normalize(txt);
+            if (!labelMap.has(key)) labelMap.set(key, a);
+          } catch (e) { /* ignore */ }
+        });
+
+        // Build fragment in order of menu items and also move any adjacent expand panels
+        const frag = document.createDocumentFragment();
+        const matched = new Set();
+        menu.forEach((mi) => {
+          try {
+            const key = normalize(mi.name);
+            const a = labelMap.get(key);
+            if (a) {
+              const node = a.closest('li') || a;
+              // Move the anchor (or its li) into the fragment
+              frag.appendChild(node);
+              // If there's an expand panel immediately after this node, move it too
+              try {
+                const next = node.nextElementSibling;
+                if (next && /expand-panel/.test(next.className || '')) {
+                  frag.appendChild(next);
+                }
+              } catch (e) { /* ignore */ }
+
+              try { node.style.display = ''; a.style.display = ''; } catch (e) {}
+              matched.add(key);
+            }
+          } catch (e) { /* ignore individual item */ }
+        });
+
+        // Append the ordered fragment (moves nodes to the end in the correct order)
+        if (frag.childNodes && frag.childNodes.length) sidebarContent.appendChild(frag);
+
+        // Hide anchors and their panels not present in the menu list
+        anchors.forEach(a => {
+          try {
+            const labelEl = a.querySelector('.side-label');
+            const txt = (labelEl && labelEl.textContent) || a.textContent || '';
+            const key = normalize(txt);
+            const node = a.closest('li') || a;
+            const next = node.nextElementSibling;
+            if (!matched.has(key)) {
+              node.style.display = 'none';
+              if (next && /expand-panel/.test(next.className || '')) next.style.display = 'none';
+            } else {
+              node.style.display = '';
+              if (next && /expand-panel/.test(next.className || '')) next.style.display = '';
+            }
+          } catch (e) { /* ignore */ }
+        });
+
+        // Expose function globally so other init paths can call it directly
+        try { if (!window.applySideDrawerNamesFromStorage) window.applySideDrawerNamesFromStorage = applySideDrawerNamesFromStorage; } catch(e){}
+
+        return true;
+      } catch (err) {
+        console.error('applySideDrawerNamesFromStorage error', err);
+        return false;
+      }
+    }
+
   // Attempt to save names each time we update the drawer so settings stay
-  // in sync without extra clicks.
-  try { saveSideDrawerNamesToCookie(); } catch (e) { /* ignore */ }
+  // in sync without extra clicks. Do not auto-save while the extension is
+  // initializing (it would overwrite persisted user settings with the
+  // page's default DOM state).
+  try {
+    if (!window._uiaddon_initing) {
+      saveSideDrawerNamesToCookie();
+    }
+  } catch (e) { /* ignore */ }
 
   }
 
@@ -6394,7 +6673,10 @@ window.toggleSection = function(header) {
     if (applyBtn) {
       applyBtn.addEventListener('click', function() {
         saveSettings();
+        // Regenerate sidebar DOM from current settings
         refreshSidebar();
+        // Reorder and hide side drawer items according to saved names in storage
+        try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('applySideDrawerNamesFromStorage failed on apply', e); }
         showNotification('Menu customization applied!', 'success');
       });
     }
@@ -9261,7 +9543,7 @@ window.toggleSection = function(header) {
 
   function initializeExtension() {
     console.log('Demon Game Enhancement v3.0 - Initializing...');
-      
+      window._uiaddon_initing = true;
       // Clean up any existing observers
       if (window.backgroundObserver) {
         window.backgroundObserver.disconnect();
@@ -9275,6 +9557,10 @@ window.toggleSection = function(header) {
     safeExecute(() => initSideBar(), 'Sidebar Initialization');
 
     safeExecute(() => updateGameSideDrawer(), 'Game Side Drawer Update');
+
+    safeExecute(() => {
+      try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('Failed to apply saved menuItems on init', e); }
+    }, 'Apply saved sidebar menu ordering');
     
     // Disable dragging on interactive elements
     safeExecute(() => initDraggableFalse(), 'Disable Dragging');
@@ -9304,6 +9590,8 @@ window.toggleSection = function(header) {
     
     console.log('Demon Game Enhancement v3.0 - Initialization Complete!');
     console.log('Type debugExtension() in console for debug info');
+    // Initialization finished — allow auto-save behavior on future updates
+    window._uiaddon_initing = false;
   }
 
 
