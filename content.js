@@ -4250,6 +4250,7 @@ function parseAttackLogs(html) {
         flex: 1;
         padding: 20px;
         margin-left: 250px;
+        max-width: calc(100% - 250px);
       }
 
       .settings-modal {
