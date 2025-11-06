@@ -4110,6 +4110,15 @@ function parseAttackLogs(html) {
       }
 
       .side-footer {
+        height: 50px;
+        max-height: 50px;
+      }
+
+      .side-stats-row {
+        display: none !important;
+      }
+
+      .side-exp-row {
         display: none !important;
       }
 
