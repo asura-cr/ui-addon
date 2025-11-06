@@ -4109,6 +4109,10 @@ function parseAttackLogs(html) {
         background: rgba(255, 255, 255, 0.08);
       }
 
+      .side-footer {
+        display: none !important;
+      }
+
       .quest-title {
         font-size: 11px;
         font-weight: bold;
