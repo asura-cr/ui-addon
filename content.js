@@ -2768,6 +2768,36 @@ function parseAttackLogs(html) {
     return menuHTML;
   }
 
+  async function getProfileLink() {
+    const profileHeader = document.querySelector('.small-user');
+    if (!profileHeader) {
+      return;
+    }
+    const pid = userId || getCookieExtension('demon');
+    if (!pid) {
+      return;
+    }
+    // Prevent duplicate listeners
+    if (profileHeader.getAttribute('data-profile-link') === 'true') {
+      return;
+    }
+    profileHeader.setAttribute('data-profile-link', 'true');
+    profileHeader.style.cursor = 'pointer';
+    profileHeader.addEventListener('mouseenter', () => {
+      profileHeader.style.transform = 'scale(1.04)';
+      profileHeader.style.background = 'rgba(137,180,250,0.08)';
+    });
+    profileHeader.addEventListener('mouseleave', () => {
+      profileHeader.style.transform = 'scale(1)';
+      profileHeader.style.background = '';
+    });
+    profileHeader.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.location.href = `player.php?pid=${pid}`;
+    });
+  }
+
+
   // Apply menu customization to the actual side drawer DOM: hide or reorder items
   function applyMenuCustomization() {
     try {
@@ -2888,9 +2918,6 @@ function parseAttackLogs(html) {
           }
         }
       });
-
-      // Optionally hide remaining unmatched anchors if they don't correspond to any menu item
-      // (keep them visible to avoid breaking other UI) - skipped by default.
     } catch (err) {
       console.error('applyMenuCustomization failed', err);
     }
@@ -2901,34 +2928,39 @@ function parseAttackLogs(html) {
   async function fetchOpenGatesFromDash() {
     try {
       let doc = null;
-      if (window.location.pathname && window.location.pathname.includes('game_dash.php')) {
+      if (window.location.pathname && window.location.pathname.includes('gates.php')) {
         doc = document;
       } else {
-        const res = await fetch('game_dash.php');
+        const res = await fetch('gates.php');
         const text = await res.text();
         const parser = new DOMParser();
         doc = parser.parseFromString(text, 'text/html');
       }
 
       if (!doc) return [];
-
-      // Find the section card whose header contains "Open Gates" (case-insensitive)
-      const sections = Array.from(doc.querySelectorAll('.section.card'));
-      const openSection = sections.find(sec => {
-        const header = sec.querySelector('.header, .card-header, .header-text');
-        if (!header) return false;
-        return /open gates/i.test(header.textContent || header.innerText || '');
+      // New gate card structure: <a class="gate-card" ...>
+      const gateCards = Array.from(doc.querySelectorAll('a.gate-card'));
+      const gates = gateCards.map(card => {
+        const href = card.getAttribute('href') || '';
+        // Try to get gate name from .title inside .body
+        let name = '';
+        const titleElem = card.querySelector('.body .title');
+        if (titleElem) {
+          name = titleElem.textContent.trim();
+        } else {
+          // Fallback to aria-label or alt attribute
+          name = card.getAttribute('aria-label') || '';
+          if (!name) {
+            const img = card.querySelector('img');
+            name = img ? img.getAttribute('alt') || '' : '';
+          }
+        }
+        // Optionally extract status (ACTIVE, etc.)
+        let status = '';
+        const badge = card.querySelector('.badge');
+        if (badge) status = badge.textContent.trim();
+        return { href, name, status };
       });
-
-      if (!openSection) return [];
-
-      const links = Array.from(openSection.querySelectorAll('a.gate-link'));
-      const gates = links.map(a => {
-        const href = a.getAttribute('href') || '';
-        const name = (a.querySelector('.gate-card-name') && a.querySelector('.gate-card-name').textContent.trim()) || a.textContent.trim() || href;
-        return { href, name };
-      });
-
       return gates;
     } catch (err) {
       console.error('Error fetching open gates from dashboard:', err);
@@ -3518,6 +3550,7 @@ function parseAttackLogs(html) {
         }
       } catch (e) { console.error('saveSideDrawerNamesToCookie error', e); return false; }
     }
+    getProfileLink();
 
     // Read the saved side drawer names from localStorage and reorder/hide elements
     function applySideDrawerNamesFromStorage() {
@@ -5393,10 +5426,6 @@ function parseAttackLogs(html) {
         flex-wrap: nowrap !important;
       }
 
-      .topbar-profile-circle {
-        flex-shrink: 0 !important;
-      }
-
       .gtb-exp {
         flex-shrink: 1 !important;
         min-width: 100px !important;
@@ -6686,7 +6715,6 @@ window.toggleSection = function(header) {
         refreshSidebar();
         // Reorder and hide side drawer items according to saved names in storage
         try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('applySideDrawerNamesFromStorage failed on apply', e); }
-        showNotification('Menu customization applied!', 'success');
       });
     }
   }
@@ -8986,77 +9014,25 @@ window.toggleSection = function(header) {
     topbarRight.appendChild(settingsButton);
   }
 
-  async function createTopbarProfileCircle() {
-    const topbarRight = document.querySelector('.gtb-right');
-    if (!topbarRight || document.querySelector('.topbar-profile-circle')) return;
-    
-    try {
-      const pid = userId || getCookieExtension('demon');
-      
-      const profileCircle = document.createElement('div');
-      profileCircle.className = 'topbar-profile-circle';
-      profileCircle.style.cssText = `
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #89b4fa, #cba6f7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #1e1e2e;
-        font-weight: bold;
-        font-size: 14px;
-        cursor: pointer;
-        margin-left: 10px;
-        transition: all 0.3s ease;
-        overflow: hidden;
-        border: 2px solid rgba(137, 180, 250, 0.3);
-      `;
-      
-      // Fetch the player page to get the actual avatar URL
-      try {
-        const response = await fetch(`player.php?pid=${pid}`, {
-          credentials: 'include'
-        });
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const avatarImg = doc.querySelector('.avatar img');
-        
-        if (avatarImg && avatarImg.src) {
-          const img = document.createElement('img');
-          img.src = avatarImg.src;
-          img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
-          img.onerror = () => {
-            // Fallback to user ID first letter if image fails to load
-            profileCircle.innerHTML = (pid || 'U').toString().charAt(0).toUpperCase();
-          };
-          profileCircle.appendChild(img);
-        } else {
-          // No avatar found, use fallback
-          profileCircle.innerHTML = (pid || 'U').toString().charAt(0).toUpperCase();
-        }
-      } catch (fetchError) {
-        // If fetch fails, use fallback
-        profileCircle.innerHTML = (pid || 'U').toString().charAt(0).toUpperCase();
-      }
-      
-      profileCircle.addEventListener('mouseenter', () => {
-        profileCircle.style.transform = 'scale(1.1)';
-      });
-      
-      profileCircle.addEventListener('mouseleave', () => {
-        profileCircle.style.transform = 'scale(1)';
-      });
-      
-      profileCircle.addEventListener('click', () => {
-        window.location.href = `player.php?pid=${pid}`;
-      });
-      
-      topbarRight.appendChild(profileCircle);
-    } catch (error) {
-      console.error('Error creating profile circle:', error);
-    }
+  function makeSideDrawerProfileClickable() {
+    const smallUser = document.querySelector('.side-drawer-inner .small-user');
+    if (!smallUser) return;
+    // Prevent duplicate listeners
+    if (smallUser.getAttribute('data-profile-link') === 'true') return;
+    const pid = userId || getCookieExtension('demon');
+    if (!pid) return;
+    smallUser.style.cursor = 'pointer';
+    smallUser.setAttribute('data-profile-link', 'true');
+    smallUser.addEventListener('click', () => {
+      window.location.href = `player.php?pid=${pid}`;
+    });
+    // Optional: add hover effect
+    smallUser.addEventListener('mouseenter', () => {
+      smallUser.style.background = 'rgba(137,180,250,0.08)';
+    });
+    smallUser.addEventListener('mouseleave', () => {
+      smallUser.style.background = '';
+    });
   }
 
   function createBackToDashboardButton() {
@@ -9378,7 +9354,6 @@ window.toggleSection = function(header) {
   window.applyMenuCustomization = function() {
     saveSettings();
     refreshSidebar();
-    showNotification('Menu customization applied!', 'success');
   };
 
   function refreshSidebar() {
@@ -9582,7 +9557,6 @@ window.toggleSection = function(header) {
     safeExecute(() => initSidebarQuestWidget(), 'Quest Widget');
     safeExecute(() => initializePetTeams(), 'Pet Teams');
     safeExecute(() => initSemiTransparentPersistence(), 'Semi-Transparent Effect');
-    safeExecute(() => createTopbarProfileCircle(), 'Profile Circle');
     
     // Update sidebar quantities on all pages
     setTimeout(() => {
@@ -13507,7 +13481,6 @@ window.toggleSection = function(header) {
 
   function initDashboardTools() {
     console.log("Initializing dashboard tools");
-    consolidateEventSections();
     removeDashboardClutter();
   }
 
@@ -13533,55 +13506,6 @@ window.toggleSection = function(header) {
         h3.remove();
       }
     });
-  }
-
-  function consolidateEventSections() {
-    // Find all events-section panels
-    const eventSections = document.querySelectorAll('.events-section.panel');
-    
-    if (eventSections.length === 0) {
-      console.log('No event sections found');
-      return;
-    }
-    
-    // Create a new consolidated events section
-    const consolidatedSection = document.createElement('section');
-    consolidatedSection.className = 'events-section panel';
-    consolidatedSection.setAttribute('aria-label', 'Live Events');
-    consolidatedSection.style.cssText = 'background-color: transparent; border-width: 0px; box-shadow: none;';
-    
-    // Create the header
-    const header = document.createElement('div');
-    header.className = 'events-header';
-    header.textContent = 'Live Events';
-    consolidatedSection.appendChild(header);
-    
-    // Create the grid container
-    const grid = document.createElement('div');
-    grid.className = 'events-grid';
-    consolidatedSection.appendChild(grid);
-    
-    // Collect all event cards from all sections
-    eventSections.forEach((section, index) => {
-      const eventCards = section.querySelectorAll('.event-card');
-      
-      // Move each event card to the consolidated grid
-      eventCards.forEach(card => {
-        grid.appendChild(card.cloneNode(true));
-      });
-      
-      // Remove the original section if it's not the first one
-      if (index > 0) {
-        section.remove();
-      }
-    });
-    
-    // Replace the first section with our consolidated section
-    if (eventSections.length > 0) {
-      eventSections[0].replaceWith(consolidatedSection);
-    }
-    
-    console.log(`Consolidated ${eventSections.length} event sections into one`);
   }
 
   function initBattleLayoutSideBySide() {
