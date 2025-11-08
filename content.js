@@ -10643,50 +10643,7 @@ window.toggleSection = function(header) {
           </button>
           <div id="monster-type-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 200px; max-height: 200px; overflow-y: auto;">
             <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Wave 1 Monsters</div>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Grunt" class="monster-type-checkbox cyberpunk-checkbox"> Orc Grunt
-      </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Bonecrusher" class="monster-type-checkbox cyberpunk-checkbox"> Orc Bonecrusher
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Hobgoblin Spearman" class="monster-type-checkbox cyberpunk-checkbox"> Hobgoblin Spearman
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Goblin Slinger" class="monster-type-checkbox cyberpunk-checkbox"> Goblin Slinger
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Goblin Skirmisher" class="monster-type-checkbox cyberpunk-checkbox"> Goblin Skirmisher
-            </label>
-            <div style="margin: 8px 0; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Wave 2 Monsters</div>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Lizardman Shadowclaw" class="monster-type-checkbox cyberpunk-checkbox"> Lizardman Shadowclaw
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Troll Brawler" class="monster-type-checkbox cyberpunk-checkbox"> Troll Brawler
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Lizardman Flamecaster" class="monster-type-checkbox cyberpunk-checkbox"> Lizardman Flamecaster
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Troll Ravager" class="monster-type-checkbox cyberpunk-checkbox"> Troll Ravager
-            </label>
-            <div style="margin: 8px 0; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">EventWave Monsters</div>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Berserker" class="monster-type-checkbox cyberpunk-checkbox"> Orc Berserker
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Grunt of Grakthar" class="monster-type-checkbox cyberpunk-checkbox"> Orc Grunt of Grakthar
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Archer" class="monster-type-checkbox cyberpunk-checkbox"> Orc Archer
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Raider of Grakthar" class="monster-type-checkbox cyberpunk-checkbox"> Orc Raider of Grakthar
-            </label>
-            <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
-                <input type="checkbox" value="Orc Shaman" class="monster-type-checkbox cyberpunk-checkbox"> Orc Shaman
-            </label>
+            <div id="monster-types-list"></div>
             <div style="margin-top: 8px; padding-top: 5px; border-top: 1px solid #45475a;">
               <button id="select-all-monsters" style="padding: 3px 8px; background: #a6e3a1; color: #1e1e2e; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">Select All</button>
               <button id="clear-monsters" style="padding: 3px 8px; background: #f38ba8; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">Clear</button>
@@ -10831,10 +10788,21 @@ window.toggleSection = function(header) {
       }
     });
     
-    // Monster type checkbox listeners
-    document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
-      checkbox.addEventListener('change', applyMonsterFilters);
-    });
+    // Dynamically populate monster types
+    const monsterTypeList = document.getElementById('monster-types-list');
+    if (monsterTypeList) {
+      // Get unique monster names from monsterList
+      const uniqueMonsters = Array.from(new Set(Array.from(monsterList).map(m => m.querySelector('.monster-name, h3, h2')?.textContent?.trim() || 'Unknown'))).sort();
+      monsterTypeList.innerHTML = uniqueMonsters.map(monsterName => `
+        <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
+          <input type="checkbox" value="${monsterName}" class="monster-type-checkbox cyberpunk-checkbox"> ${monsterName}
+        </label>
+      `).join('');
+      // Add listeners to new checkboxes
+      monsterTypeList.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', applyMonsterFilters);
+      });
+    }
     
     // Select all and clear buttons for monster types
     document.getElementById('select-all-monsters').addEventListener('click', () => {
