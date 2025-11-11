@@ -449,6 +449,13 @@
     }, 3000);
   }
 
+  // Number formatting helper: 1,000,000.00
+  function formatNumber2Decimals(value) {
+    const num = Number(value);
+    if (!isFinite(num)) return value ?? '?';
+    return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
   // Fetch battle page HTML
   async function fetchBattlePageHtml(monsterId) {
     const response = await fetch(`battle.php?id=${monsterId}`);
@@ -1561,7 +1568,7 @@ function parseAttackLogs(html) {
       btn.disabled = true;
       const originalText = btn.textContent;
       let loadPromises = [];
-      btn.textContent = 'Attacking...';
+      btn.style.backgroundColor = 'rgba(70, 140, 252, 1)';
       const staminaCost = skillId === "-1" ? 10 : skillId === "-2" ? 50 : skillId === "-3" ? 100 : skillId === "-4" ? 200 : 1;
       const body = `monster_id=${encodeURIComponent(monsterId)}&skill_id=${encodeURIComponent(skillId)}&stamina_cost=${encodeURIComponent(staminaCost)}`;
       const response = await fetch('damage.php', {
@@ -1582,7 +1589,7 @@ function parseAttackLogs(html) {
         if (rawText.trim().startsWith('<')) {
           console.error('[BattleModal] Attack failed: server returned HTML:', rawText);
           showNotification('Attack failed: server returned HTML', '#e74c3c');
-          btn.textContent = originalText;
+          btn.style.backgroundColor = 'rgb(137, 180, 250)';
           btn.disabled = false;
           return;
         }
@@ -1590,13 +1597,13 @@ function parseAttackLogs(html) {
       } catch (e) {
         console.error('[BattleModal] Attack failed: invalid server response:', rawText);
         showNotification('Attack failed: invalid server response', '#e74c3c');
-        btn.textContent = originalText;
+        btn.style.backgroundColor = 'rgb(137, 180, 250)';
         btn.disabled = false;
         return;
       }
       if (!result || result.status !== 'success') {
         showNotification('Attack failed: ' + (result?.message || 'Unknown error'), '#e74c3c');
-        btn.textContent = originalText;
+        btn.style.backgroundColor = 'rgb(137, 180, 250)';
         btn.disabled = false;
         return;
       }
@@ -1642,6 +1649,8 @@ function parseAttackLogs(html) {
         console.log('[BattleModal] Updating monster card for:', updatedMonster);
       // Update modal with new monster data
       showBattleModal(updatedMonster);
+  // Ensure hotkey overlays are re-applied after modal rerender
+  try { setTimeout(addBattleAttackHotkeyOverlays, 150); } catch {}
       // Update monster card UI with new data
       // Update monsterList with the latest monster
       let found = false;
@@ -1709,7 +1718,8 @@ function parseAttackLogs(html) {
         
     // Calculate player count and your damage from leaderboard (always use latest data)
     let playerCount = Array.isArray(monster.leaderboard) ? monster.leaderboard.length : (monster.playerCount || 0);
-    let yourDamage = monster.damageDone || 0;
+    let yourDamage = (monster.damageDone || 0);
+    yourDamage = formatNumber2Decimals(yourDamage);
     let userId = String(userData.userID || monster.userId || window.userId || (typeof getCurrentUserId === 'function' ? getCurrentUserId() : ''));
     let entry = null;
     if (Array.isArray(monster.leaderboard) && userId) {
@@ -1722,10 +1732,14 @@ function parseAttackLogs(html) {
         entry = monster.leaderboard.find(e => String(e.USERNAME ?? e.username) === String(userData.username ?? window.username));
       }
     }
-    // Render monster info
+    // Render monster info (format large numbers as 1,000,000.00 and preserve 0 values)
+    const currHpVal = (monster.currentHp ?? (monster.hp?.value));
+    const maxHpVal = (monster.maxHp ?? (monster.hp?.max));
+    const currHpText = (currHpVal === null || typeof currHpVal === 'undefined') ? '?' : formatNumber2Decimals(currHpVal);
+    const maxHpText = (maxHpVal === null || typeof maxHpVal === 'undefined') ? '?' : formatNumber2Decimals(maxHpVal);
     html += `<div style="margin-bottom: 12px;">
       <div style="font-size: 18px; font-weight: bold; color: #89b4fa;">${monster.monsterName || 'Monster'}</div>
-      <div style="font-size: 15px; margin-top: 4px;">HP: <span style="color: #a6e3a1; font-weight: bold;">${monster.currentHp || monster.hp?.value || '?'}</span> / <span style="color: #fab387;">${monster.maxHp || monster.hp?.max || '?'}</span></div>
+      <div style="font-size: 15px; margin-top: 4px;">HP: <span style="color: #a6e3a1; font-weight: bold;">${currHpText}</span> / <span style="color: #fab387;">${maxHpText}</span></div>
   <div style="font-size: 13px; margin-top: 2px;">Players: <span id="modal-player-count">${playerCount}</span></div>
   <div style="font-size: 13px; margin-top: 2px;">Your Damage: <span id="modal-your-damage">${yourDamage}</span></div>
     </div>`;
@@ -1743,7 +1757,7 @@ function parseAttackLogs(html) {
         document.querySelectorAll('.modal-skill-btn').forEach(btn => {
           btn.addEventListener('click', async function() {
             const skillId = this.getAttribute('data-skill-id');
-            document.querySelectorAll('.modal-skill-btn').forEach(b => b.disabled = true);
+            // Only disable the clicked button; others remain usable if the attack fails
             const attackResult = await attackMonster(monster.id, skillId, this, monster.skillButtons);
             // Update player HP bar in modal if response contains user_hp_after
             if (attackResult && typeof attackResult.user_hp_after !== 'undefined') {
@@ -5291,6 +5305,7 @@ function parseAttackLogs(html) {
       .monster-card {
         border: none !important;
         box-shadow: none !important;
+        z-index: 0 !important;
       }
       
       /* Ensure leaderboard spacing is preserved */
@@ -18880,6 +18895,15 @@ window.toggleSection = function(header) {
     if(!extensionSettings.hotkeys.enabled||!extensionSettings.hotkeys.battleAttacks||!extensionSettings.hotkeys.showOverlays) return;
     const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
     if(!modal) return;
+    // Ensure CSS for pseudo-element overlays is present (prevents letter from becoming part of button text)
+    if(!document.getElementById('hotkey-overlay-css')){
+      const style = document.createElement('style');
+      style.id = 'hotkey-overlay-css';
+      style.textContent = `
+        .hotkey-overlay.attack::after { content: attr(data-letter); }
+      `;
+      document.head.appendChild(style);
+    }
     modal.querySelectorAll('.hotkey-overlay.attack').forEach(o=>o.remove());
     // Support both button class names
     const btns = modal.querySelectorAll('.attack-btn, .modal-skill-btn');
@@ -18891,8 +18915,9 @@ window.toggleSection = function(header) {
       if(!letter) return;
       const bubble = document.createElement('div');
       bubble.className='hotkey-overlay attack';
-      bubble.textContent=letter.toUpperCase();
-      bubble.style.cssText='position:absolute;top:-8px;right:-8px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:12px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:10;border:1px solid #1e1e2e;';
+      bubble.setAttribute('data-letter', letter.toUpperCase());
+      bubble.setAttribute('aria-hidden','true');
+      bubble.style.cssText='position:absolute;top:-8px;right:-8px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:12px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:10;border:1px solid #1e1e2e;pointer-events:none;';
       btn.style.position='relative';
       btn.appendChild(bubble);
     });
@@ -18906,6 +18931,12 @@ window.toggleSection = function(header) {
       // Only when attack buttons are present (i.e., joined)
       const btns = document.querySelectorAll('.battle-card .battle-actions-buttons .attack-btn[data-skill-id]');
       if(!btns.length) return;
+      if(!document.getElementById('hotkey-overlay-css')){
+        const style = document.createElement('style');
+        style.id = 'hotkey-overlay-css';
+        style.textContent = `.hotkey-overlay.attack::after { content: attr(data-letter); }`;
+        document.head.appendChild(style);
+      }
       // Clear previous overlays on page buttons
       document.querySelectorAll('.battle-card .battle-actions-buttons .attack-btn .hotkey-overlay.attack').forEach(o=>o.remove());
       btns.forEach(btn=>{
@@ -18916,8 +18947,9 @@ window.toggleSection = function(header) {
         if(!letter) return;
         const bubble = document.createElement('div');
         bubble.className='hotkey-overlay attack';
-        bubble.textContent=letter.toUpperCase();
-        bubble.style.cssText='position:absolute;top:-8px;right:-8px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:12px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:10;border:1px solid #1e1e2e;';
+        bubble.setAttribute('data-letter', letter.toUpperCase());
+        bubble.setAttribute('aria-hidden','true');
+        bubble.style.cssText='position:absolute;top:-8px;right:-8px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:12px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:10;border:1px solid #1e1e2e;pointer-events:none;';
         const style = getComputedStyle(btn);
         if(!/relative|absolute|fixed/i.test(style.position)) btn.style.position='relative';
         btn.appendChild(bubble);
@@ -18930,7 +18962,24 @@ window.toggleSection = function(header) {
   if(__originalShowBattleModal){
     showBattleModal = function(monster){
       __originalShowBattleModal(monster);
-      setTimeout(addBattleAttackHotkeyOverlays,120);
+      // Re-apply overlays and attach a short-lived observer for dynamic changes
+      setTimeout(()=>{
+        try{
+          addBattleAttackHotkeyOverlays();
+          const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
+          if(modal && !modal.__hotkeyObserver){
+            const obs = new MutationObserver(()=>{
+              // Debounce rapid changes
+              clearTimeout(modal.__hotkeyOverlayTick);
+              modal.__hotkeyOverlayTick = setTimeout(()=>{
+                addBattleAttackHotkeyOverlays();
+              }, 60);
+            });
+            obs.observe(modal, { childList:true, subtree:true });
+            modal.__hotkeyObserver = obs;
+          }
+        }catch(e){ /* no-op */ }
+      },120);
     };
   }
 
