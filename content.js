@@ -6569,9 +6569,10 @@ function parseAttackLogs(html) {
 
               <div style="margin-top:12px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
                 <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Battle attack keys (modal)</h4>
-                <div style="display:grid; grid-template-rows: repeat(5, 1fr); gap:8px;">
-                  ${[1,2,3,4,5].map(i => `
-                    <input id="hotkey-attack-${i}" maxlength="1" placeholder="${['S','P','H','U','L'][i-1]}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
+                <div style="display:grid; grid-template-columns: auto 70%; row-gap:8px; column-gap:12px; align-items:center;">
+                  ${['Slash','Power','Heroic','Ultimate','Legendary'].map((label,i) => `
+                    <label for="hotkey-attack-${i+1}" style="color:#cdd6f4; text-align:left; padding-right:6px;">${label}</label>
+                    <input id="hotkey-attack-${i+1}" maxlength="1" placeholder="${['S','P','H','U','L'][i]}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
                   ).join('')}
                 </div>
                 <div style="margin-top:8px; text-align:right;">
