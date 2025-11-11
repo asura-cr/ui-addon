@@ -32,6 +32,7 @@
 - **Collapsible Sections**: Expandable battle categories with memory
 - **Instant Loot Collection**: One-click loot gathering with modal display
 - **HP-Based Sorting**: Monsters sorted by current HP for optimal targeting
+- **Inline & Modal Attack Hotkeys**: Use configurable keys (default S,P,H,U,L) to trigger Slash, Power, Heroic, Ultimate, Legendary attacks in either the battle modal or directly on `battle.php` after joining.
 
 ### 🎨 UI/UX Improvements
 - **Alternative Inventory View**: Toggle between grid and table layouts
@@ -57,6 +58,8 @@
 - **Multi-Wave Monster Filtering**: Filter by specific waves (Wave 1, Wave 2, All)
 - **Universal Item Actions**: Use consumables, view equipment from any page
 - **Smart Battle Management**: Automatic battle joining and loot collection
+- **Battle Page Overlays**: When enabled in settings, attack buttons display their hotkey letter directly on the battle page (no modal required).
+- **Hotkey Insta-Join Behavior**: If the battle modal feature is disabled, monster selection hotkeys (1–9) instantly join and redirect to the battle.
 - **Professional Theme System**: 12 sidebar colors × 12 background themes
 
 --- 

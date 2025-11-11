@@ -95,6 +95,14 @@
       showUltimateSlash: true, // Show ultimate slash button
       showLegendarySlash: true // Show legendary slash button
     },
+    hotkeys: {
+      enabled: true,            // Master toggle
+      monsterSelection: true,   // Number keys select first 9 joinable monsters
+      showOverlays: true,       // Show number bubbles on monster cards / letters on attack buttons
+      battleAttacks: true,      // Letter keys trigger attacks inside battle modal
+      monsterSelectionKeys: ['1','2','3','4','5','6','7','8','9'], // Customizable
+      battleAttackKeys: ['s','p','h','u','l'] // Slash, Power, Heroic, Ultimate, Legendary
+    },
     dungeonWave: {
       enabled: true, // Enable dungeon wave features
       showDamagePills: true, // Show damage pills
@@ -257,6 +265,10 @@
             ...extensionSettings.battleModal,
             ...savedSettings.battleModal,
           },
+          hotkeys: {
+            ...extensionSettings.hotkeys,
+            ...savedSettings.hotkeys,
+          },
       };
       
       console.log('Settings loaded successfully:', {
@@ -377,6 +389,26 @@
         overlayOpacity: 0.5,
         monsters: {}
       };
+    }
+
+    // Ensure hotkeys settings exist & have required arrays
+    if (!extensionSettings.hotkeys) {
+      extensionSettings.hotkeys = {
+        enabled: true,
+        monsterSelection: true,
+        showOverlays: true,
+        battleAttacks: true,
+        monsterSelectionKeys: ['1','2','3','4','5','6','7','8','9'],
+        battleAttackKeys: ['s','p','h','u','l']
+      };
+    } else {
+      if (extensionSettings.hotkeys.showOverlays === undefined) extensionSettings.hotkeys.showOverlays = true;
+      if (!Array.isArray(extensionSettings.hotkeys.monsterSelectionKeys) || !extensionSettings.hotkeys.monsterSelectionKeys.length) {
+        extensionSettings.hotkeys.monsterSelectionKeys = ['1','2','3','4','5','6','7','8','9'];
+      }
+      if (!Array.isArray(extensionSettings.hotkeys.battleAttackKeys) || extensionSettings.hotkeys.battleAttackKeys.length < 5) {
+        extensionSettings.hotkeys.battleAttackKeys = ['s','p','h','u','l'];
+      }
     }
     
     applySettings();
@@ -6442,6 +6474,62 @@ function parseAttackLogs(html) {
             </div>
           </div>
 
+          <!-- Hotkeys Section -->
+          <div class="settings-section">
+            <div class="settings-section-header" onclick="toggleSection(this)">
+              <h3>⌨️ Hotkeys</h3>
+              <span class="expand-icon">+</span>
+            </div>
+            <div class="settings-section-content">
+              <p style="color:#a6adc8; font-size:12px; margin-bottom:12px;">
+                Configure keyboard shortcuts for faster navigation and combat. Changes apply instantly.
+              </p>
+
+              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">
+                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                  <input type="checkbox" id="hotkeys-enabled" class="cyberpunk-checkbox">
+                  <span>Enable hotkeys</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                  <input type="checkbox" id="hotkeys-monster-selection" class="cyberpunk-checkbox">
+                  <span>Enable monster selection on wave pages</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                  <input type="checkbox" id="hotkeys-show-overlays" class="cyberpunk-checkbox">
+                  <span>Show key overlays on cards and buttons</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                  <input type="checkbox" id="hotkeys-battle-attacks" class="cyberpunk-checkbox">
+                  <span>Enable battle attack hotkeys in modal</span>
+                </label>
+              </div>
+
+              <div style="margin-top:10px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
+                <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Monster selection keys (wave pages)</h4>
+                <div style="display:grid; grid-template-rows: repeat(9, 1fr); gap:8px;">
+                  ${[1,2,3,4,5,6,7,8,9].map(i => `
+                    <input id="hotkey-monster-${i}" maxlength="1" placeholder="${i}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
+                  ).join('')}
+                </div>
+                <div style="margin-top:8px; text-align:right;">
+                  <button id="hotkeys-reset-monster-keys" class="settings-button" style="background:#a6e3a1;">Reset 1-9</button>
+                </div>
+              </div>
+
+              <div style="margin-top:12px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
+                <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Battle attack keys (modal)</h4>
+                <div style="display:grid; grid-template-rows: repeat(5, 1fr); gap:8px;">
+                  ${[1,2,3,4,5].map(i => `
+                    <input id="hotkey-attack-${i}" maxlength="1" placeholder="${['S','P','H','U','L'][i-1]}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
+                  ).join('')}
+                </div>
+                <div style="margin-top:8px; text-align:right;">
+                  <button id="hotkeys-reset-attack-keys" class="settings-button" style="background:#a6e3a1;">Reset SPHUL</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Wave Auto-Refresh Section -->
           <div class="settings-section">
             <div class="settings-section-header" onclick="toggleSection(this)">
@@ -6512,6 +6600,7 @@ function parseAttackLogs(html) {
       setupGateGraktharSettings();
       setupEquipSetsSettings();
       setupBattleModalSettings();
+  setupHotkeySettings();
       setupMenuCustomizationListeners();
       // Initialize all cyberpunk checkboxes
       initializeAllCheckboxes();
@@ -9092,6 +9181,116 @@ window.toggleSection = function(header) {
       const icon = header?.querySelector('.expand-icon');
 
     });
+  }
+
+  // Hotkeys settings wiring
+  function setupHotkeySettings() {
+    try {
+      // Ensure hotkeys object defaults exist
+      if (!extensionSettings.hotkeys) {
+        extensionSettings.hotkeys = {
+          enabled: true,
+          monsterSelection: true,
+          showOverlays: true,
+          battleAttacks: true,
+          monsterSelectionKeys: ['1','2','3','4','5','6','7','8','9'],
+          battleAttackKeys: ['s','p','h','u','l']
+        };
+      }
+
+      const enabledEl = document.getElementById('hotkeys-enabled');
+      const monsterSelEl = document.getElementById('hotkeys-monster-selection');
+      const overlaysEl = document.getElementById('hotkeys-show-overlays');
+      const battleAtkEl = document.getElementById('hotkeys-battle-attacks');
+
+      if (enabledEl) enabledEl.checked = !!extensionSettings.hotkeys.enabled;
+      if (monsterSelEl) monsterSelEl.checked = !!extensionSettings.hotkeys.monsterSelection;
+      if (overlaysEl) overlaysEl.checked = !!extensionSettings.hotkeys.showOverlays;
+      if (battleAtkEl) battleAtkEl.checked = !!extensionSettings.hotkeys.battleAttacks;
+
+      const setKey = (listName, index, value) => {
+        const v = (value || '').toString().trim();
+        const key = v ? v[0] : '';
+        if (!extensionSettings.hotkeys[listName]) extensionSettings.hotkeys[listName] = [];
+        extensionSettings.hotkeys[listName][index] = key ? key.toLowerCase() : '';
+      };
+
+      // Initialize inputs for monster selection keys (1..9)
+      const monsterDefaults = ['1','2','3','4','5','6','7','8','9'];
+      for (let i = 1; i <= 9; i++) {
+        const input = document.getElementById(`hotkey-monster-${i}`);
+        if (!input) continue;
+        const current = extensionSettings.hotkeys.monsterSelectionKeys?.[i-1] || monsterDefaults[i-1];
+        input.value = current.toUpperCase();
+        input.addEventListener('input', () => {
+          const char = (input.value || '').replace(/\s+/g,'').slice(0,1);
+          input.value = char.toUpperCase();
+          setKey('monsterSelectionKeys', i-1, char);
+          saveSettings();
+          // Update overlays live on wave page
+          try { addMonsterCardHotkeyOverlays(); } catch {}
+        });
+      }
+
+      // Initialize inputs for battle attack keys (S,P,H,U,L)
+      const attackDefaults = ['s','p','h','u','l'];
+      for (let i = 1; i <= 5; i++) {
+        const input = document.getElementById(`hotkey-attack-${i}`);
+        if (!input) continue;
+        const current = extensionSettings.hotkeys.battleAttackKeys?.[i-1] || attackDefaults[i-1];
+        input.value = current.toUpperCase();
+        input.addEventListener('input', () => {
+          const char = (input.value || '').replace(/\s+/g,'').slice(0,1);
+          input.value = char.toUpperCase();
+          setKey('battleAttackKeys', i-1, char);
+          saveSettings();
+          // Update overlays live in modal
+          try { addBattleAttackHotkeyOverlays(); } catch {}
+        });
+      }
+
+      // Toggle listeners
+      enabledEl?.addEventListener('change', () => {
+        extensionSettings.hotkeys.enabled = !!enabledEl.checked; saveSettings();
+      });
+      monsterSelEl?.addEventListener('change', () => {
+        extensionSettings.hotkeys.monsterSelection = !!monsterSelEl.checked; saveSettings();
+        try { addMonsterCardHotkeyOverlays(); } catch {}
+      });
+      overlaysEl?.addEventListener('change', () => {
+        extensionSettings.hotkeys.showOverlays = !!overlaysEl.checked; saveSettings();
+        try { addMonsterCardHotkeyOverlays(); addBattleAttackHotkeyOverlays(); } catch {}
+      });
+      battleAtkEl?.addEventListener('change', () => {
+        extensionSettings.hotkeys.battleAttacks = !!battleAtkEl.checked; saveSettings();
+        try { addBattleAttackHotkeyOverlays(); } catch {}
+      });
+
+      // Reset buttons
+      const resetMonsterBtn = document.getElementById('hotkeys-reset-monster-keys');
+      resetMonsterBtn?.addEventListener('click', () => {
+        extensionSettings.hotkeys.monsterSelectionKeys = [...monsterDefaults];
+        for (let i = 1; i <= 9; i++) {
+          const input = document.getElementById(`hotkey-monster-${i}`);
+          if (input) input.value = monsterDefaults[i-1].toUpperCase();
+        }
+        saveSettings();
+        try { addMonsterCardHotkeyOverlays(); } catch {}
+      });
+
+      const resetAttackBtn = document.getElementById('hotkeys-reset-attack-keys');
+      resetAttackBtn?.addEventListener('click', () => {
+        extensionSettings.hotkeys.battleAttackKeys = [...attackDefaults];
+        for (let i = 1; i <= 5; i++) {
+          const input = document.getElementById(`hotkey-attack-${i}`);
+          if (input) input.value = attackDefaults[i-1].toUpperCase();
+        }
+        saveSettings();
+        try { addBattleAttackHotkeyOverlays(); } catch {}
+      });
+    } catch (e) {
+      console.error('setupHotkeySettings error', e);
+    }
   }
   function updateColorSelections() {
       // Helper to normalize various color formats to #rrggbb for color inputs
@@ -18463,3 +18662,232 @@ window.toggleSection = function(header) {
   if (!userDataUpdateInterval && window.location.pathname.includes('/active_wave.php')) {
     userDataUpdateInterval = setInterval(updateUserDataFromWavePage, 1000);
   }
+
+  // ===== HOTKEYS SYSTEM (ported) =====
+  function initHotkeys(){
+    if(!extensionSettings.hotkeys?.enabled) return;
+    document.addEventListener('keydown', handleHotkey, true);
+  }
+
+  function handleHotkey(e){
+    if(!extensionSettings.hotkeys?.enabled) return;
+    // Ignore when typing or modifier pressed
+    const tag = (e.target.tagName||'').toLowerCase();
+    if(['input','textarea','select'].includes(tag) || e.target.isContentEditable) return;
+    if(e.ctrlKey||e.metaKey||e.altKey) return;
+    const key = e.key.toLowerCase();
+
+    // Battle attacks in modal OR directly on battle.php page when buttons exist
+    const onBattlePageWithButtons = window.location.pathname.includes('/battle.php') && !!document.querySelector('.battle-actions-buttons .attack-btn[data-skill-id]');
+    if((isModalOpen || onBattlePageWithButtons) && extensionSettings.hotkeys.battleAttacks){
+      const idx = extensionSettings.hotkeys.battleAttackKeys.findIndex(k=>k.toLowerCase()===key);
+      if(idx!==-1){
+        e.preventDefault(); e.stopPropagation();
+        triggerBattleAttack(idx+1);
+        return;
+      }
+    }
+
+    // Monster selection on wave pages (not in modal)
+    if(!isModalOpen && extensionSettings.hotkeys.monsterSelection && window.location.pathname.includes('/active_wave.php')){
+      const idx = extensionSettings.hotkeys.monsterSelectionKeys.findIndex(k=>k.toLowerCase()===key);
+      if(idx!==-1){
+        e.preventDefault(); e.stopPropagation();
+        selectMonsterCard(idx);
+      }
+    }
+  }
+
+  // Select joinable monster by index (0-based among first 9 eligible)
+  function selectMonsterCard(index){
+    const cards = Array.from(document.querySelectorAll('.monster-card'));
+    const eligible = cards.filter(card=>{
+      if(card.style.display==='none') return false;
+      const txt = card.textContent||'';
+      if(/Continue|Loot/i.test(txt)) return false;
+      const joinBtn = card.querySelector('.join-btn, button[onclick*="join"], a[href*="battle.php"]');
+      if(!joinBtn||joinBtn.disabled||joinBtn.classList.contains('disabled')) return false;
+      const hpFill = card.querySelector('.hp-bar .hp-fill, .hp-fill');
+      if(hpFill && /^(0%|0px)$/.test(hpFill.style.width||'')) return false;
+      const hpText = card.querySelector('.stat-value');
+      if(hpText && /^0\s*\//.test(hpText.textContent||'')) return false;
+      return true;
+    });
+    if(index<0||index>=Math.min(9,eligible.length)) return;
+    const card = eligible[index];
+    const joinBtn = card.querySelector('.join-btn, button[onclick*="join"], a[href*="battle.php"]');
+    if(!joinBtn) return;
+    // visual feedback
+    card.style.outline='3px solid #f9e2af'; card.style.boxShadow='0 0 16px rgba(249,226,175,0.6)';
+    setTimeout(()=>{card.style.outline=''; card.style.boxShadow='';},500);
+    // If battle modal is disabled, hotkey should insta join
+    try {
+      if (!extensionSettings?.battleModal?.enabled) {
+        // Try to locate the original battle link for redirect
+        const link = card.querySelector('a[href*="battle.php?id="]') || card.querySelector('a[href*="battle.php"]');
+        let monsterId = null;
+        if (link && link.href) {
+          const m = link.href.match(/battle\.php\?id=(\d+)/);
+          if (m) monsterId = m[1];
+        }
+        // Fallback: from button data attribute
+        if (!monsterId && joinBtn.getAttribute) {
+          const dataId = joinBtn.getAttribute('data-monster-id');
+          if (dataId) monsterId = dataId;
+        }
+        if (monsterId && typeof joinWaveInstant === 'function') {
+          joinWaveInstant(monsterId, link || { href: `battle.php?id=${monsterId}` });
+        } else {
+          // As a last resort, just navigate
+          const href = link?.href || joinBtn.getAttribute?.('href');
+          if (href) window.location.href = href;
+          else joinBtn.click();
+        }
+      } else {
+        // Battle modal enabled -> delegate to the button click (modal flow handles it)
+        joinBtn.click();
+      }
+      showNotification(`Selected monster ${index+1}`,'#2ecc71');
+    } catch (err) {
+      try { joinBtn.click(); } catch {}
+    }
+  }
+
+  // Trigger attack inside battle modal by number (1-5)
+  function triggerBattleAttack(number){
+    // Support both legacy (#battleModal) and new (#battle-modal) modal IDs
+    const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
+    const skillMap = {1:'0',2:'-1',3:'-2',4:'-3',5:'-4'};
+    const skillId = skillMap[number];
+    if(!skillId) return;
+    // Prefer modal buttons when modal is open; otherwise fallback to battle.php inline buttons
+    // New modal uses .modal-skill-btn instead of .attack-btn
+    let btn = null;
+    if (modal) {
+      btn = modal.querySelector(`.attack-btn[data-skill-id="${skillId}"]`) || modal.querySelector(`.modal-skill-btn[data-skill-id="${skillId}"]`);
+    }
+    if (!btn) {
+      btn = document.querySelector(`.battle-card .battle-actions-buttons .attack-btn[data-skill-id="${skillId}"]`);
+    }
+    if(!btn||btn.disabled) return;
+    btn.style.transform='scale(1.05)'; btn.style.boxShadow='0 0 20px rgba(249,226,175,0.8)';
+    setTimeout(()=>{btn.style.transform=''; btn.style.boxShadow='';},200);
+    btn.click();
+    const names={'0':'Slash','-1':'Power Slash','-2':'Heroic Slash','-3':'Ultimate Slash','-4':'Legendary Slash'};
+    const keyLetter = extensionSettings.hotkeys.battleAttackKeys[number-1]?.toUpperCase() || number;
+    showNotification(`Used ${names[skillId]} (${keyLetter})`,'#2ecc71');
+  }
+
+  function addMonsterCardHotkeyOverlays(){
+    if(!extensionSettings.hotkeys.enabled||!extensionSettings.hotkeys.monsterSelection||!extensionSettings.hotkeys.showOverlays) return;
+    if(!window.location.pathname.includes('/active_wave.php')) return;
+    document.querySelectorAll('.hotkey-overlay.monster').forEach(o=>o.remove());
+    const cards = Array.from(document.querySelectorAll('.monster-card'));
+    const eligible = cards.filter(card=>{
+      if(card.style.display==='none') return false;
+      const txt = card.textContent||'';
+      if(/Continue|Loot/i.test(txt)) return false;
+      const joinBtn = card.querySelector('.join-btn, button[onclick*="join"], a[href*="battle.php"]');
+      if(!joinBtn||joinBtn.disabled||joinBtn.classList.contains('disabled')) return false;
+      const hpFill = card.querySelector('.hp-bar .hp-fill, .hp-fill');
+      if(hpFill && /^(0%|0px)$/.test(hpFill.style.width||'')) return false;
+      const hpText = card.querySelector('.stat-value');
+      if(hpText && /^0\s*\//.test(hpText.textContent||'')) return false;
+      return true;
+    }).slice(0,9);
+    eligible.forEach((card,i)=>{
+      const bubble = document.createElement('div');
+      bubble.className='hotkey-overlay monster';
+      bubble.textContent=extensionSettings.hotkeys.monsterSelectionKeys[i]?.toUpperCase() || (i+1);
+      bubble.style.cssText='position:absolute;top:5px;right:5px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:14px;font-weight:700;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35);z-index:10;border:2px solid #1e1e2e;';
+      if(!/relative|absolute|fixed/i.test(getComputedStyle(card).position)) card.style.position='relative';
+      card.appendChild(bubble);
+    });
+  }
+
+  function addBattleAttackHotkeyOverlays(){
+    if(!extensionSettings.hotkeys.enabled||!extensionSettings.hotkeys.battleAttacks||!extensionSettings.hotkeys.showOverlays) return;
+    const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
+    if(!modal) return;
+    modal.querySelectorAll('.hotkey-overlay.attack').forEach(o=>o.remove());
+    // Support both button class names
+    const btns = modal.querySelectorAll('.attack-btn, .modal-skill-btn');
+    btns.forEach(btn=>{
+      const skillId = btn.getAttribute('data-skill-id');
+      const idx = ['0','-1','-2','-3','-4'].indexOf(skillId);
+      if(idx===-1) return;
+      const letter = extensionSettings.hotkeys.battleAttackKeys[idx];
+      if(!letter) return;
+      const bubble = document.createElement('div');
+      bubble.className='hotkey-overlay attack';
+      bubble.textContent=letter.toUpperCase();
+      bubble.style.cssText='position:absolute;top:-8px;right:-8px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:12px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:10;border:1px solid #1e1e2e;';
+      btn.style.position='relative';
+      btn.appendChild(bubble);
+    });
+  }
+
+  // Add attack hotkey overlays on the live battle page (battle.php) after joining
+  function addBattlePageAttackHotkeyOverlays(){
+    try{
+      if(!extensionSettings.hotkeys?.enabled || !extensionSettings.hotkeys?.battleAttacks || !extensionSettings.hotkeys?.showOverlays) return;
+      if(!window.location.pathname.includes('/battle.php')) return;
+      // Only when attack buttons are present (i.e., joined)
+      const btns = document.querySelectorAll('.battle-card .battle-actions-buttons .attack-btn[data-skill-id]');
+      if(!btns.length) return;
+      // Clear previous overlays on page buttons
+      document.querySelectorAll('.battle-card .battle-actions-buttons .attack-btn .hotkey-overlay.attack').forEach(o=>o.remove());
+      btns.forEach(btn=>{
+        const skillId = btn.getAttribute('data-skill-id');
+        const idx = ['0','-1','-2','-3','-4'].indexOf(String(skillId));
+        if(idx===-1) return;
+        const letter = extensionSettings.hotkeys.battleAttackKeys[idx];
+        if(!letter) return;
+        const bubble = document.createElement('div');
+        bubble.className='hotkey-overlay attack';
+        bubble.textContent=letter.toUpperCase();
+        bubble.style.cssText='position:absolute;top:-8px;right:-8px;background:linear-gradient(135deg,#f9e2af,#fab387);color:#1e1e2e;font-size:12px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:10;border:1px solid #1e1e2e;';
+        const style = getComputedStyle(btn);
+        if(!/relative|absolute|fixed/i.test(style.position)) btn.style.position='relative';
+        btn.appendChild(bubble);
+      });
+    }catch(e){ /* no-op */ }
+  }
+
+  // Override showBattleModal to add overlays after render
+  const __originalShowBattleModal = typeof showBattleModal==='function' ? showBattleModal : null;
+  if(__originalShowBattleModal){
+    showBattleModal = function(monster){
+      __originalShowBattleModal(monster);
+      setTimeout(addBattleAttackHotkeyOverlays,120);
+    };
+  }
+
+  // Fallback polling in case battle modal is created by other logic after initial override
+  let __hotkeyModalPollCount = 0;
+  const __hotkeyModalPoller = setInterval(()=>{
+    if(__hotkeyModalPollCount>50){ clearInterval(__hotkeyModalPoller); return; }
+    const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
+    if(modal){
+      addBattleAttackHotkeyOverlays();
+      clearInterval(__hotkeyModalPoller);
+    }
+    __hotkeyModalPollCount++;
+  },300);
+
+  // Initialize + observe
+  initHotkeys();
+  if(window.location.pathname.includes('/active_wave.php')){
+    setTimeout(addMonsterCardHotkeyOverlays,800);
+    const hotkeyObserver = new MutationObserver(()=>{ setTimeout(addMonsterCardHotkeyOverlays,300); });
+    hotkeyObserver.observe(document.body,{childList:true,subtree:true});
+  }
+  // Inject battle page hotkey overlays after DOM settles if on battle.php
+  if(window.location.pathname.includes('/battle.php')){
+    // Initial attempt
+    setTimeout(addBattlePageAttackHotkeyOverlays,400);
+    // Observe for attack buttons appearing (e.g., after AJAX join)
+    const battleObserver = new MutationObserver(()=>{ setTimeout(addBattlePageAttackHotkeyOverlays,100); });
+    battleObserver.observe(document.body,{childList:true,subtree:true});
+  }
+  // ===== END HOTKEYS SYSTEM =====
