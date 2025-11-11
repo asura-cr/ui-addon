@@ -1674,6 +1674,75 @@ function parseAttackLogs(html) {
     }
   }
 
+  // Heals the current user with a potion via site endpoint
+  async function healPlayerWithPotion(uid) {
+    try {
+      const body = `user_id=${encodeURIComponent(String(uid))}`;
+      const res = await fetch('user_heal_potion.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body,
+        credentials: 'include'
+      });
+      const text = await res.text();
+      let success = res.ok;
+      let message = '';
+      try {
+        const j = JSON.parse(text);
+        success = !!(j.success ?? j.status === 'success' ?? success);
+        message = j.message || '';
+      } catch (_) {
+        // Non-JSON, infer success from keywords
+        const lower = text.toLowerCase();
+        if (/success|healed|potion used|you have used/.test(lower)) success = true;
+        message = text.replace(/<[^>]*>/g, '').trim();
+      }
+      return { success, message: message || (success ? 'Healed with potion.' : 'Failed to heal'), raw: text };
+    } catch (e) {
+      console.error('[Potion] healPlayerWithPotion failed:', e);
+      return { success: false, message: e?.message || 'Network error' };
+    }
+  }
+
+  // Refresh only the player's HP bar/details inside the modal
+  async function refreshModalPlayerHp(monsterId) {
+    try {
+      const res = await fetch(`battle.php?id=${monsterId}`, { credentials: 'include' });
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const pCard = doc.querySelector('.battle-card.player-card');
+      if (!pCard) return;
+
+      // Extract current/max HP from the server-rendered player card
+      let curr = 0, max = 0;
+      // Prefer explicit hp text near bar
+      const hpText = pCard.querySelector('.hp-text')?.textContent || pCard.textContent || '';
+      const m = hpText.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+      if (m) {
+        curr = parseInt(m[1].replace(/,/g, ''), 10);
+        max = parseInt(m[2].replace(/,/g, ''), 10);
+      }
+      if (!max) return; // Can't update without max
+
+      const modalInfo = document.getElementById('modal-player-info');
+      if (!modalInfo) return;
+      // Update numbers overlay
+      const numEl = modalInfo.querySelector('.hp-numbers-player');
+      if (numEl) numEl.textContent = `${curr.toLocaleString()}/${max.toLocaleString()}`;
+      // Update fill width
+      const fillEl = modalInfo.querySelector('#pHpFill') || modalInfo.querySelector('.hp-fill.hp-fill--player') || modalInfo.querySelector('.hp-fill');
+      if (fillEl) {
+        const pct = Math.max(0, Math.min(100, Math.round((curr / max) * 100)));
+        fillEl.style.width = pct + '%';
+      }
+    } catch (e) {
+      console.error('[Potion] Failed to refresh modal HP:', e);
+    }
+  }
+
   // Show battle modal
   async function showBattleModal(monster) {
     // Remove existing modal if present
@@ -1877,6 +1946,39 @@ function parseAttackLogs(html) {
                 }
               }
               playerInfoDiv.innerHTML = playerCard.outerHTML;
+
+              // === Attach potion heal handler ===
+              const potionBtn = playerInfoDiv.querySelector('#usePotionBtn');
+              if (potionBtn) {
+                // Avoid duplicate listeners
+                if (!potionBtn.dataset.uiAddonPotionBound) {
+                  potionBtn.dataset.uiAddonPotionBound = '1';
+                  potionBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const uid = userData.userID || getCookieExtension('demon');
+                    if (!uid) {
+                      showNotification('User ID not found for healing.', '#e74c3c');
+                      return;
+                    }
+                    potionBtn.disabled = true;
+                    try {
+                      const healResult = await healPlayerWithPotion(uid);
+                      // Refresh only the HP bar part
+                      await refreshModalPlayerHp(monster.id);
+                      if (healResult.success) {
+                        showNotification(healResult.message || 'Potion used!', '#2ecc71');
+                      } else {
+                        showNotification(healResult.message || 'Potion use failed', '#e74c3c');
+                      }
+                    } catch (err) {
+                      console.error('[Battle Modal] Healing error:', err);
+                      showNotification('Error using potion', '#e74c3c');
+                    } finally {
+                      potionBtn.disabled = false;
+                    }
+                  });
+                }
+              }
             }
           }
         } catch (error) {
