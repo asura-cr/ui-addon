@@ -3670,6 +3670,57 @@ function parseAttackLogs(html) {
     }
   } catch (e) { /* ignore */ }
 
+  // --- UI Addon: Disable Escape key from closing the side drawer ---
+  // Some underlying site scripts close the drawer when ESC is pressed.
+  // We intercept the keydown event in the capture phase and suppress it
+  // ONLY when: (1) the side drawer is open AND (2) no battle modal is open.
+  // This preserves normal ESC behavior for modals or other dialogs.
+  (function installUiAddonEscBlocker(){
+    try {
+      if (window._uiaddonEscBlockerInstalled) return;
+      window._uiaddonEscBlockerInstalled = true;
+      document.addEventListener('keydown', function uiAddonEscBlocker(e){
+        // Normalize key detection across browsers
+        const isEsc = e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27;
+        if (!isEsc) return;
+        const sideDrawer = document.getElementById('sideDrawer');
+        if (!sideDrawer) return; // nothing to do
+        const isOpen = sideDrawer.getAttribute('data-open') === 'true';
+        const battleModal = document.getElementById('battle-modal');
+        // If focus is inside a text input/textarea, let native ESC (like canceling edits) through.
+        const tag = (e.target && e.target.tagName || '').toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable;
+        if (isEditable) return; // don't interfere with typing contexts
+
+        // Always keep the drawer open when ESC is pressed; suppress any site-level close logic.
+        if (isOpen) {
+          // Reassert open state defensively.
+          sideDrawer.setAttribute('data-open', 'true');
+          e.stopImmediatePropagation();
+          e.stopPropagation();
+          e.preventDefault();
+        }
+
+        // If a battle modal is open, treat ESC as a request to close ONLY the modal (not the drawer).
+        if (battleModal) {
+          try {
+            battleModal.remove();
+            if (typeof setModalOpen === 'function') setModalOpen(false);
+            // Dispatch an event so other parts can react if needed.
+            document.dispatchEvent(new CustomEvent('uiaddon:battleModalClosedByEsc'));
+          } catch (err) {
+            console.warn('[UI Addon] Failed to close battle modal via ESC:', err);
+          }
+          // Ensure drawer stays open after closing modal.
+          sideDrawer.setAttribute('data-open', 'true');
+        }
+      }, true); // capture phase so we beat site listeners
+      console.info('[UI Addon] Installed ESC blocker to prevent side drawer from closing.');
+    } catch (err) {
+      console.warn('[UI Addon] Failed to install ESC blocker:', err);
+    }
+  })();
+
   }
 
   function initSideBar(){
