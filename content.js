@@ -18740,14 +18740,33 @@ window.toggleSection = function(header) {
       }
     }
 
-    // Monster selection on wave pages (not in modal)
-    if(!isModalOpen && extensionSettings.hotkeys.monsterSelection && window.location.pathname.includes('/active_wave.php')){
+    // Monster selection on wave pages
+    // New behavior: allow number hotkeys while modal is open -> close current modal then select/join that monster
+    if(extensionSettings.hotkeys.monsterSelection && window.location.pathname.includes('/active_wave.php')){
       const idx = extensionSettings.hotkeys.monsterSelectionKeys.findIndex(k=>k.toLowerCase()===key);
       if(idx!==-1){
         e.preventDefault(); e.stopPropagation();
+        if(isModalOpen){
+          closeBattleModal(); // Gracefully close current modal before switching
+        }
         selectMonsterCard(idx);
       }
     }
+  }
+
+  // Helper to close battle modal programmatically (used by hotkeys)
+  function closeBattleModal(){
+    try {
+      const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
+      if(modal){
+        modal.remove();
+        setModalOpen(false);
+        const iframe = document.getElementById('battle-session-iframe');
+        if(iframe) iframe.remove();
+        // Refresh wave data so UI reflects latest state
+        try { updateWaveData(true); } catch {}
+      }
+    } catch(err){ /* no-op */ }
   }
 
   // Select joinable monster by index (0-based among first 9 eligible)
