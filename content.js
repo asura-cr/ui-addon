@@ -3602,6 +3602,88 @@ function parseAttackLogs(html) {
               } catch (e) {
                 console.error('Error adding battle pass expand toggle:', e);
               }
+            } else if (pathname.endsWith('/merchant.php') || pathname === 'merchant.php') {
+              try {
+                // Add expandable panel for Merchant like Stats
+                if (a.dataset.merchantEnhanced) return;
+                // If our generated menu already has its own expand button/panel, skip enhancing this anchor
+                const hasOwnExpand = !!(a.querySelector('#merchant-expand-btn') || sidebarContent.querySelector('#merchant-expanded'));
+                if (hasOwnExpand) { a.dataset.merchantEnhanced = 'true'; return; }
+                a.dataset.merchantEnhanced = 'true';
+
+                const toggle = document.createElement('button');
+                toggle.className = 'merchant-toggle-btn';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', extensionSettings.merchantExpanded ? 'true' : 'false');
+                toggle.textContent = extensionSettings.merchantExpanded ? '−' : '+';
+                toggle.style.cssText = 'margin-left:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); color:#89b4fa; padding:2px 6px; border-radius:4px; cursor:pointer; font-weight:700;';
+
+                // Prefer reusing an existing merchant panel if present
+                let panel = document.getElementById('merchant-expanded');
+                if (!panel) {
+                  panel = document.createElement('div');
+                  panel.id = 'merchant-expanded';
+                }
+                panel.className = (panel.className || '').split(' ').concat(['merchant-expand-panel']).join(' ').trim();
+                panel.style.cssText = 'display:' + (extensionSettings.merchantExpanded ? 'block' : 'none') + '; padding:8px; margin-top:8px; margin-bottom:8px; background:rgba(20,20,26,0.6); border-radius:6px; border:1px solid rgba(69,71,90,0.4);';
+
+                try {
+                  // Make the anchor a flex container so the label stays left and the toggle sits right
+                  a.classList.add('sidebar-menu-expandable');
+                  a.style.display = a.style.display || 'flex';
+                  a.style.alignItems = a.style.alignItems || 'center';
+                  a.style.justifyContent = a.style.justifyContent || 'space-between';
+
+                  // Create a non-navigable control area inside the anchor and put the toggle there
+                  const controlArea = document.createElement('div');
+                  controlArea.className = 'side-control';
+                  controlArea.style.cssText = 'margin-left:8px; display:flex; align-items:center; gap:6px;';
+                  controlArea.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+                  controlArea.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') { ev.preventDefault(); ev.stopPropagation(); } });
+                  controlArea.appendChild(toggle);
+                  a.appendChild(controlArea);
+
+                  // Insert the panel directly after the anchor so it expands downward under the merchant item
+                  const parent = a.parentNode;
+                  if (parent && parent.nextSibling !== panel) parent.insertBefore(panel, a.nextSibling);
+                } catch (e) {
+                  // Fallback: append toggle after anchor
+                  a.parentNode.insertBefore(toggle, a.nextSibling);
+                  a.parentNode.insertBefore(panel, toggle.nextSibling);
+                }
+
+                // Populate or refresh the merchant section contents (dropdown + pinned items)
+                try { updateSidebarMerchantSection(); } catch (e) { console.error('Error populating merchant panel:', e); }
+
+                const handleToggle = (e) => {
+                  if (e) { e.preventDefault(); e.stopPropagation(); }
+                  const expanded = toggle.getAttribute('aria-expanded') === 'true';
+                  if (expanded) {
+                    panel.style.display = 'none';
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.textContent = '+';
+                    extensionSettings.merchantExpanded = false;
+                  } else {
+                    panel.style.display = 'block';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.textContent = '−';
+                    extensionSettings.merchantExpanded = true;
+                    try { updateSidebarMerchantSection(); } catch (e) { /* ignore */ }
+                  }
+                  try { localStorage.setItem('demonGameExtensionSettings', JSON.stringify(extensionSettings)); } catch (err) {}
+                };
+
+                toggle.addEventListener('click', handleToggle);
+                toggle.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleToggle(e);
+                  }
+                });
+              } catch (e) {
+                console.error('Error adding merchant expand toggle:', e);
+              }
             }
 
           });
@@ -5092,6 +5174,29 @@ function parseAttackLogs(html) {
       .sidebar-quick-access {
         max-height: 300px;
         overflow-y: auto;
+        /* Match sidebar scrollbar styling */
+        scrollbar-width: thin;              /* Firefox */
+        scrollbar-color: #2a2a2a #1a1a1a;  /* Firefox */
+      }
+
+      /* Match side-nav scrollbar look for quick-access container */
+      .sidebar-quick-access::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .sidebar-quick-access::-webkit-scrollbar-track {
+        background: linear-gradient(135deg, #1a1a1a 0%, #0e0e0e 100%);
+        border-radius: 4px;
+      }
+
+      .sidebar-quick-access::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+        border-radius: 4px;
+        border: 1px solid #333;
+      }
+
+      .sidebar-quick-access::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #3a3a3a 0%, #2e2e2e 100%);
       }
 
       .quick-access-empty {
@@ -15622,12 +15727,37 @@ window.toggleSection = function(header) {
     const merchantContent = document.getElementById('merchant-expanded');
     if (!merchantContent) return;
 
+    // Build dropdown (persisted selection stored in extensionSettings.merchantDropdown)
+    if (!extensionSettings.merchantDropdown) {
+      extensionSettings.merchantDropdown = { mode: 'default' }; // modes: default, cheapest, remaining, alpha
+    }
+
     let content = '<div class="sidebar-quick-access">';
-    
     if (extensionSettings.pinnedMerchantItems.length === 0) {
       content += '<div class="quick-access-empty">No pinned items. Visit merchant to pin items.</div>';
     } else {
-      extensionSettings.pinnedMerchantItems.forEach(item => {
+      // Create a shallow copy for sorting based on dropdown mode
+      let itemsToRender = [...extensionSettings.pinnedMerchantItems];
+      switch (extensionSettings.merchantDropdown.mode) {
+        case 'cheapest':
+          itemsToRender.sort((a,b)=> (a.price||0) - (b.price||0));
+          break;
+        case 'remaining':
+          itemsToRender.sort((a,b)=> {
+            const remA = a.maxQ>0? Math.max(0,a.maxQ - a.bought): 999;
+            const remB = b.maxQ>0? Math.max(0,b.maxQ - b.bought): 999;
+            return remB - remA; // most remaining first
+          });
+          break;
+        case 'alpha':
+          itemsToRender.sort((a,b)=> String(a.name).localeCompare(String(b.name)));
+          break;
+        default:
+          // keep original pinned order
+          break;
+      }
+
+      itemsToRender.forEach(item => {
               const remaining = item.maxQ > 0 ? Math.max(0, item.maxQ - item.bought) : 999;
               const canBuy = item.maxQ === 0 || remaining > 0;
         
