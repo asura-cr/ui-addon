@@ -17239,7 +17239,7 @@ window.toggleSection = function(header) {
     const hpElement = monElement.querySelector('.muted');
     const pills = monElement.querySelectorAll('.pill');
     const statpills = monElement.querySelectorAll('.statpill');
-    const viewLink = monElement.querySelector('a[href*="dungeon_battle"]');
+    const viewLink = monElement.querySelector('a[href*="battle"]');
 
     if (!img || !nameElement) return null;
 
