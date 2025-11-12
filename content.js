@@ -77,6 +77,11 @@
       enabled: false, // Enable semi-transparent effect
       opacity: 0.85 // Opacity level
     },
+    // Selected gate/wave to open from sidebar Gate entry
+    waveSelection: {
+      gate: 3,
+      wave: 3
+    },
     updates: {
       autoCheck: true,
       lastChecked: 0,
@@ -2852,9 +2857,12 @@ function parseAttackLogs(html) {
         case 'event_battlefield':
           menuHTML += `<li><a href="active_wave.php?event=3&wave=1" draggable="false"><img src="/images/events/The_Goblin_Feast_of_Shadows/compressed_goblin_halloween_event.webp" alt="Event Battlefield"> Event Battlefield</a></li>`;
           break;
-        case 'gate_grakthar':
-          menuHTML += `<li><a href="active_wave.php?gate=3&wave=${extensionSettings.gateGraktharWave}"><img src="images/gates/gate_688e438aba7f24.99262397.webp" alt="Gate"> Gate Grakthar</a></li>`;
+        case 'gate_grakthar': {
+          const g = Number(extensionSettings?.waveSelection?.gate ?? 3);
+          const w = Number(extensionSettings?.waveSelection?.wave ?? 3);
+          menuHTML += `<li><a href="active_wave.php?gate=${g}&wave=${w}"><img src="images/gates/gate_688e438aba7f24.99262397.webp" alt="Gate"> Gate</a></li>`;
           break;
+        }
         case 'battle_pass':
           menuHTML += `
         <li>
@@ -3228,6 +3236,74 @@ function parseAttackLogs(html) {
     }
   }
 
+  // Fetch and parse the list of waves available for a specific gate page URL
+  async function fetchGateWavesFromUrl(href) {
+    try {
+      const url = href.startsWith('http') ? href : (href.startsWith('/') ? href : `/${href}`);
+      const res = await fetch(url);
+      const text = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+
+      const chips = Array.from(doc.querySelectorAll('.waves-nav a.wave-chip'));
+      if (!chips.length) return null;
+
+      const waves = chips.map((a, idx) => {
+        const href = a.getAttribute('href') || '';
+        const params = new URLSearchParams(href.split('?')[1] || '');
+        const waveParam = Number(params.get('wave')) || null;
+        const gateParam = Number(params.get('gate')) || null;
+        const label = (a.textContent || '').trim() || `Wave ${idx + 1}`;
+        return { gate: gateParam, wave: waveParam, label };
+      }).filter(w => w.wave);
+
+      const gateId = waves.find(w => w.gate)?.gate || null;
+      return { gateId, waves };
+    } catch (e) {
+      console.warn('fetchGateWavesFromUrl failed for', href, e);
+      return null;
+    }
+  }
+
+  // Fetch open gates and for each, fetch its available waves
+  async function fetchGatesWithWaves() {
+    const gates = await fetchOpenGatesFromDash();
+    const results = await Promise.all(gates.map(async g => {
+      const data = await fetchGateWavesFromUrl(g.href);
+      if (data && data.gateId && data.waves?.length) {
+        return { name: g.name || `Gate ${data.gateId}`, gateId: data.gateId, waves: data.waves };
+      }
+      return null;
+    }));
+    return results.filter(Boolean);
+  }
+
+  // Update all native side drawer Gate links to use their selected waves
+  function updateSideNavWaveLinks() {
+    try {
+      // Ensure map exists
+      extensionSettings.waveSelections = extensionSettings.waveSelections || {};
+      const sidebarContent = document.querySelector('#sideDrawer .side-nav') || document.querySelector('.side-nav');
+      if (!sidebarContent) return;
+
+      const anchors = Array.from(sidebarContent.querySelectorAll('a.side-nav-item, .side-nav a'));
+      anchors.forEach(a => {
+        const href = a.getAttribute('href') || '';
+        // Only adjust links that go to active_wave with a gate param
+        const gateMatch = href.match(/[?&]gate=(\d+)/);
+        if (!/active_wave\.php/i.test(href) || !gateMatch) return;
+        const gId = Number(gateMatch[1]);
+        const waveMap = extensionSettings.waveSelections || {};
+        const selectedWave = Number(waveMap[gId]) || null;
+        if (!selectedWave) return; // no customized wave for this gate
+        const newHref = href.replace(/([?&]wave=)(\d+)/, `$1${selectedWave}`);
+        a.setAttribute('href', newHref);
+      });
+    } catch (e) {
+      console.warn('updateSideNavWaveLinks failed:', e);
+    }
+  }
+
   function updateGameSideDrawer() {
     const sidebar = document.getElementById('sideDrawer');
     if (!sidebar) return;
@@ -3356,33 +3432,39 @@ function parseAttackLogs(html) {
       const sidebarContent = sidebar.querySelector('.side-nav');
       if (sidebarContent) {
         try {
-          // Dynamically inject Open Gates from the dashboard into the side-nav
+          // Dynamically inject Open Gates (each as its own button) into the side-nav
           try {
-            fetchOpenGatesFromDash().then(gates => {
+            fetchGatesWithWaves().then(gates => {
               if (!gates || !gates.length) return;
               const nav = sidebarContent;
+              const urlParams = new URLSearchParams(window.location.search);
+              const currentGate = urlParams.get('gate');
+              // Ensure per-gate selection map exists
+              extensionSettings.waveSelections = extensionSettings.waveSelections || {};
+
               gates.forEach(g => {
                 try {
-                  // Avoid duplicates by href
-                  if (nav.querySelector(`a.side-nav-item[href="${g.href}"]`)) return;
-                  const current = new URLSearchParams(window.location.search).get('gate');
+                  // Determine selected wave for this gate
+                  const selWave = Number(extensionSettings.waveSelections[g.gateId] || (g.waves?.[0]?.wave) || 1);
+                  const href = `active_wave.php?gate=${g.gateId}&wave=${selWave}`;
+                  // Avoid duplicates by gate id in href
+                  if (nav.querySelector(`a.side-nav-item[href*="gate=${g.gateId}"]`)) return;
 
                   const li = document.createElement('li');
                   li.className = 'side-nav-item-wrap';
                   const ael = document.createElement('a');
-                  if (current && g.href.includes(`gate=${current}`)) {
-                    console.log('Marking gate as active in sidebar:', g.name);
+                  if (currentGate && String(g.gateId) === String(currentGate)) {
                     ael.className = 'side-nav-item active';
                   } else {
                     ael.className = 'side-nav-item';
                   }
-                  ael.setAttribute('href', g.href);
+                  ael.setAttribute('href', href);
                   const icon = document.createElement('span');
                   icon.textContent = '🌊';
                   icon.classList.add('side-icon');
                   const navName = document.createElement('span');
                   navName.classList.add('side-label');
-                  navName.textContent = g.name;
+                  navName.textContent = g.name || `Gate ${g.gateId}`;
                   ael.appendChild(icon);
                   ael.appendChild(navName);
                   li.appendChild(ael);
@@ -6538,12 +6620,12 @@ function parseAttackLogs(html) {
                 </div>
 
                 <!-- Customisation Wrapper -->
-                <div class="settings-section expanded">
+                <div class="settings-section">
                   <div class="settings-section-header" onclick="toggleSection(this)">
                     <h3>🛠️ Customisation</h3>
                     <span class="expand-icon">−</span>
                   </div>
-                  <div class="settings-section-content expanded">
+                  <div class="settings-section-content">
                     <div class="color-input-group">
                       <input type="color" id="sidebar-custom-color" value="rgb(18,18,18)">
                       <label>Sidebar Color</label>
@@ -6680,16 +6762,16 @@ function parseAttackLogs(html) {
                 <!-- Gate Grakthar Wave Selection Section -->
                 <div class="settings-section">
                   <div class="settings-section-header">
-                    <h3>🚪 Gate Grakthar Configuration</h3>
+                    <h3>🚪 Wave Configuration</h3>
                     <span class="expand-icon">–</span>
                   </div>
                   <div class="settings-section-content expanded">
                     <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
-                      Choose which wave the Gate Grakthar sidebar button redirects to.
+                      Choose which wave the sidebar button redirects to.
                     </p>
                     <div style="margin: 15px 0;">
-                      <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Gate Grakthar Wave:</label>
-                      <select id="gate-grakthar-wave" style="width: 250px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
+                      <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Wave:</label>
+                      <select id="wave-selection" style="width: 250px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
                         <option value="3">Wave 1  - gate=3&wave=3</option>
                         <option value="5">Wave 2  - gate=3&wave=5</option>
                       </select>
@@ -6842,8 +6924,8 @@ function parseAttackLogs(html) {
       setupMonsterBackgroundControls();
       setupLootHighlightingSettings();
       setupCustomBackgroundSettings();
-      setupPvPAutoSurrenderSettings();
-      setupGateGraktharSettings();
+  setupPvPAutoSurrenderSettings();
+  setupWaveSelectionSettings();
       setupEquipSetsSettings();
       setupBattleModalSettings();
       setupHotkeySettings();
@@ -7663,19 +7745,116 @@ window.toggleSection = function(header) {
     }
   }
 
-  function setupGateGraktharSettings() {
-    const gateWaveSelect = document.getElementById('gate-grakthar-wave');
-    
-    if (gateWaveSelect) {
-      gateWaveSelect.value = extensionSettings.gateGraktharWave;
-      gateWaveSelect.addEventListener('change', (e) => {
-        extensionSettings.gateGraktharWave = parseInt(e.target.value);
-        saveSettings();
-        // Regenerate sidebar to apply new wave setting
-        generateSideBar();
-        showNotification('Gate Grakthar wave updated!', 'success');
-      });
+  async function setupWaveSelectionSettings() {
+    // Find the existing section content and legacy select (if present)
+    const legacySelect = document.getElementById('wave-selection');
+    const sectionContent = legacySelect ? legacySelect.closest('.settings-section-content') : null;
+    if (!sectionContent) return;
+
+    // Ensure a container to render per-gate dropdowns
+    let container = sectionContent.querySelector('#wave-selection-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'wave-selection-container';
+      // Insert after the descriptive paragraph if present
+      const p = sectionContent.querySelector('p');
+      if (p && p.nextSibling) sectionContent.insertBefore(container, p.nextSibling.nextSibling || p.nextSibling);
+      else sectionContent.appendChild(container);
     }
+
+  // Ensure map exists for per-gate selections
+  extensionSettings.waveSelections = extensionSettings.waveSelections || {};
+
+  // Remove legacy single dropdown block if present
+    try { if (legacySelect && legacySelect.parentElement) legacySelect.parentElement.remove(); } catch {}
+
+    // Loading state
+    container.innerHTML = '<div style="margin: 15px 0; color:#a6adc8;">Loading gates…</div>';
+
+    const gates = await fetchGatesWithWaves();
+
+    // If nothing found, build a minimal fallback UI
+    if (!gates || !gates.length) {
+      container.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.margin = '15px 0';
+      const label = document.createElement('label');
+      label.style.cssText = 'color:#f9e2af; margin-bottom:10px; display:block;';
+      label.textContent = 'Gate 3:';
+      const sel = document.createElement('select');
+      sel.id = 'wave-selection-3';
+      sel.style.cssText = 'width:250px; padding:8px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px;';
+      sel.innerHTML = '<option value="3:3">Wave 1</option><option value="3:5">Wave 2</option>';
+      wrap.appendChild(label); wrap.appendChild(sel); container.appendChild(wrap);
+      sel.addEventListener('change', (e) => {
+        const [gStr, wStr] = String(e.target.value).split(':');
+        const g = Number(gStr)||3; const w = Number(wStr)||3;
+        extensionSettings.waveSelections[g] = w; // per-gate
+        // Maintain legacy fields for compatibility
+        extensionSettings.waveSelection = { gate: g, wave: w };
+        extensionSettings.waveSelectionLabel = 'Gate 3';
+        saveSettings();
+        try { refreshSidebar(); } catch {}
+        try { updateSideNavWaveLinks(); } catch {}
+        showNotification('Wave selection updated!', 'success');
+      });
+      try { updateSideNavWaveLinks(); } catch {}
+      return;
+    }
+
+    // Build per-gate dropdowns
+    const curGate = Number(extensionSettings?.waveSelection?.gate ?? 3);
+    const curWave = Number(extensionSettings?.waveSelection?.wave ?? 3);
+    container.innerHTML = '';
+    gates.forEach(gate => {
+      const wrap = document.createElement('div');
+      wrap.style.margin = '15px 0';
+
+      const label = document.createElement('label');
+      label.style.cssText = 'color:#f9e2af; margin-bottom:10px; display:block;';
+      label.textContent = `${gate.name || 'Gate'}:`;
+
+      const sel = document.createElement('select');
+      sel.className = 'wave-selection-per-gate';
+      sel.id = `wave-selection-${gate.gateId}`;
+      sel.dataset.gate = String(gate.gateId);
+      sel.style.cssText = 'width:250px; padding:8px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px;';
+
+      for (const w of gate.waves) {
+        const opt = document.createElement('option');
+        opt.value = `${gate.gateId}:${w.wave}`;
+        opt.textContent = w.label; // Wave label only per request
+        sel.appendChild(opt);
+      }
+
+      // Determine selected value for this gate: per-gate map > legacy saved > first
+      const mapWave = Number(extensionSettings.waveSelections[gate.gateId] || 0);
+      const targetVal = mapWave ? `${gate.gateId}:${mapWave}` : `${curGate}:${curWave}`;
+      const exists = Array.from(sel.options).some(o => o.value === targetVal);
+      sel.value = exists ? targetVal : (sel.options[0]?.value || '');
+
+      sel.addEventListener('change', (e) => {
+        const value = String(e.target.value || '');
+        const [gStr, wStr] = value.split(':');
+        const g = Number(gStr) || gate.gateId || 3;
+        const w = Number(wStr) || gate.waves?.[0]?.wave || 3;
+        extensionSettings.waveSelections[g] = w; // per-gate
+        // Maintain legacy fields for compatibility with any single-link usage
+        extensionSettings.waveSelection = { gate: g, wave: w };
+        extensionSettings.waveSelectionLabel = gate.name || `Gate ${g}`;
+        saveSettings();
+        try { refreshSidebar(); } catch {}
+        try { updateSideNavWaveLinks(); } catch {}
+        showNotification(`Wave set to ${gate.name || `Gate ${g}`} — ${sel.options[sel.selectedIndex]?.textContent || ''}`, 'success');
+      });
+
+      wrap.appendChild(label);
+      wrap.appendChild(sel);
+      container.appendChild(wrap);
+    });
+
+    // Sync native side drawer link once after rendering
+    try { updateSideNavWaveLinks(); } catch {}
   }
 
   
@@ -9827,7 +10006,9 @@ window.toggleSection = function(header) {
     // Initialize sidebar
     safeExecute(() => initSideBar(), 'Sidebar Initialization');
 
-    safeExecute(() => updateGameSideDrawer(), 'Game Side Drawer Update');
+  safeExecute(() => updateGameSideDrawer(), 'Game Side Drawer Update');
+  // Ensure the Gate links reflect current selections after drawer setup
+  try { setTimeout(() => updateSideNavWaveLinks(), 200); } catch (e) {}
 
     safeExecute(() => {
       try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('Failed to apply saved menuItems on init', e); }
