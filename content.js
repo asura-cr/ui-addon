@@ -1,12 +1,7 @@
 'use strict';
 
-  // Global variables
-  var alarmInterval = null;
-  var waveRefreshInterval = null;
-  var waveUpdateInterval = null;
-  var monsterSortingInterval = null;
+  // Global variables (pruned unused)
   var userDataUpdateInterval = null;
-  var monsterFiltersSettings = {"nameFilter":"","hideImg":false, "battleLimitAlarm":false, "battleLimitAlarmSound":true, "battleLimitAlarmVolume":70, "monsterTypeFilter":[], "hpFilter":"", "playerCountFilter":""}
   
   // Monster loot cache for performance optimization
   const lootCache = new Map(); // Cache loot data by monster name  // Enhanced settings management
@@ -494,7 +489,7 @@
   }
 
   // Fetch wave page HTML
-  async function fetchWavePageHtml(wave = 1, event = null) {
+  async function fetchWavePageHtml(wave = 1) {
     const response = await fetch(`active_wave.php?wave=${wave}`);
     return await response.text();
   }
@@ -793,9 +788,7 @@ function parseLeaderboardFromHtml(html) {
 
   // ===== END BATTLE MODAL UTILITY FUNCTIONS =====
 
-  const POTION_STORAGE_KEY = 'expPotionTimerEnd';
-  let potionExpTimer = null;
-  let potionExpTimerEnd = null;
+  // Removed unused EXP potion timer constants (no references)
 
   const PET_STORAGE_KEY = "pet_teams_v1";
   const PET_APPLY_DELAY = 350;
@@ -6444,7 +6437,7 @@ function parseAttackLogs(html) {
     } else {
       // Default to wave 1 if not specified
       const wave = extensionSettings.gateGraktharWave || 1;
-      performWaveLoot(type, amount, null, wave);
+  performWaveLoot(type, amount, wave);
     }
   }
 
@@ -6463,9 +6456,9 @@ function parseAttackLogs(html) {
     showNotification(`Looted ${looted} monster(s)`, '#2ecc71');
   }
 
-  async function performWaveLoot(type, amount, event, wave) {
+  async function performWaveLoot(type, amount, wave) {
     try {
-      const html = await fetchWavePageHtml(wave, event);
+      const html = await fetchWavePageHtml(wave);
       const doc = new DOMParser().parseFromString(html, 'text/html');
       
       const lootButtons = doc.querySelectorAll('button[onclick*="loot"], a[href*="loot"]');
@@ -11112,9 +11105,8 @@ window.toggleSection = function(header) {
       const monsterList = document.querySelectorAll('.monster-card');
       if (monsterList.length > 0) {
         obs.disconnect();
-        const settings = await loadFilterSettings();
-        monsterFiltersSettings = settings;
-        createFilterUI(monsterList, settings);
+  const settings = await loadFilterSettings();
+  createFilterUI(monsterList, settings);
       }
     });
     observer.observe(document.body, {
@@ -11337,7 +11329,7 @@ window.toggleSection = function(header) {
     }
 
     // Apply filters if any are set
-    if (settings.nameFilter || (settings.monsterTypeFilter && settings.monsterTypeFilter.length > 0) || settings.hpFilter || settings.playerCountFilter || settings.hideImg || settings.battleLimitAlarm) {
+    if (settings.nameFilter || (settings.monsterTypeFilter && settings.monsterTypeFilter.length > 0) || settings.hpFilter || settings.playerCountFilter || settings.hideImg) {
       applyMonsterFilters();
     }
     
@@ -11658,27 +11650,7 @@ window.toggleSection = function(header) {
     localStorage.setItem('demonGameFilterSettings', JSON.stringify(settings));
   }
 
-  // Play alarm sound function
-  function playAlarmSound() {
-    try {
-      const audio = new Audio(chrome.runtime.getURL('alarm.mp3'));
-      const volumeSlider = document.getElementById('battle-limit-alarm-volume');
-      const volume = volumeSlider ? parseInt(volumeSlider.value, 10) / 100 : 0.7;
-      audio.volume = volume;
-      audio.play().catch(error => {
-        console.log('Could not play alarm sound:', error);
-        // Fallback: use browser's built-in notification sound
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Battle Limit Alarm', {
-            body: 'Less than 3 battles available!',
-            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>'
-          });
-        }
-      });
-    } catch (error) {
-      console.log('Error creating alarm sound:', error);
-    }
-  }
+  // Removed unused battle-limit alarm sound function (no alarm.mp3 asset shipped)
 
   function getMonsterWave(monsterName) {
     // Wave 1 monsters
