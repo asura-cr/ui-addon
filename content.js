@@ -6933,14 +6933,14 @@ window.toggleSection = function(header) {
   }
 
   async function fetchLatestReleaseInfo() {
-    const url = 'https://api.github.com/repos/asura-cr/ui-addon/releases/latest';
+    const url = 'https://api.github.com/repos/DBerkey/ui-addon/releases/latest';
     const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
     if (!res.ok) throw new Error(`GitHub API ${res.status}`);
     const data = await res.json();
     const tag = data.tag_name || data.name || '';
     return {
       version: normalizeVersion(tag || data.name || ''),
-      url: data.html_url || 'https://github.com/asura-cr/ui-addon/releases/latest',
+      url: data.html_url || 'https://github.com/DBerkey/ui-addon/releases/latest',
       name: data.name || tag || 'Latest release',
       publishedAt: data.published_at || ''
     };
@@ -7035,7 +7035,7 @@ window.toggleSection = function(header) {
         checkForUpdates({ force: true, updateUI: true });
       });
       openBtn?.addEventListener('click', () => {
-        const url = extensionSettings.updates?.latestUrl || 'https://github.com/asura-cr/ui-addon/releases/latest';
+        const url = extensionSettings.updates?.latestUrl || 'https://github.com/DBerkey/ui-addon/releases/latest';
         window.open(url, '_blank');
       });
       autoChk?.addEventListener('change', () => {
