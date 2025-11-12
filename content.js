@@ -4816,6 +4816,17 @@ function parseAttackLogs(html) {
         transform: rotate(180deg);
       }
 
+      p1 {
+        font-size: 12px;
+        color: #a6adc8;
+        margin-top: 10px;
+      }
+
+      .global-announcement-bar {
+        margin-left: 250px;
+        margin-top: 2px;
+      }
+
       /* Background Image Effects */
       .page-bg-normal {
         background-image: var(--page-bg-image) !important;
@@ -6483,13 +6494,13 @@ function parseAttackLogs(html) {
       modal.className = 'settings-modal';
 
       modal.innerHTML = `
-          <div class="settings-container">
-            <div class="settings-header">
+          <div class="settings-container" style="box-sizing: content-box;">
+            <div class="settings-header" style="box-sizing: inherit;">
               <h1>⚙️ Settings</h1>
             </div>
 
-            <div class="settings-content">
-              <div class="settings-grid">
+            <div class="settings-content" style="box-sizing: inherit;">
+              <div class="settings-grid" style="box-sizing: inherit;">
                 <!-- Updates Section -->
                 <div style="display:flex; flex-direction:column; gap:8px;">
                   <div style="display:flex; align-items:center; gap:10px;">
@@ -6508,423 +6519,302 @@ function parseAttackLogs(html) {
                   <div style="color:#6c7086; font-size:11px;" id="updates-last-checked"></div>
                 </div>
 
-
-                <!-- Sidebar Color Section -->
+                <!-- Customisation Wrapper -->
                 <div class="settings-section expanded">
                   <div class="settings-section-header" onclick="toggleSection(this)">
-                    <h3>🎨 Sidebar Color</h3>
+                    <h3>🛠️ Customisation</h3>
                     <span class="expand-icon">−</span>
-            </div>
-            <div class="settings-section-content">
-                    <p class="section-description">Choose a color theme for your side panel navigation.</p>
+                  </div>
+                  <div class="settings-section-content expanded">
                     <div class="color-input-group">
                       <input type="color" id="sidebar-custom-color" value="rgb(18,18,18)">
-                      <label>Custom Color</label>
-            </div>
-            </div>
-          </div>
-
-                <!-- Background Color Section -->
-                <div class="settings-section expanded">
-                  <div class="settings-section-header" onclick="toggleSection(this)">
-                    <h3>🌅 Background Color</h3>
-                    <span class="expand-icon">−</span>
-            </div>
-                  <div class="settings-section-content">
-                    <p class="section-description">Set the main background color for your application.</p>
+                      <label>Sidebar Color</label>
+                    </div>
+                    <p1 class="section-description">Set the main background color the sidebar.</p1>
+                    <br>
+                    <br>
                     <div class="color-input-group">
                       <input type="color" id="background-custom-color" value="#000000">
-                      <label>Custom Color</label>
+                      <label>Background Color</label>
                     </div>
-            </div>
-          </div>
-
-                <!-- Monster Image Outline Section -->
-          <div class="settings-section">
-                  <div class="settings-section-header" onclick="toggleSection(this)">
-                    <h3>🐲 Monster Image Outline</h3>
-                    <span class="expand-icon">+</span>
-            </div>
-                  <div class="settings-section-content">
-                    <p class="section-description">Customize the outline color for monster images in battles.</p>
+                    <p1 class="section-description">Set the main background color for the application.</p1>
+                    <br>
+                    <hr style="border: 1px solid #45475a; margin: 20px 0;">
                     <div class="color-input-group">
-                      <input type="color" id="monster-image-custom-color" value="#ff6b6b">
-                      <label>Custom Color</label>
-                    </div>
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <div class="settings-section-header">
-              <h3>🐉 Monster Backgrounds</h3>
-              <span class="expand-icon">+</span>
-            </div>
-            <div class="settings-section-content">
-              <div style="margin: 15px 0;">
-                <div style="margin-bottom: 15px; display: flex; align-items: center;">
-                  <label style="color: #cdd6f4; display: flex; align-items: center;">
-                    Dark overlay for text readability:
-                    <div class="neo-toggle-container">
-                    <input type="checkbox" id="monster-bg-overlay" class="neo-toggle-input">
-                    <label for="monster-bg-overlay" class="neo-toggle">
-                      <div class="neo-track">
-                        <div class="neo-background-layer"></div>
-                        <div class="neo-grid-layer"></div>
-                        <div class="neo-track-highlight"></div>
-                        <div class="neo-spectrum-analyzer">
-                          <div class="neo-spectrum-bar"></div>
-                          <div class="neo-spectrum-bar"></div>
-                          <div class="neo-spectrum-bar"></div>
-                          <div class="neo-spectrum-bar"></div>
-                          <div class="neo-spectrum-bar"></div>
+                      <div id="monster-urls-container" style="margin-top: 20px;">
+                        <h4 style="color: #cdd6f4; margin-bottom: 15px;">Monster Background URLs</h4>
+                        <div id="monster-url-inputs">
+                          <!-- Monster URL inputs will be populated here -->
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                          <button type="button" id="add-monster-url" class="settings-button" style="background: #89b4fa;">
+                            ➕ Add Monster Background
+                          </button>
                         </div>
                       </div>
-                      <div class="neo-thumb">
-                        <div class="neo-thumb-ring"></div>
-                        <div class="neo-thumb-core">
-                          <div class="neo-thumb-icon">
-                            <div class="neo-thumb-wave"></div>
+                    </div>
+                    <br>
+                    <hr style="border: 1px solid #45475a; margin: 20px 0;">
+                    <div class="color-input-group">
+                      <div style="margin: 15px 0;">
+                        <div id="custom-backgrounds-container" style="margin-top: 20px;">
+                          <h4 style="color: #cdd6f4; margin-bottom: 15px;">Custom Background URLs</h4>
+                          <div id="custom-bg-inputs">
+                            <!-- Custom background inputs will be populated here -->
                           </div>
-                          <div class="neo-thumb-pulse"></div>
-                        </div>
-                      </div>
-                      <div class="neo-status">
-                        <div class="neo-status-indicator">
-                          <div class="neo-status-dot"></div>
-                          <div class="neo-status-text"></div>
+                          <button type="button" id="add-custom-bg" class="settings-button" style="background: #89b4fa; margin-top: 10px;">
+                            ➕ Add Custom Background
+                          </button>
                         </div>
                       </div>
                     </div>
-                  </label>
-                </div>
-                <div style="margin-left: 25px;">
-                  <label style="color: #a6adc8; font-size: 12px;">Overlay Opacity:</label>
-                  <input type="range" id="monster-bg-overlay-opacity" min="0.1" max="0.8" step="0.1" value="0.4" 
-                         style="width: 150px; margin-left: 10px;">
-                  <span id="monster-bg-opacity-value" style="color: #cdd6f4; margin-left: 10px;">40%</span>
-                </div>
-              </div>
-                
-                <div style="margin: 15px 0;">
-                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Effect Type:</label>
-                  <select id="monster-bg-effect" style="width: 200px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; margin-bottom: 15px;">
-                    <option value="normal">Normal</option>
-                    <option value="gradient">Gradient (Tint)</option>
-                    <option value="blur">Blur</option>
-                    <option value="pattern">Pattern</option>
-                  </select>
-              </div>
-
-              <div id="monster-urls-container" style="margin-top: 20px;">
-                <h4 style="color: #f9e2af; margin-bottom: 15px;">Monster Background URLs</h4>
-                <div id="monster-url-inputs">
-                  <!-- Monster URL inputs will be populated here -->
-                </div>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                  <button type="button" id="add-monster-url" class="settings-button" style="background: #89b4fa;">
-                    ➕ Add Monster Background
-                  </button>
-                  <button type="button" id="save-monster-backgrounds" class="settings-button" style="background: #a6e3a1;">
-                    💾 Save Changes
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSection(this)">
-              <h3>💎 Loot Card Customization</h3>
-              <span class="expand-icon">+</span>
-            </div>
-            <div class="settings-section-content">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
-                Customize loot card borders and highlighting when damage requirements are met.
-              </p>
-              
-              <!-- Border Color Section -->
-              <div style="margin: 15px 0;">
-                <h4 style="color: #f9e2af; margin-bottom: 15px;">🎨 Border Colors</h4>
-                <div class="color-input-group">
-                  <input type="color" id="loot-card-custom-color" value="#f38ba8" 
-                         style="width: 50px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
-                  <label style="color: #cdd6f4; margin-left: 10px;">Custom Border Color</label>
-                </div>
-              </div>
-              
-              <!-- Highlighting Section -->
-              <div style="margin: 15px 0;">
-                <h4 style="color: #f9e2af; margin-bottom: 15px;">✨ Highlighting Effects</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
-                  <div>
-                    <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Background Color:</label>
-                    <div style="margin-top: 10px;">
-                      <input type="color" id="loot-highlighting-bg-color" value="#00ff1e" 
-                             style="width: 50px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
-                      <span style="color: #cdd6f4; margin-left: 10px;">Background Color</span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Glow Color:</label>
-                    <div style="margin-top: 10px;">
-                      <input type="color" id="loot-highlighting-glow-color" value="#ffd700" 
-                             style="width: 50px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
-                      <span style="color: #cdd6f4; margin-left: 10px;">Glow Effect Color</span>
+                    <hr style="border: 1px solid #45475a; margin: 20px 0;">
+                    <div class="color-input-group">
+                      <!-- Border Color Section -->
+                      <h4 style="color: #cdd6f4; margin-bottom: 15px;">Loot Card Customization</h4>
+                      <div style="margin: 15px 0;">
+                        <div class="color-input-group">
+                          <input type="color" id="loot-card-custom-color" value="#f38ba8" 
+                                style="width: 50px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
+                          <label style="color: #cdd6f4; margin-left: 10px;">Custom Border Color</label>
+                        </div>
+                        <div>
+                          <div style="margin-top: 10px;">
+                            <input type="color" id="loot-highlighting-bg-color" value="#00ff1e" 
+                                  style="width: 50px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
+                            <span style="color: #cdd6f4; margin-left: 10px;">Highlight Background Color</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div style="margin-top: 10px;">
+                            <input type="color" id="loot-highlighting-glow-color" value="#ffd700" 
+                                  style="width: 50px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
+                            <span style="color: #cdd6f4; margin-left: 10px;">Highlight Glow Effect Color</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-            <div class="settings-section">
-              <div class="settings-section-header">
-                <h3>🖼️ Custom Backgrounds</h3>
-                <span class="expand-icon">+</span>
-              </div>
-              <div class="settings-section-content">
-                <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
-                  Upload custom backgrounds for any page. 
-                </p>
-              <div style="margin: 15px 0;">
-                <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
-                  <input type="checkbox" id="custom-backgrounds-enabled" class="cyberpunk-checkbox">
-                  <span>Enable custom backgrounds</span>
-                </label>
-
-                <div id="custom-backgrounds-container" style="margin-top: 20px;">
-                  <h4 style="color: #f9e2af; margin-bottom: 15px;">Custom Background URLs</h4>
-                  <div id="custom-bg-inputs">
-                    <!-- Custom background inputs will be populated here -->
+                <!-- PvP Battle Features Section -->
+                <div class="settings-section">
+                  <div class="settings-section-header">
+                    <h3>⚔️ PvP Battle Features</h3>
+                    <span class="expand-icon">–</span>
                   </div>
-                  <button type="button" id="add-custom-bg" class="settings-button" style="background: #89b4fa; margin-top: 10px;">
-                    ➕ Add Custom Background
-                  </button>
-                </div>
-              </div>
-              </div>
-            </div>
-
-
-
-          <!-- PvP Battle Features Section -->
-          <div class="settings-section">
-            <div class="settings-section-header">
-              <h3>⚔️ PvP Battle Features</h3>
-              <span class="expand-icon">–</span>
-            </div>
-            <div class="settings-section-content expanded">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 20px;">
-                Configure battle prediction and auto-surrender features for PvP battles.
-              </p>
-              
-              <!-- Battle Prediction Settings -->
-              <div style="margin-bottom: 25px; padding: 15px; background: rgba(49, 50, 68, 0.3); border-radius: 8px; border-left: 3px solid #89b4fa;">
-                <h4 style="color: #89b4fa; margin: 0 0 15px 0; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-                  📊 Battle Prediction
-                </h4>
-                <p style="color: #a6adc8; font-size: 11px; margin-bottom: 15px;">
-                  Show win/loss probability predictions during PvP battles.
-                </p>
-                <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
-                  <input type="checkbox" id="pvp-prediction-enabled" class="cyberpunk-checkbox">
-                  <span>Enable battle prediction</span>
-                </label>
-                
-                <div style="margin: 15px 0;">
-                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Analysis Start:</label>
-                  <select id="pvp-analyze-after" style="width: 200px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
-                    <option value="1">After 1st attack</option>
-                    <option value="2" selected>After 2nd attack</option>
-                    <option value="3">After 3rd attack</option>
-                    <option value="4">After 4th attack</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <div class="settings-section-header" id="menu-customization-header">
-              <h3>🎛️ Menu Customization</h3>
-              <span class="expand-icon" id="menu-customization-icon">${extensionSettings.menuCustomizationExpanded ? '–' : '+'}</span>
-            </div>
-            <div class="settings-section-content" id="menu-customization-content" style="display: ${extensionSettings.menuCustomizationExpanded ? 'block' : 'none'};">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
-                Customize your sidebar menu by reordering items and hiding/showing them.
-              </p>
-              <div class="menu-customization-container">
-                <div class="menu-items-list" id="menu-items-list">
-                  <!-- Menu items will be populated here -->
-                </div>
-                <div class="menu-customization-actions" style="margin-top: 15px; text-align: center;">
-                  <button class="settings-button" id="reset-menu-customization" style="background: #f38ba8; margin-right: 10px;">
-                    🔄 Reset to Default
-                  </button>
-                  <button class="settings-button" id="apply-menu-customization" style="background: #a6e3a1;">
-                    ✅ Apply Changes
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Gate Grakthar Wave Selection Section -->
-          <div class="settings-section">
-            <div class="settings-section-header">
-              <h3>🚪 Gate Grakthar Configuration</h3>
-              <span class="expand-icon">–</span>
-            </div>
-            <div class="settings-section-content expanded">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
-                Choose which wave the Gate Grakthar sidebar button redirects to.
-              </p>
-              <div style="margin: 15px 0;">
-                <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Gate Grakthar Wave:</label>
-                <select id="gate-grakthar-wave" style="width: 250px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
-                  <option value="3">Wave 1  - gate=3&wave=3</option>
-                  <option value="5">Wave 2  - gate=3&wave=5</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Equipment Sets Configuration Section -->
-          <div class="settings-section">
-            <div class="settings-section-header">
-              <h3>⚡ Equipment Sets</h3>
-              <span class="expand-icon">–</span>
-            </div>
-            <div class="settings-section-content expanded">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
-                Equipment Sets are always enabled. Configure application delay between equipment changes.
-              </p>
-              <div style="margin: 15px 0;">
-                <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Apply Delay (ms):</label>
-                <input type="number" id="equip-sets-delay" min="100" max="2000" step="50" value="350" 
-                       style="width: 120px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
-                <small style="color: #6c7086; margin-left: 10px;">Delay between equipment changes</small>
-              </div>
-            </div>
-          </div>
-
-          <!-- Battle Modal Settings Section -->
-          <div class="settings-section">
-            <div class="settings-section-header">
-              <h3>⚔️ Battle Modal System</h3>
-              <span class="expand-icon">+</span>
-            </div>
-            <div class="settings-section-content">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 20px;">
-                Enable modal-based battles instead of full page navigation. Opens battles in a popup overlay.
-              </p>
-              
-              <div style="margin-bottom: 25px; padding: 15px; background: rgba(49, 50, 68, 0.3); border-radius: 8px; border-left: 3px solid #89b4fa;">
-                <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
-                  <input type="checkbox" id="battle-modal-enabled" class="cyberpunk-checkbox" style="appearance: none; width: 20px; height: 20px; border: 2px solid #89b4fa; border-radius: 5px; background-color: transparent; display: inline-block; position: relative; margin-right: 10px; cursor: pointer; transition: 0.3s; box-shadow: rgba(137, 180, 250, 0.4) 0px 0px 15px;">
-                  <span style="font-weight: 600;">Enable Battle Modal System</span>
-                </label>
-                
-                <div style="margin: 15px 0;">
-                  <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Display Options:</label>
-                  <div style="display: flex; flex-direction: column; gap: 10px; margin-left: 20px;">
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-auto-close" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
-                      <span>Auto-close when monster defeated</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-loot" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
-                      <span>Show loot modal after looting</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-loot-preview" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
-                      <span>Show loot preview in modal</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-logs" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
-                      <span>Show attack logs</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-leaderboard" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
-                      <span>Show leaderboard</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
-                      <input type="checkbox" id="battle-modal-show-player-info" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
-                      <span>Show player info</span>
-                    </label>
+                  <div class="settings-section-content expanded">
+                    <p style="color: #a6adc8; font-size: 12px; margin-bottom: 20px;">
+                      Configure battle prediction and auto-surrender features for PvP battles.
+                    </p>
+                    
+                    <!-- Battle Prediction Settings -->
+                    <div style="margin-bottom: 25px; padding: 15px; background: rgba(49, 50, 68, 0.3); border-radius: 8px; border-left: 3px solid #89b4fa;">
+                      <h4 style="color: #89b4fa; margin: 0 0 15px 0; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                        📊 Battle Prediction
+                      </h4>
+                      <p style="color: #a6adc8; font-size: 11px; margin-bottom: 15px;">
+                        Show win/loss probability predictions during PvP battles.
+                      </p>
+                      <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
+                        <input type="checkbox" id="pvp-prediction-enabled" class="cyberpunk-checkbox">
+                        <span>Enable battle prediction</span>
+                      </label>
+                      
+                      <div style="margin: 15px 0;">
+                        <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Analysis Start:</label>
+                        <select id="pvp-analyze-after" style="width: 200px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
+                          <option value="1">After 1st attack</option>
+                          <option value="2" selected>After 2nd attack</option>
+                          <option value="3">After 3rd attack</option>
+                          <option value="4">After 4th attack</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-header" id="menu-customization-header">
+                    <h3>🎛️ Menu Customization</h3>
+                    <span class="expand-icon" id="menu-customization-icon">${extensionSettings.menuCustomizationExpanded ? '–' : '+'}</span>
+                  </div>
+                  <div class="settings-section-content" id="menu-customization-content" style="display: ${extensionSettings.menuCustomizationExpanded ? 'block' : 'none'};">
+                    <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
+                      Customize your sidebar menu by reordering items and hiding/showing them.
+                    </p>
+                    <div class="menu-customization-container">
+                      <div class="menu-items-list" id="menu-items-list">
+                        <!-- Menu items will be populated here -->
+                      </div>
+                      <div class="menu-customization-actions" style="margin-top: 15px; text-align: center;">
+                        <button class="settings-button" id="reset-menu-customization" style="background: #f38ba8; margin-right: 10px;">
+                          🔄 Reset to Default
+                        </button>
+                        <button class="settings-button" id="apply-menu-customization" style="background: #a6e3a1;">
+                          ✅ Apply Changes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Gate Grakthar Wave Selection Section -->
+                <div class="settings-section">
+                  <div class="settings-section-header">
+                    <h3>🚪 Gate Grakthar Configuration</h3>
+                    <span class="expand-icon">–</span>
+                  </div>
+                  <div class="settings-section-content expanded">
+                    <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
+                      Choose which wave the Gate Grakthar sidebar button redirects to.
+                    </p>
+                    <div style="margin: 15px 0;">
+                      <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Gate Grakthar Wave:</label>
+                      <select id="gate-grakthar-wave" style="width: 250px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
+                        <option value="3">Wave 1  - gate=3&wave=3</option>
+                        <option value="5">Wave 2  - gate=3&wave=5</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Equipment Sets Configuration Section -->
+                <div class="settings-section">
+                  <div class="settings-section-header">
+                    <h3>⚡ Equipment Sets</h3>
+                    <span class="expand-icon">–</span>
+                  </div>
+                  <div class="settings-section-content expanded">
+                    <p style="color: #a6adc8; font-size: 12px; margin-bottom: 15px;">
+                      Equipment Sets are always enabled. Configure application delay between equipment changes.
+                    </p>
+                    <div style="margin: 15px 0;">
+                      <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Apply Delay (ms):</label>
+                      <input type="number" id="equip-sets-delay" min="100" max="2000" step="50" value="350" 
+                            style="width: 120px; padding: 8px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px;">
+                      <small style="color: #6c7086; margin-left: 10px;">Delay between equipment changes</small>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Battle Modal Settings Section -->
+                <div class="settings-section">
+                  <div class="settings-section-header">
+                    <h3>⚔️ Battle Modal System</h3>
+                    <span class="expand-icon">+</span>
+                  </div>
+                  <div class="settings-section-content">
+                    <p style="color: #a6adc8; font-size: 12px; margin-bottom: 20px;">
+                      Enable modal-based battles instead of full page navigation. Opens battles in a popup overlay.
+                    </p>
+                    
+                    <div style="margin-bottom: 25px; padding: 15px; background: rgba(49, 50, 68, 0.3); border-radius: 8px; border-left: 3px solid #89b4fa;">
+                      <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4; margin-bottom: 15px;">
+                        <input type="checkbox" id="battle-modal-enabled" class="cyberpunk-checkbox" style="appearance: none; width: 20px; height: 20px; border: 2px solid #89b4fa; border-radius: 5px; background-color: transparent; display: inline-block; position: relative; margin-right: 10px; cursor: pointer; transition: 0.3s; box-shadow: rgba(137, 180, 250, 0.4) 0px 0px 15px;">
+                        <span style="font-weight: 600;">Enable Battle Modal System</span>
+                      </label>
+                      
+                      <div style="margin: 15px 0;">
+                        <label style="color: #f9e2af; margin-bottom: 10px; display: block;">Display Options:</label>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-left: 20px;">
+                          <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                            <input type="checkbox" id="battle-modal-auto-close" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                            <span>Auto-close when monster defeated</span>
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                            <input type="checkbox" id="battle-modal-show-loot" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                            <span>Show loot modal after looting</span>
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                            <input type="checkbox" id="battle-modal-show-loot-preview" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                            <span>Show loot preview in modal</span>
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                            <input type="checkbox" id="battle-modal-show-logs" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                            <span>Show attack logs</span>
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                            <input type="checkbox" id="battle-modal-show-leaderboard" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                            <span>Show leaderboard</span>
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 10px; color: #cdd6f4;">
+                            <input type="checkbox" id="battle-modal-show-player-info" class="cyberpunk-checkbox" style="appearance: none; width: 18px; height: 18px; border: 2px solid #a6e3a1; border-radius: 4px; background-color: transparent;">
+                            <span>Show player info</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Hotkeys Section -->
+                <div class="settings-section">
+                  <div class="settings-section-header" onclick="toggleSection(this)">
+                    <h3>⌨️ Hotkeys</h3>
+                    <span class="expand-icon">+</span>
+                  </div>
+                  <div class="settings-section-content">
+                    <p style="color:#a6adc8; font-size:12px; margin-bottom:12px;">
+                      Configure keyboard shortcuts for faster navigation and combat. Changes apply instantly.
+                    </p>
+
+                    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">
+                      <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                        <input type="checkbox" id="hotkeys-enabled" class="cyberpunk-checkbox">
+                        <span>Enable hotkeys</span>
+                      </label>
+                      <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                        <input type="checkbox" id="hotkeys-monster-selection" class="cyberpunk-checkbox">
+                        <span>Enable monster selection on wave pages</span>
+                      </label>
+                      <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                        <input type="checkbox" id="hotkeys-show-overlays" class="cyberpunk-checkbox">
+                        <span>Show key overlays on cards and buttons</span>
+                      </label>
+                      <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
+                        <input type="checkbox" id="hotkeys-battle-attacks" class="cyberpunk-checkbox">
+                        <span>Enable battle attack hotkeys in modal</span>
+                      </label>
+                    </div>
+
+                    <div style="margin-top:10px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
+                      <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Monster selection keys (wave pages)</h4>
+                      <div style="display:grid; grid-template-rows: repeat(9, 1fr); gap:8px;">
+                        ${[1,2,3,4,5,6,7,8,9].map(i => `
+                          <input id="hotkey-monster-${i}" maxlength="1" placeholder="${i}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
+                        ).join('')}
+                      </div>
+                      <div style="margin-top:8px; text-align:right;">
+                        <button id="hotkeys-reset-monster-keys" class="settings-button" style="background:#a6e3a1;">Reset 1-9</button>
+                      </div>
+                    </div>
+
+                    <div style="margin-top:12px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
+                      <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Battle attack keys (modal)</h4>
+                      <div style="display:grid; grid-template-columns: auto 70%; row-gap:8px; column-gap:12px; align-items:center;">
+                        ${['Slash','Power','Heroic','Ultimate','Legendary'].map((label,i) => `
+                          <label for="hotkey-attack-${i+1}" style="color:#cdd6f4; text-align:left; padding-right:6px;">${label}</label>
+                          <input id="hotkey-attack-${i+1}" maxlength="1" placeholder="${['S','P','H','U','L'][i]}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
+                        ).join('')}
+                      </div>
+                      <div style="margin-top:8px; text-align:right;">
+                        <button id="hotkeys-reset-attack-keys" class="settings-button" style="background:#a6e3a1;">Reset SPHUL</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <div style="text-align: center; margin-top: 30px;">
+                  <button class="settings-button" data-action="close">Close</button>
+                  <button class="settings-button" data-action="reset">Reset to Default</button>
+                  <button class="settings-button" data-action="clear" style="background: #f38ba8;">Clear All Data</button>
+                </div>
               </div>
             </div>
           </div>
-
-          <!-- Hotkeys Section -->
-          <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSection(this)">
-              <h3>⌨️ Hotkeys</h3>
-              <span class="expand-icon">+</span>
-            </div>
-            <div class="settings-section-content">
-              <p style="color:#a6adc8; font-size:12px; margin-bottom:12px;">
-                Configure keyboard shortcuts for faster navigation and combat. Changes apply instantly.
-              </p>
-
-              <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">
-                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
-                  <input type="checkbox" id="hotkeys-enabled" class="cyberpunk-checkbox">
-                  <span>Enable hotkeys</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
-                  <input type="checkbox" id="hotkeys-monster-selection" class="cyberpunk-checkbox">
-                  <span>Enable monster selection on wave pages</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
-                  <input type="checkbox" id="hotkeys-show-overlays" class="cyberpunk-checkbox">
-                  <span>Show key overlays on cards and buttons</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:10px; color:#cdd6f4;">
-                  <input type="checkbox" id="hotkeys-battle-attacks" class="cyberpunk-checkbox">
-                  <span>Enable battle attack hotkeys in modal</span>
-                </label>
-              </div>
-
-              <div style="margin-top:10px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
-                <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Monster selection keys (wave pages)</h4>
-                <div style="display:grid; grid-template-rows: repeat(9, 1fr); gap:8px;">
-                  ${[1,2,3,4,5,6,7,8,9].map(i => `
-                    <input id="hotkey-monster-${i}" maxlength="1" placeholder="${i}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
-                  ).join('')}
-                </div>
-                <div style="margin-top:8px; text-align:right;">
-                  <button id="hotkeys-reset-monster-keys" class="settings-button" style="background:#a6e3a1;">Reset 1-9</button>
-                </div>
-              </div>
-
-              <div style="margin-top:12px; padding:12px; background:rgba(49,50,68,.3); border-radius:8px; border-left:3px solid #89b4fa;">
-                <h4 style="color:#89b4fa; margin:0 0 10px 0; font-size:14px;">Battle attack keys (modal)</h4>
-                <div style="display:grid; grid-template-columns: auto 70%; row-gap:8px; column-gap:12px; align-items:center;">
-                  ${['Slash','Power','Heroic','Ultimate','Legendary'].map((label,i) => `
-                    <label for="hotkey-attack-${i+1}" style="color:#cdd6f4; text-align:left; padding-right:6px;">${label}</label>
-                    <input id="hotkey-attack-${i+1}" maxlength="1" placeholder="${['S','P','H','U','L'][i]}" style="text-transform:uppercase; padding:6px; background:#1e1e2e; color:#cdd6f4; border:1px solid #45475a; border-radius:4px; text-align:center;">`
-                  ).join('')}
-                </div>
-                <div style="margin-top:8px; text-align:right;">
-                  <button id="hotkeys-reset-attack-keys" class="settings-button" style="background:#a6e3a1;">Reset SPHUL</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-
-          <div style="text-align: center; margin-top: 30px;">
-            <button class="settings-button" data-action="close">Close</button>
-            <button class="settings-button" data-action="reset">Reset to Default</button>
-            <button class="settings-button" data-action="clear" style="background: #f38ba8;">Clear All Data</button>
-          </div>
-        </div>
       `;
 
 
@@ -7592,7 +7482,7 @@ window.toggleSection = function(header) {
           <option value="blur" ${effect === 'blur' ? 'selected' : ''}>Blur</option>
           <option value="pattern" ${effect === 'pattern' ? 'selected' : ''}>Pattern</option>
         </select>
-        <button class="settings-button" style="background: #f38ba8; padding: 6px 10px; font-size: 12px; min-width: 40px;" data-action="remove-custom-bg">
+        <button class="settings-button" style="margin-top: 0px; background: #f38ba8; padding: 6px 10px; font-size: 12px; min-width: 40px;" data-action="remove-custom-bg">
           🗑️
         </button>
       `;
@@ -8059,7 +7949,7 @@ window.toggleSection = function(header) {
           <option value="blur" ${effect === 'blur' ? 'selected' : ''}>Blur</option>
           <option value="pattern" ${effect === 'pattern' ? 'selected' : ''}>Pattern</option>
         </select>
-        <button class="settings-button" style="background: #f38ba8; padding: 6px 10px; font-size: 12px; min-width: 40px;" data-action="remove-monster-url">
+        <button class="settings-button" style="margin-top: 0px; background: #f38ba8; padding: 6px 10px; font-size: 12px; min-width: 40px;" data-action="remove-monster-url">
         🗑️
       </button>
     `;
