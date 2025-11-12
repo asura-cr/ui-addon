@@ -15689,8 +15689,223 @@ window.toggleSection = function(header) {
       if (sidebarStaminaAlloc) sidebarStaminaAlloc.textContent = userData.STAMINA || userData.MAX_STAMINA || userData.stamina || 0;
   }
 
+  // Inject consistent, modern styles for sidebar quick-access cards (inventory & merchant)
+  function addQuickAccessStyles() {
+      if (document.getElementById('quick-access-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'quick-access-styles';
+      style.textContent = `
+        /* Quick Access container */
+        .sidebar-quick-access {
+          display: grid;
+          gap: 8px;
+        }
+
+        /* Card base */
+        .sidebar-quick-access .quick-access-item {
+          background: rgba(30, 30, 46, 0.75);
+          border: 1px solid rgba(69, 71, 90, 0.9);
+          border-radius: 10px;
+          padding: 10px;
+          transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+        }
+
+        .sidebar-quick-access .quick-access-item:hover {
+          border-color: #89b4fa;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          transform: translateY(-1px);
+        }
+
+        /* Header */
+        .sidebar-quick-access .qa-item-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .sidebar-quick-access .qa-item-header img {
+          border-radius: 6px;
+          object-fit: cover;
+          background: #11111b;
+          border: 1px solid rgba(59, 63, 92, 0.8);
+        }
+
+        .sidebar-quick-access .qa-item-info {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .sidebar-quick-access .qa-item-name {
+          color: #cdd6f4;
+          font-weight: 600;
+          font-size: 13px;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .sidebar-quick-access .qa-item-price {
+          font-size: 12px;
+          color: #b4befe;
+        }
+
+        .sidebar-quick-access .qa-item-limit {
+          font-size: 11px;
+          color: #a6adc8;
+          opacity: 0.9;
+        }
+
+        /* Currency accent colors */
+        .sidebar-quick-access .quick-access-item[data-item-currency="gold"] .qa-item-price { color: #f9e2af; }
+        .sidebar-quick-access .quick-access-item[data-item-currency="diamond"] .qa-item-price { color: #cba6f7; }
+        .sidebar-quick-access .quick-access-item[data-item-currency="token"] .qa-item-price { color: #94e2d5; }
+
+        /* Remove button */
+        .sidebar-quick-access .qa-remove-btn {
+          margin-left: auto;
+          background: transparent;
+          border: 1px solid rgba(69, 71, 90, 0.9);
+          color: #bac2de;
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          cursor: pointer;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+        }
+
+        .sidebar-quick-access .qa-remove-btn:hover {
+          background: #f38ba8;
+          border-color: #f38ba8;
+          color: #1e1e2e;
+        }
+
+        /* Actions row */
+        .sidebar-quick-access .qa-item-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px dashed rgba(69, 71, 90, 0.65);
+        }
+
+        /* Buttons */
+        .sidebar-quick-access .qa-buy-btn,
+        .sidebar-quick-access .qa-equip-btn,
+        .sidebar-quick-access .qa-use-btn {
+          padding: 6px 10px;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: transform 0.05s ease, box-shadow 0.12s ease, filter 0.12s ease;
+        }
+
+        .sidebar-quick-access .qa-buy-btn { 
+          background: linear-gradient(135deg, #74c0fc 0%, #89b4fa 100%);
+          color: #1e1e2e; 
+        }
+        .sidebar-quick-access .quick-access-item[data-item-currency="gold"] .qa-buy-btn {
+          background: linear-gradient(135deg, #f9e2af 0%, #f5e0dc 100%);
+          color: #1e1e2e;
+        }
+        .sidebar-quick-access .quick-access-item[data-item-currency="diamond"] .qa-buy-btn {
+          background: linear-gradient(135deg, #cba6f7 0%, #b4befe 100%);
+          color: #1e1e2e;
+        }
+
+        .sidebar-quick-access .qa-equip-btn { 
+          background: linear-gradient(135deg, #a6e3a1 0%, #94e2d5 100%);
+          color: #1e1e2e;
+        }
+        .sidebar-quick-access .qa-use-btn { 
+          background: linear-gradient(135deg, #74c0fc 0%, #89b4fa 100%);
+          color: #1e1e2e;
+        }
+
+        .sidebar-quick-access .qa-buy-btn[disabled] {
+          background: #45475a !important;
+          color: #cdd6f4 !important;
+          cursor: not-allowed;
+          opacity: 0.7;
+          box-shadow: none !important;
+        }
+
+        .sidebar-quick-access .qa-buy-btn:active,
+        .sidebar-quick-access .qa-equip-btn:active,
+        .sidebar-quick-access .qa-use-btn:active {
+          transform: translateY(1px);
+        }
+
+        /* Quantity controls (inventory) */
+        .sidebar-quick-access .qa-use-controls {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .sidebar-quick-access .qty-wrap {
+          display: flex;
+          align-items: center;
+          border: 1px solid #45475a;
+          border-radius: 6px;
+          background: #1e1e2e;
+          overflow: hidden;
+        }
+
+        .sidebar-quick-access .qty-btn {
+          border: none;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-weight: 800;
+        }
+        .sidebar-quick-access .qty-btn.minus { background: #f38ba8; color: #1e1e2e; }
+        .sidebar-quick-access .qty-btn.plus  { background: #a6e3a1; color: #1e1e2e; }
+
+        .sidebar-quick-access .qty-input {
+          width: 36px;
+          padding: 4px;
+          background: #1e1e2e;
+          color: #cdd6f4;
+          border: none;
+          text-align: center;
+          font-size: 12px;
+        }
+
+        /* Empty state */
+        .sidebar-quick-access .quick-access-empty {
+          background: rgba(49, 50, 68, 0.35);
+          border: 1px dashed rgba(69, 71, 90, 0.8);
+          color: #a6adc8;
+          border-radius: 8px;
+          padding: 10px;
+          text-align: center;
+          font-size: 12px;
+        }
+
+        /* Merchant-specific tweaks */
+        #merchant-expanded .sidebar-quick-access .quick-access-item {
+          max-width: 189px;
+          width: 189px;
+        }
+      `;
+      document.head.appendChild(style);
+  }
+
   // SIDEBAR SECTION UPDATES
   function updateSidebarInventorySection() {
+      // Ensure styles are present
+      addQuickAccessStyles();
       const inventoryContent = document.getElementById('inventory-expanded');
       if (!inventoryContent) return;
 
@@ -15750,6 +15965,8 @@ window.toggleSection = function(header) {
   }
 
   function updateSidebarMerchantSection() {
+    // Ensure styles are present
+    addQuickAccessStyles();
     const merchantContent = document.getElementById('merchant-expanded');
     if (!merchantContent) return;
 
@@ -15786,9 +16003,9 @@ window.toggleSection = function(header) {
       itemsToRender.forEach(item => {
               const remaining = item.maxQ > 0 ? Math.max(0, item.maxQ - item.bought) : 999;
               const canBuy = item.maxQ === 0 || remaining > 0;
-        
+
         content += `
-                  <div class="quick-access-item" data-item-id="${item.id}" data-item-name="${item.name}" data-item-currency="${item.currency}" data-item-price="${item.price}">
+                  <div class="quick-access-item" data-item-id="${item.id}" data-item-name="${item.name}" data-item-currency="${item.currency}" data-item-price="${item.price}" style="max-width: 189px;">
             <div class="qa-item-header">
                           <img src="${item.image}" alt="${item.name}" style="width: 24px; height: 24px; border-radius: 4px;" onerror="this.style.display='none'">
               <div class="qa-item-info">
@@ -15796,12 +16013,12 @@ window.toggleSection = function(header) {
                               <div class="qa-item-price">${item.priceDisplay}</div>
                               ${item.maxQ > 0 ? `<div class="qa-item-limit">Remaining: ${remaining}/${item.maxQ}</div>` : ''}
               </div>
-                          <button class="qa-remove-btn" data-action="remove">×</button>
             </div>
             <div class="qa-item-actions">
-                          <button class="qa-buy-btn" ${!canBuy ? 'disabled' : ''} data-action="buy">
+                          <button class="qa-buy-btn" ${!canBuy ? 'disabled' : ''} data-action="buy" draggable="false">
                               ${canBuy ? 'Buy' : 'Sold Out'}
               </button>
+              <button class="qa-remove-btn" data-action="remove" draggable="false">×</button>
             </div>
           </div>
         `;
