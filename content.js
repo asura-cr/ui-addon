@@ -1447,33 +1447,31 @@ function parseLeaderboardFromHtml(html) {
           throw new Error(joinMsg || 'Failed to join battle');
         }
       } else {
-        btn.style.display = 'none';
+        // Clean up any old "Continue the Battle" duplicates appended previously
+        try {
+          monsterCard?.querySelectorAll('a .join-btn, a .continue-btn')?.forEach(b => {
+            if (/continue/i.test(b.textContent||'')) {
+              const wrap = b.closest('a');
+              if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+            }
+          });
+        } catch(e) { /* no-op */ }
+
+        // Hide the clicked Join button and any sibling Join buttons
+        try {
+          btn.style.display = 'none';
+          monsterCard?.querySelectorAll('.join-btn')?.forEach(jb => {
+            if (jb !== btn && /join/i.test(jb.textContent||'')) {
+              jb.style.display = 'none';
+            }
+          });
+        } catch(e) { /* no-op */ }
+
+        // Hide "View" companion button; our continue button covers viewing
         const viewBtn = monsterCard.querySelector('#view-battle-btn');
         if (viewBtn) {
           viewBtn.style.display = 'none';
         }
-        // Create <a> wrapper
-        const a = document.createElement('a');
-        a.setAttribute('draggable', 'false');
-        a.setAttribute('data-monster-id', monsterId);
-        a.style.cursor = 'pointer';
-        // Create <button>
-        const newBtn = document.createElement('button');
-        newBtn.className = 'join-btn';
-        newBtn.setAttribute('draggable', 'false');
-        newBtn.setAttribute('data-enhanced', 'true');
-        newBtn.setAttribute('data-monster-id', monsterId);
-        newBtn.setAttribute('data-darkreader-inline-bgimage', '');
-        newBtn.setAttribute('data-darkreader-inline-bgcolor', '');
-        newBtn.textContent = 'Continue the Battle';
-        newBtn.style.background = 'rgb(230, 126, 34)';
-        newBtn.style.setProperty('--darkreader-inline-bgimage', 'initial');
-        newBtn.style.setProperty('--darkreader-inline-bgcolor', 'var(--darkreader-background-e67e22, #b25e14)');
-        a.appendChild(newBtn);
-        monsterCard.appendChild(a);
-        newBtn.addEventListener('click', () => {
-          showBattleModal(monster);
-        });
 
         // Move monster card to Continue Battle section
         let continueSection = document.getElementById('continue-battle-content');
@@ -1517,6 +1515,31 @@ function parseLeaderboardFromHtml(html) {
           playerCount: parsed.playerCount || 0,
           monsterName: parsed.monsterName || 'Unknown Monster'
         };
+        // Create <a><button class="continue-btn">Continue the Battle</button></a> UI
+        try {
+          const anchor = document.createElement('a');
+          anchor.setAttribute('draggable','false');
+          anchor.setAttribute('data-monster-id', monsterId);
+          anchor.style.cursor = 'pointer';
+
+          const continueBtn = document.createElement('button');
+          continueBtn.className = 'continue-btn';
+          continueBtn.setAttribute('draggable','false');
+          continueBtn.textContent = 'Continue the Battle';
+          continueBtn.style.background = 'rgb(230, 126, 34)';
+          continueBtn.setAttribute('data-darkreader-inline-bgimage','');
+          continueBtn.setAttribute('data-darkreader-inline-bgcolor','');
+          continueBtn.style.setProperty('--darkreader-inline-bgimage', 'initial');
+          continueBtn.style.setProperty('--darkreader-inline-bgcolor', 'var(--darkreader-background-e67e22, #b25e14)');
+          continueBtn.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            showBattleModal(monster);
+          });
+
+          anchor.appendChild(continueBtn);
+          monsterCard.appendChild(anchor);
+        } catch(e) { /* no-op */ }
+
         await showBattleModal(monster);
       }
     } catch (error) {
