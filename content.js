@@ -77,6 +77,12 @@
       enabled: false, // Enable semi-transparent effect
       opacity: 0.85 // Opacity level
     },
+    updates: {
+      autoCheck: true,
+      lastChecked: 0,
+      latestKnownVersion: '',
+      latestUrl: ''
+    },
     battleModal: {
       enabled: false, // Enable battle modal system
       autoClose: true, // Auto-close modal after battle
@@ -401,6 +407,16 @@
       if (!Array.isArray(extensionSettings.hotkeys.battleAttackKeys) || extensionSettings.hotkeys.battleAttackKeys.length < 5) {
         extensionSettings.hotkeys.battleAttackKeys = ['s','p','h','u','l'];
       }
+    }
+
+    // Ensure updates settings exist
+    if (!extensionSettings.updates) {
+      extensionSettings.updates = { autoCheck: true, lastChecked: 0, latestKnownVersion: '', latestUrl: '' };
+    } else {
+      if (typeof extensionSettings.updates.autoCheck !== 'boolean') extensionSettings.updates.autoCheck = true;
+      if (!extensionSettings.updates.lastChecked) extensionSettings.updates.lastChecked = 0;
+      if (typeof extensionSettings.updates.latestKnownVersion !== 'string') extensionSettings.updates.latestKnownVersion = '';
+      if (typeof extensionSettings.updates.latestUrl !== 'string') extensionSettings.updates.latestUrl = '';
     }
     
     applySettings();
@@ -6474,6 +6490,25 @@ function parseAttackLogs(html) {
 
             <div class="settings-content">
               <div class="settings-grid">
+                <!-- Updates Section -->
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <strong style="min-width:140px; color:#cdd6f4;">Current version:</strong>
+                    <span id="current-version" style="color:#f9e2af;">—</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <strong style="min-width:140px; color:#cdd6f4;">Latest release:</strong>
+                    <span id="latest-version" style="color:#cdd6f4;">Not checked</span>
+                  </div>
+                  <div id="update-status" style="color:#a6adc8; font-size:12px;"></div>
+                  <div style="display:flex; gap:10px; margin-top:6px;">
+                    <button type="button" id="check-updates-btn" class="settings-button" style="background:#89b4fa;">🔎 Check now</button>
+                    <button type="button" id="open-release-btn" class="settings-button" style="background:#a6e3a1;">⬇️ Open latest</button>
+                  </div>
+                  <div style="color:#6c7086; font-size:11px;" id="updates-last-checked"></div>
+                </div>
+
+
                 <!-- Sidebar Color Section -->
                 <div class="settings-section expanded">
                   <div class="settings-section-header" onclick="toggleSection(this)">
@@ -6882,55 +6917,7 @@ function parseAttackLogs(html) {
             </div>
           </div>
 
-          <!-- Wave Auto-Refresh Section -->
-          <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSection(this)">
-              <h3>🌊 Wave Auto-Refresh Settings</h3>
-              <span class="expand-icon">+</span>
-            </div>
-            <div class="settings-section-content">
-              <p style="color: #a6adc8; font-size: 12px; margin-bottom: 20px;">
-                Configure how often wave pages automatically refresh. Toggle on/off in the wave page filters.
-              </p>
-              
-              <div style="background: rgba(49, 50, 68, 0.3); padding: 20px; border-radius: 8px; border-left: 3px solid #89b4fa;">
-                <h4 style="color: #89b4fa; margin: 0 0 15px 0; font-size: 14px;">⏱️ Refresh Timing</h4>
-                
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <label style="color: #f9e2af; font-weight: 500; min-width: 120px;">Refresh Every:</label>
-                    <input type="number" 
-                           id="wave-refresh-time" 
-                           min="5" 
-                           max="600" 
-                           placeholder="10"
-                           style="width: 100px; padding: 8px 12px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 6px; text-align: center; font-size: 14px;">
-                    <select id="wave-refresh-unit" 
-                            style="padding: 8px 12px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 6px; font-size: 14px;">
-                      <option value="seconds">seconds</option>
-                      <option value="minutes">minutes</option>
-                    </select>
-                  </div>
-                  
-                  <div style="background: rgba(26, 27, 38, 0.5); padding: 12px; border-radius: 6px; border: 1px solid #45475a;">
-                    <p style="color: #a6adc8; font-size: 12px; margin: 0; line-height: 1.4;">
-                      <strong style="color: #f9e2af;">💡 Quick Setup:</strong><br>
-                      • <strong>5-15 seconds:</strong> Fast refresh for active monitoring<br>
-                      • <strong>30-60 seconds:</strong> Balanced for regular checking<br>
-                      • <strong>2-5 minutes:</strong> Light refresh for background monitoring<br>
-                      • <strong>Range:</strong> 5 seconds to 10 minutes maximum
-                    </p>
-                  </div>
-                  
-                  <div style="padding: 12px; background: rgba(137, 180, 250, 0.1); border: 1px solid rgba(137, 180, 250, 0.3); border-radius: 6px;">
-                    <p style="color: #89b4fa; font-size: 12px; margin: 0; font-weight: 500;">
-                      🔄 Toggle auto-refresh on/off directly in the wave page filter area
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+
 
           <div style="text-align: center; margin-top: 30px;">
             <button class="settings-button" data-action="close">Close</button>
@@ -6952,6 +6939,7 @@ function parseAttackLogs(html) {
       setupEquipSetsSettings();
       setupBattleModalSettings();
       setupHotkeySettings();
+  setupUpdateCheckerSettings();
       setupMenuCustomizationListeners();
       // Initialize all cyberpunk checkboxes
       initializeAllCheckboxes();
@@ -7015,6 +7003,141 @@ window.toggleSection = function(header) {
         closeSettingsModal();
       }
     });
+  }
+
+  // ===== Update Checker =====
+  function normalizeVersion(v) {
+    if (!v) return '0.0.0';
+    const s = String(v).trim().replace(/^v/i, '');
+    const parts = s.split('.').map(p => parseInt(p, 10)).filter(n => !Number.isNaN(n));
+    while (parts.length < 3) parts.push(0);
+    return parts.slice(0,3).join('.');
+  }
+
+  function compareVersions(a, b) {
+    const ax = normalizeVersion(a).split('.').map(Number);
+    const bx = normalizeVersion(b).split('.').map(Number);
+    for (let i=0;i<3;i++) {
+      if (ax[i] < bx[i]) return -1;
+      if (ax[i] > bx[i]) return 1;
+    }
+    return 0;
+  }
+
+  async function fetchLatestReleaseInfo() {
+    const url = 'https://api.github.com/repos/asura-cr/ui-addon/releases/latest';
+    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+    const data = await res.json();
+    const tag = data.tag_name || data.name || '';
+    return {
+      version: normalizeVersion(tag || data.name || ''),
+      url: data.html_url || 'https://github.com/asura-cr/ui-addon/releases/latest',
+      name: data.name || tag || 'Latest release',
+      publishedAt: data.published_at || ''
+    };
+  }
+
+  async function checkForUpdates(options = {}) {
+    const { force = false, updateUI = true } = options;
+    try {
+      if (!extensionSettings.updates) extensionSettings.updates = { autoCheck: true, lastChecked: 0, latestKnownVersion: '', latestUrl: '' };
+
+      const now = Date.now();
+      const dayMs = 24 * 60 * 60 * 1000;
+      if (!force && extensionSettings.updates.lastChecked && (now - extensionSettings.updates.lastChecked) < dayMs) {
+        if (updateUI) updateUpdateSectionUI();
+        return { skipped: true };
+      }
+
+      // Indicate checking
+      if (updateUI) {
+        const statusEl = document.getElementById('update-status');
+        if (statusEl) statusEl.textContent = 'Checking for updates…';
+      }
+
+      const info = await fetchLatestReleaseInfo();
+      extensionSettings.updates.latestKnownVersion = info.version;
+      extensionSettings.updates.latestUrl = info.url;
+      extensionSettings.updates.lastChecked = now;
+      saveSettings();
+
+      if (updateUI) updateUpdateSectionUI();
+      return info;
+    } catch (e) {
+      console.error('Update check failed:', e);
+      if (updateUI) {
+        const statusEl = document.getElementById('update-status');
+        if (statusEl) statusEl.textContent = `Update check failed: ${e.message}`;
+      }
+      return { error: e };
+    }
+  }
+
+  function updateUpdateSectionUI() {
+    try {
+      const manifestVersion = (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) ? (chrome.runtime.getManifest().version || '0.0.0') : '0.0.0';
+      const currentEl = document.getElementById('current-version');
+      if (currentEl) currentEl.textContent = manifestVersion;
+
+      const lastEl = document.getElementById('updates-last-checked');
+      if (lastEl && extensionSettings.updates?.lastChecked) {
+        const d = new Date(extensionSettings.updates.lastChecked);
+        lastEl.textContent = `Last checked: ${d.toLocaleString()}`;
+      } else if (lastEl) {
+        lastEl.textContent = '';
+      }
+
+      const latestVer = extensionSettings.updates?.latestKnownVersion || '';
+      const latestEl = document.getElementById('latest-version');
+      if (latestEl) latestEl.textContent = latestVer || 'Not checked';
+
+      const statusEl = document.getElementById('update-status');
+      if (statusEl && latestVer) {
+        const cmp = compareVersions(manifestVersion, latestVer);
+        if (cmp < 0) {
+          statusEl.textContent = `A new version is available: v${latestVer}`;
+          statusEl.style.color = '#a6e3a1';
+        } else if (cmp === 0) {
+          statusEl.textContent = 'You are up to date.';
+          statusEl.style.color = '#89b4fa';
+        } else {
+          statusEl.textContent = 'You are ahead of the latest release.';
+          statusEl.style.color = '#f9e2af';
+        }
+      }
+
+      const openBtn = document.getElementById('open-release-btn');
+      if (openBtn) openBtn.disabled = !extensionSettings.updates?.latestUrl;
+      const autoChk = document.getElementById('updates-auto-check');
+      if (autoChk) autoChk.checked = !!extensionSettings.updates?.autoCheck;
+    } catch (e) {
+      console.error('Failed to update Updates section UI:', e);
+    }
+  }
+
+  function setupUpdateCheckerSettings() {
+    try {
+      updateUpdateSectionUI();
+      const checkBtn = document.getElementById('check-updates-btn');
+      const openBtn = document.getElementById('open-release-btn');
+      const autoChk = document.getElementById('updates-auto-check');
+
+      checkBtn?.addEventListener('click', () => {
+        checkForUpdates({ force: true, updateUI: true });
+      });
+      openBtn?.addEventListener('click', () => {
+        const url = extensionSettings.updates?.latestUrl || 'https://github.com/asura-cr/ui-addon/releases/latest';
+        window.open(url, '_blank');
+      });
+      autoChk?.addEventListener('change', () => {
+        if (!extensionSettings.updates) extensionSettings.updates = { autoCheck: true, lastChecked: 0, latestKnownVersion: '', latestUrl: '' };
+        extensionSettings.updates.autoCheck = !!autoChk.checked;
+        saveSettings();
+      });
+    } catch (e) {
+      console.error('setupUpdateCheckerSettings error', e);
+    }
   }
 
   function setupColorSelectors() {
@@ -9946,7 +10069,12 @@ window.toggleSection = function(header) {
   });
 
   function initializeExtension() {
-    console.log('Demon Game Enhancement v3.0 - Initializing...');
+    const version = (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getManifest === 'function')
+      ? chrome.runtime.getManifest().version
+      : (typeof browser !== 'undefined' && browser.runtime && typeof browser.runtime.getManifest === 'function')
+        ? browser.runtime.getManifest().version
+        : 'dev';
+    console.log(`Demon Game Enhancement v${version} - Initializing...`);
       window._uiaddon_initing = true;
       // Clean up any existing observers
       if (window.backgroundObserver) {
@@ -9956,6 +10084,12 @@ window.toggleSection = function(header) {
     
     // Load settings first
     safeExecute(() => loadSettings(), 'Load Settings');
+    // Optionally check for updates silently on startup (at most daily)
+    try {
+      if (extensionSettings?.updates?.autoCheck) {
+        checkForUpdates({ force: false, updateUI: false });
+      }
+    } catch (e) { console.warn('Startup update check skipped:', e); }
     
     // Initialize sidebar
     safeExecute(() => initSideBar(), 'Sidebar Initialization');
@@ -9991,7 +10125,7 @@ window.toggleSection = function(header) {
     // Initialize stamina per hour calculation immediately (no delay needed)
     safeExecute(() => initStaminaPerHourCalculation(), 'Stamina Per Hour Calculation');
     
-    console.log('Demon Game Enhancement v3.0 - Initialization Complete!');
+  console.log(`Demon Game Enhancement v${version} - Initialization Complete!`);
     console.log('Type debugExtension() in console for debug info');
     // Initialization finished — allow auto-save behavior on future updates
     window._uiaddon_initing = false;
