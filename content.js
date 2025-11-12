@@ -1716,6 +1716,42 @@ function parseAttackLogs(html) {
         message = text.replace(/<[^>]*>/g, '').trim();
       }
       return { success, message: message || (success ? 'Healed with potion.' : 'Failed to heal'), raw: text };
+      // Heals the current user via the timed heal endpoint
+      async function healPlayerTimed(uid) {
+        try {
+          const body = `user_id=${encodeURIComponent(String(uid))}`;
+          const res = await fetch('https://demonicscans.org/user_heal.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body,
+            credentials: 'include'
+          });
+          const text = await res.text();
+          let success = res.ok;
+          let message = '';
+          try {
+            const asJson = JSON.parse(text);
+            if (asJson && (asJson.message || asJson.status)) {
+              message = asJson.message || asJson.status;
+            }
+            // Consider typical success cues
+            if (!success && (String(asJson?.status).toLowerCase() === 'success')) success = true;
+          } catch (_) {
+            // Fallback: look for success keywords in plain text
+            if (/success|healed|hp restored/i.test(text)) {
+              success = true;
+              message = 'Healed successfully';
+            }
+          }
+          return { success, message: message || (success ? 'Healed.' : 'Failed to heal'), raw: text };
+        } catch (e) {
+          console.error('[TimedHeal] healPlayerTimed failed:', e);
+          return { success: false, message: e?.message || 'Network error' };
+        }
+      }
     } catch (e) {
       console.error('[Potion] healPlayerWithPotion failed:', e);
       return { success: false, message: e?.message || 'Network error' };
@@ -1993,6 +2029,37 @@ function parseAttackLogs(html) {
                     }
                   });
                 }
+              }
+              // === Attach timed heal handler ===
+              const timedHealBtn = playerInfoDiv.querySelector('#timedHealBtn');
+              if (timedHealBtn && !timedHealBtn.dataset.uiAddonTimedHealBound) {
+                timedHealBtn.dataset.uiAddonTimedHealBound = '1';
+                timedHealBtn.addEventListener('click', async (e) => {
+                  e.preventDefault();
+                  const uid = userData.userID || getCookieExtension('demon');
+                  if (!uid) {
+                    showNotification('User ID not found for healing.', '#e74c3c');
+                    return;
+                  }
+                  // Don't proceed if the button is disabled
+                  if (timedHealBtn.disabled) return;
+                  timedHealBtn.disabled = true;
+                  try {
+                    const healResult = await healPlayerTimed(uid);
+                    await refreshModalPlayerHp(monster.id);
+                    if (healResult.success) {
+                      showNotification(healResult.message || 'Healed!', '#2ecc71');
+                    } else {
+                      showNotification(healResult.message || 'Heal failed', '#e74c3c');
+                    }
+                  } catch (err) {
+                    console.error('[Battle Modal] Timed heal error:', err);
+                    showNotification('Error using heal', '#e74c3c');
+                  } finally {
+                    // Re-enable; the server timer may disable it again on next refresh
+                    timedHealBtn.disabled = false;
+                  }
+                });
               }
             }
           }
