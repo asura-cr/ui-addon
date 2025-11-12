@@ -382,11 +382,29 @@
     // Ensure monster background settings exist
     if (!extensionSettings.monsterBackgrounds) {
       extensionSettings.monsterBackgrounds = {
+        enabled: true,
         effect: 'normal',
         overlay: true,
         overlayOpacity: 0.5,
         monsters: {}
       };
+    } else {
+      // Backward compatibility defaults
+      if (typeof extensionSettings.monsterBackgrounds.enabled !== 'boolean') {
+        extensionSettings.monsterBackgrounds.enabled = true;
+      }
+      if (typeof extensionSettings.monsterBackgrounds.effect !== 'string') {
+        extensionSettings.monsterBackgrounds.effect = 'normal';
+      }
+      if (typeof extensionSettings.monsterBackgrounds.overlay !== 'boolean') {
+        extensionSettings.monsterBackgrounds.overlay = true;
+      }
+      if (typeof extensionSettings.monsterBackgrounds.overlayOpacity !== 'number') {
+        extensionSettings.monsterBackgrounds.overlayOpacity = 0.5;
+      }
+      if (!extensionSettings.monsterBackgrounds.monsters) {
+        extensionSettings.monsterBackgrounds.monsters = {};
+      }
     }
 
     // Ensure hotkeys settings exist & have required arrays
@@ -8037,164 +8055,114 @@ window.toggleSection = function(header) {
 
 
   function applyMonsterBackgrounds() {
+    // Debug helpers (toggle with localStorage key 'mbg_debug' = '1')
+    const MBG_DEBUG = (() => { try { return localStorage.getItem('mbg_debug') === '1'; } catch(_) { return false; } })();
+    const dlog = (...args) => { if (MBG_DEBUG) console.log('[MBG]', ...args); };
+    const derr = (...args) => { if (MBG_DEBUG) console.error('[MBG]', ...args); };
 
-    // Set CSS variable for overlay opacity
-    document.documentElement.style.setProperty('--monster-overlay-opacity', extensionSettings.monsterBackgrounds.overlayOpacity);
+    const settings = extensionSettings.monsterBackgrounds || {};
+    const overlayOpacity = typeof settings.overlayOpacity === 'number' ? settings.overlayOpacity : 0.5;
+    document.documentElement.style.setProperty('--monster-overlay-opacity', overlayOpacity);
+    dlog('start', { path: window.location.pathname, enabled: settings.enabled, effect: settings.effect, overlayOpacity });
 
-    // Handle special cases for each page type
+    if (settings.enabled === false) { dlog('disabled'); return; }
+
+    const normalizeName = (text) => {
+      const t = (text || '').toString();
+      const noEmoji = t
+        .replace(/[🧟⚔️🛡️💀👹👻🎭]/g, '')
+        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+      return noEmoji.replace(/\s+/g, ' ').trim().toLowerCase();
+    };
+
+    const monstersConfig = settings.monsters || {};
+    const normalizedMap = {};
+    Object.entries(monstersConfig).forEach(([name, data]) => {
+      normalizedMap[normalizeName(name)] = data;
+    });
+    dlog('configured keys', Object.keys(normalizedMap));
+
     const currentPage = window.location.pathname;
-    
+
+    // Merchant page uses page background
     if (currentPage.includes('merchant.php')) {
+      dlog('merchant page -> delegating to applyMerchantBackground()');
       applyMerchantBackground();
       return;
     }
-    
-    const monstersFound = [];
 
-    // Handle battle page
-    if (currentPage.includes('battle.php')) {
-      const panels = document.querySelectorAll('.panel');
-      panels.forEach((panel, index) => {
-        const monsterNameElement = panel.querySelector('h3, strong');
-        if (monsterNameElement) {
-          const rawText = monsterNameElement.textContent;
-          const monsterName = rawText.replace(/[🧟⚔️🛡️💀👹👻🎭]/g, '').trim();
-          if (monsterName && extensionSettings.monsterBackgrounds.monsters[monsterName]) {
-            monstersFound.push({ name: monsterName, element: panel });
+    const monstersFound = [];
+    const scanPanel = (panel) => {
+      const els = panel.querySelectorAll('h1, h2, h3, h4, strong, .card-title, .monster-name, [data-monster-name]');
+      els.forEach((el) => {
+        const raw = el.textContent;
+        const key = normalizeName(raw);
+        const has = !!normalizedMap[key];
+        dlog('scan', { raw: raw?.trim(), key, match: has });
+        if (has) {
+          if (!monstersFound.some(m => m.nameKey === key && m.element === panel)) {
+            monstersFound.push({ nameKey: key, element: panel });
           }
         }
       });
-    }
-    
-    // Handle wave/event pages
-    if (currentPage.includes('active_wave.php') || currentPage.includes('orc_cull_event.php')) {
-      const panels = document.querySelectorAll('.panel');
-      panels.forEach((panel, index) => {
-        const monsterNameElements = panel.querySelectorAll('h3, strong');
-        monsterNameElements.forEach(el => {
-          const rawText = el.textContent;
-          const monsterName = rawText.replace(/[🧟⚔️🛡️💀👹👻🎭]/g, '').trim();
-          if (monsterName && extensionSettings.monsterBackgrounds.monsters[monsterName]) {
-            const exists = monstersFound.some(m => m.name === monsterName && m.element === panel);
-            if (!exists) {
-              monstersFound.push({ name: monsterName, element: panel });
-            }
-          }
-        });
-      });
-    }
+    };
 
-    // Handle other pages - let's add general detection
-    if (!currentPage.includes('battle.php') && !currentPage.includes('active_wave.php') && !currentPage.includes('orc_cull_event.php')) {
-      const panels = document.querySelectorAll('.panel');
-      panels.forEach((panel, index) => {
-        const textElements = panel.querySelectorAll('h1, h2, h3, h4, strong, b, .monster-name, [class*="monster"], [id*="monster"]');
-        textElements.forEach(el => {
-          const rawText = el.textContent;
-          const monsterName = rawText.replace(/[🧟⚔️🛡️💀👹👻🎭]/g, '').trim();
-          if (monsterName && extensionSettings.monsterBackgrounds.monsters[monsterName]) {
-            const exists = monstersFound.some(m => m.name === monsterName && m.element === panel);
-            if (!exists) {
-              monstersFound.push({ name: monsterName, element: panel });
-            }
-          }
-        });
-      });
+    document.querySelectorAll('.panel').forEach(scanPanel);
+
+    let selectedKey = '';
+    let selectedData = null;
+    if (monstersFound.length) {
+      selectedKey = monstersFound[0].nameKey;
+      selectedData = normalizedMap[selectedKey];
     }
+    dlog('selection', { found: monstersFound.length, selectedKey, hasData: !!selectedData });
 
-    
-    let shouldApplyBackground = monstersFound.length > 0;
-    let selectedMonsterData = null;
-    let selectedMonsterName = '';
-    
-    if (currentPage.includes('merchant.php')) {
-      shouldApplyBackground = true;
-      
-      // Use the first configured monster for merchant page
-      const availableMonsters = extensionSettings.monsterBackgrounds?.monsters || {};
-      const firstMonsterEntry = Object.entries(availableMonsters)[0];
-      
-      if (firstMonsterEntry) {
-        selectedMonsterName = firstMonsterEntry[0];
-        selectedMonsterData = firstMonsterEntry[1];
+    if (selectedData) {
+      const data = selectedData;
+      const url = typeof data === 'string' ? data : data?.url;
+      const effectToUse = (data && typeof data === 'object' && data.effect) ? data.effect : (settings.effect || 'normal');
+      dlog('apply', { url, effectToUse });
 
-      }
-    } else if (monstersFound.length > 0) {
-      // Use detected monster for other pages
-      const firstMonster = monstersFound[0];
-      selectedMonsterName = firstMonster.name;
-      selectedMonsterData = extensionSettings.monsterBackgrounds.monsters[selectedMonsterName];
-    }
-    
-    // Apply background if we should (either monsters found OR merchant page)
-    if (shouldApplyBackground && selectedMonsterData) {
-      // Use the first monster found for the background
-      const firstMonster = monstersFound[0];
-      const monsterName = firstMonster.name;
-      const monsterData = extensionSettings.monsterBackgrounds.monsters[monsterName];
-      
-      // Handle both old format (string URL) and new format (object with url and effect)
-      const monsterUrl = typeof monsterData === 'string' ? monsterData : monsterData?.url;
-      
-
-      
-      if (monsterUrl && typeof monsterUrl === 'string') {
+      if (url && typeof url === 'string') {
         // Remove any existing monster background styles
-        const existingStyles = document.querySelectorAll('style[id^="monster-bg-"]');
-        existingStyles.forEach(style => style.remove());
-        
-        // Create unified style for ALL panels (no special classes needed)
+        document.querySelectorAll('style[id^="monster-bg-"]').forEach(s => s.remove());
+
         const styleId = 'monster-bg-unified';
         const style = document.createElement('style');
         style.id = styleId;
-        
-        // Generate CSS that targets ALL panels directly
-        let css = '';
+
         const selector = '.panel';
-
-        
-        // Add some debugging info
-
-        
-        switch (extensionSettings.monsterBackgrounds.effect) {
+        let css = '';
+        switch (effectToUse) {
           case 'blur':
             css = `
               ${selector} {
-                background-image: url('${monsterUrl}') !important;
+                background-image: url('${url}') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-repeat: no-repeat !important;
                 background-attachment: fixed !important;
                 position: relative !important;
               }
-              
               ${selector}::before {
                 content: '';
                 position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
+                top: 0; left: 0; right: 0; bottom: 0;
                 background-image: inherit;
                 background-size: inherit;
                 background-position: inherit;
                 filter: blur(3px);
                 z-index: 0;
               }
-              
-              ${selector} > * {
-                position: relative;
-                z-index: 1;
-              }
+              ${selector} > * { position: relative; z-index: 1; }
             `;
             break;
-            
           case 'gradient':
             css = `
               ${selector} {
-                background-image: 
-                  linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.3)),
-                  url('${monsterUrl}') !important;
+                background-image:
+                  linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.3)),
+                  url('${url}') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-repeat: no-repeat !important;
@@ -8202,19 +8170,12 @@ window.toggleSection = function(header) {
               }
             `;
             break;
-            
           case 'pattern':
             css = `
               ${selector} {
-                background-image: 
-                  repeating-linear-gradient(
-                    45deg,
-                    transparent,
-                    transparent 10px,
-                    rgba(0, 0, 0, 0.1) 10px,
-                    rgba(0, 0, 0, 0.1) 20px
-                  ),
-                  url('${monsterUrl}') !important;
+                background-image:
+                  repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px),
+                  url('${url}') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-repeat: no-repeat !important;
@@ -8222,65 +8183,42 @@ window.toggleSection = function(header) {
               }
             `;
             break;
-            
-          default: // normal
+          default:
             css = `
               ${selector} {
-                background-image: url('${monsterUrl}') !important;
+                background-image: url('${url}') !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-repeat: no-repeat !important;
                 background-attachment: fixed !important;
                 position: relative !important;
               }
-              
               ${selector}::before {
                 content: '';
                 position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, ${extensionSettings.monsterBackgrounds.overlayOpacity});
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 0, 0, ${overlayOpacity});
                 z-index: 0;
               }
-              
-              ${selector} > * {
-                position: relative;
-                z-index: 1;
-              }
+              ${selector} > * { position: relative; z-index: 1; }
             `;
         }
-        
 
-        
-        // Test if image can be loaded
-        const testImage = new Image();
-        testImage.onload = () => {
+        const img = new Image();
+        img.onload = () => dlog('image ok', url, img.naturalWidth + 'x' + img.naturalHeight);
+        img.onerror = () => derr('image error', url);
+        img.src = url;
 
-        };
-        testImage.onerror = () => {
-          console.error(`❌ Failed to load image: ${monsterUrl}`);
-
-        };
-        testImage.src = monsterUrl;
-        
         style.textContent = css;
         document.head.appendChild(style);
-
-        
-        // Log the panels that will be affected
-        const allPanels = document.querySelectorAll('.panel');
-
+        dlog('style appended', styleId);
       }
-    } else {
-      // No monsters found, remove any existing monster backgrounds
-      const existingStyles = document.querySelectorAll('style[id^="monster-bg-"]');
-      existingStyles.forEach(style => style.remove());
-      
-
+      return;
     }
 
+    // No monsters matched: clear existing styles
+    document.querySelectorAll('style[id^="monster-bg-"]').forEach(s => s.remove());
+    dlog('no match - cleared styles');
   }
 
   // Apply merchant page background to panels (same as page background)
@@ -8400,45 +8338,8 @@ window.toggleSection = function(header) {
 
   }
 
-  // Debug function for monster backgrounds - can be called from console
-  window.debugMonsterBackgrounds = function() {
-    console.log('=== MONSTER BACKGROUND DEBUG INFO ===');
-    console.log('Extension Settings:', extensionSettings);
-    console.log('Monster Backgrounds Enabled:', extensionSettings.monsterBackgrounds?.enabled);
-    console.log('Available Monster Backgrounds:', extensionSettings.monsterBackgrounds?.monsters);
-    console.log('Current Page:', window.location.pathname);
-    
-    const panels = document.querySelectorAll('.panel');
-    console.log('Total Panels Found:', panels.length);
-    
-    panels.forEach((panel, index) => {
-      console.log(`=== Panel ${index + 1} ===`);
-      console.log('Panel element:', panel);
-      console.log('Panel classes:', panel.className);
-      console.log('Panel data-monster:', panel.getAttribute('data-monster'));
-      
-      const textElements = panel.querySelectorAll('h1, h2, h3, h4, strong, b, span');
-      console.log('Text elements in panel:', textElements.length);
-      
-      textElements.forEach((el, i) => {
-        console.log(`  Text ${i + 1}: "${el.textContent.trim()}"`);
-      });
-    });
-    
-    const monsterStyles = document.querySelectorAll('[id^="monster-bg-"]');
-    console.log('Monster style elements found:', monsterStyles.length);
-    monsterStyles.forEach((style, i) => {
-      console.log(`Style ${i + 1}:`, style.id, style.textContent);
-    });
-    
-    // Force re-apply monster backgrounds
-    console.log('Re-applying monster backgrounds...');
-    applyMonsterBackgrounds();
-  };
-
   // Console function to manually enable monster backgrounds
   window.enableMonsterBackgrounds = function() {
-    console.log('Manually enabling monster backgrounds...');
     extensionSettings.monsterBackgrounds.enabled = true;
     saveSettings();
     
@@ -8449,64 +8350,6 @@ window.toggleSection = function(header) {
     }
     
     applyMonsterBackgrounds();
-    console.log('Monster backgrounds enabled! Current status:', extensionSettings.monsterBackgrounds);
-  };
-
-  // Console function to test image loading
-  window.testMonsterImageUrls = function() {
-    console.log('=== Testing Monster Image URLs ===');
-    const monsters = extensionSettings.monsterBackgrounds?.monsters || {};
-    
-    Object.entries(monsters).forEach(([monsterName, monsterData]) => {
-      // Handle both old format (string URL) and new format (object with url and effect)
-      const url = typeof monsterData === 'string' ? monsterData : monsterData?.url;
-      
-      console.log(`Testing ${monsterName}:`, monsterData);
-      console.log(`Extracted URL: ${url}`);
-      
-      if (!url || typeof url !== 'string') {
-        console.error(`❌ ${monsterName}: Invalid URL format`);
-        return;
-      }
-      
-      const testImg = new Image();
-      testImg.onload = () => {
-        console.log(`✅ ${monsterName}: Image loaded successfully`);
-        console.log(`   Dimensions: ${testImg.naturalWidth}x${testImg.naturalHeight}`);
-      };
-      testImg.onerror = (e) => {
-        console.error(`❌ ${monsterName}: Failed to load image`);
-        console.error(`   URL: ${url}`);
-        console.error(`   Error:`, e);
-        
-        // Try to diagnose the issue
-        if (url.startsWith('http://')) {
-          console.warn('   ⚠️  HTTP URL might be blocked on HTTPS sites');
-        }
-        if (!url.startsWith('http') && !url.startsWith('data:')) {
-          console.warn('   ⚠️  Relative URL might not resolve correctly');
-        }
-      };
-      testImg.src = url;
-    });
-    
-    if (Object.keys(monsters).length === 0) {
-      console.log('No monster URLs configured to test');
-    }
-  };
-
-  // Console function to test a specific URL
-  window.testImageUrl = function(url) {
-    console.log(`Testing specific URL: ${url}`);
-    const testImg = new Image();
-    testImg.onload = () => {
-      console.log(`✅ Image loaded successfully: ${testImg.naturalWidth}x${testImg.naturalHeight}`);
-    };
-    testImg.onerror = (e) => {
-      console.error(`❌ Failed to load image: ${url}`);
-      console.error('Error:', e);
-    };
-    testImg.src = url;
   };
 
   // Console function to check current monster background status
