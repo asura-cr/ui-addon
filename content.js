@@ -1721,7 +1721,7 @@ function parseAttackLogs(html) {
           const used = Number(prevStamina) - Number(newStamina);
           if (Number.isFinite(used) && used === 0 && staminaCost > 0) {
             // Show a non-error attention note in warning/yellow
-            showNotification('Your dragons saved your stamina', '#f1c40f');
+            showNotification('Your dragons saved your stamina', '#2ecc71');
           }
         }
       } catch {}
