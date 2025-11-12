@@ -13130,8 +13130,11 @@ window.toggleSection = function(header) {
           }
 
           const res = pack.json;
-          if (!res.ok) {
-              showNotification(res.msg || res.error || 'Allocation failed', 'error');
+          if (res.msg) {
+              showNotification(res.msg, 'error');
+              return;
+          } else if (res.error) {
+              showNotification(res.error, 'error');
               return;
           }
 
