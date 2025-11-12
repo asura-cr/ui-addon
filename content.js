@@ -53,10 +53,6 @@
           '/blacksmith.php': 'https://raw.githubusercontent.com/asura-cr/ui-addon/refs/heads/main/images/blacksmith.png'
         }
     },
-    waveAutoRefresh: {
-      enabled: true,
-      interval: 10 // seconds
-    },
     pvpBattlePrediction: {
       enabled: true, // Show battle win/loss prediction
       analyzeAfterAttacks: 2 // Start analysis after this many attacks
@@ -220,10 +216,6 @@
           lootHighlighting: {
             ...extensionSettings.lootHighlighting,
             ...savedSettings.lootHighlighting,
-          },
-          waveAutoRefresh: {
-            ...extensionSettings.waveAutoRefresh,
-            ...savedSettings.waveAutoRefresh,
           },
           pvpBattlePrediction: {
             ...extensionSettings.pvpBattlePrediction,
@@ -2218,12 +2210,8 @@ function parseAttackLogs(html) {
   async function updateWaveData(manual = false) {
     // Defensive defaults: saved settings may be missing nested objects
     if (typeof extensionSettings === 'undefined' || !extensionSettings) extensionSettings = {};
-    if (!extensionSettings.waveAutoRefresh) {
-      // fallback defaults match the initial defaults defined above
-      extensionSettings.waveAutoRefresh = { enabled: true, interval: 10 };
-    }
 
-    if (!manual && !extensionSettings.waveAutoRefresh.enabled) return;
+    if (!manual) return;
     
     try {
       const html = await fetchWavePageHtml();
@@ -7593,98 +7581,7 @@ window.toggleSection = function(header) {
     }
   }
 
-  function setupNewWaveAutoRefreshSettings() {
-    const timeInput = document.getElementById('wave-refresh-time');
-    const unitSelect = document.getElementById('wave-refresh-unit');
-    
-    if (!timeInput || !unitSelect) {
-      console.log('Wave auto-refresh inputs not found');
-      return;
-    }
-    
-    console.log('Setting up new wave auto-refresh, current interval:', extensionSettings.waveAutoRefresh.interval, 'seconds');
-    
-    // Initialize display values based on current setting
-    initializeWaveRefreshDisplay();
-    
-    // Add event handlers
-    timeInput.addEventListener('input', handleWaveRefreshTimeChange);
-    timeInput.addEventListener('change', handleWaveRefreshTimeChange);
-    timeInput.addEventListener('blur', handleWaveRefreshTimeChange);
-    unitSelect.addEventListener('change', handleWaveRefreshUnitChange);
-    
-    function initializeWaveRefreshDisplay() {
-      const currentSeconds = extensionSettings.waveAutoRefresh.interval || 10;
-      
-      if (currentSeconds >= 60 && currentSeconds % 60 === 0) {
-        // Display in minutes if it's a whole minute value
-        timeInput.value = currentSeconds / 60;
-        unitSelect.value = 'minutes';
-      } else {
-        // Display in seconds
-        timeInput.value = currentSeconds;
-        unitSelect.value = 'seconds';
-      }
-      
-      console.log('Initialized wave refresh display:', timeInput.value, unitSelect.value);
-    }
-    
-    function handleWaveRefreshTimeChange() {
-      const time = parseInt(timeInput.value) || 10;
-      const unit = unitSelect.value;
-      let seconds;
-      
-      if (unit === 'minutes') {
-        // Convert minutes to seconds, limit 1-10 minutes
-        const minutes = Math.max(1, Math.min(10, time));
-        timeInput.value = minutes;
-        seconds = minutes * 60;
-      } else {
-        // Keep in seconds, limit 5-600 seconds
-        const secs = Math.max(5, Math.min(600, time));
-        timeInput.value = secs;
-        seconds = secs;
-      }
-      
-      // Update settings
-      extensionSettings.waveAutoRefresh.interval = seconds;
-      saveSettings();
-      
-      console.log('Wave refresh timing updated:', seconds, 'seconds');
-      
-      // Restart auto-refresh if currently running
-      if (extensionSettings.waveAutoRefresh.enabled) {
-        stopWaveAutoRefresh();
-        setTimeout(() => {
-          initWaveAutoRefresh();
-        }, 200);
-      }
-    }
-    
-    function handleWaveRefreshUnitChange() {
-      const currentTime = parseInt(timeInput.value) || 10;
-      const newUnit = unitSelect.value;
-      
-      if (newUnit === 'minutes') {
-        // Convert seconds to minutes
-        const minutes = Math.max(1, Math.min(10, Math.round(currentTime / 60) || 1));
-        timeInput.value = minutes;
-        timeInput.min = '1';
-        timeInput.max = '10';
-      } else {
-        // Convert minutes to seconds or keep seconds
-        const seconds = unitSelect.value === 'seconds' ? 
-          Math.max(5, Math.min(600, currentTime)) : 
-          Math.max(5, Math.min(600, currentTime * 60));
-        timeInput.value = seconds;
-        timeInput.min = '5';
-        timeInput.max = '600';
-      }
-      
-      // Trigger the change handler to save
-      handleWaveRefreshTimeChange();
-    }
-  }
+  
 
   function setupEquipSetsSettings() {
     const enabledCheckbox = document.getElementById('equip-sets-enabled');
@@ -8733,45 +8630,6 @@ window.toggleSection = function(header) {
     setInterval(() => {
       ensureSemiTransparentPersistence();
     }, 5000);
-  }
-
-  function initWaveAutoRefresh() {
-    // Check if we're on a wave page
-    const isWavePage = window.location.pathname.includes('active_wave.php') || 
-                      window.location.pathname.includes('wave') ||
-                      document.querySelector('.monster-card') !== null;
-    
-    if (!isWavePage) return;
-    
-    // Clear any existing interval
-    if (waveRefreshInterval) {
-      clearInterval(waveRefreshInterval);
-      waveRefreshInterval = null;
-    }
-    
-    // Start auto-refresh if enabled
-    if (extensionSettings.waveAutoRefresh.enabled) {
-      startWaveAutoRefresh();
-    }
-  }
-
-  function startWaveAutoRefresh() {
-    const intervalMs = extensionSettings.waveAutoRefresh.interval * 1000;
-    
-    waveRefreshInterval = setInterval(() => {
-      console.log('Auto-refreshing wave page...');
-      window.location.reload();
-    }, intervalMs);
-    
-    console.log(`Wave auto-refresh started: ${extensionSettings.waveAutoRefresh.interval} seconds`);
-  }
-
-  function stopWaveAutoRefresh() {
-    if (waveRefreshInterval) {
-      clearInterval(waveRefreshInterval);
-      waveRefreshInterval = null;
-      console.log('Wave auto-refresh stopped');
-    }
   }
 
   // Cleanup on page unload
@@ -11129,12 +10987,11 @@ window.toggleSection = function(header) {
     const filterContainer = document.querySelector('.batch-loot-card');
 
     filterContainer.innerHTML = `
-      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: center; width: 100%;">
-      <input type="text" id="monster-name-filter" placeholder="Filter by name"
-               style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 150px;">
-        
+      <div class="filter-row" style="display: flex;gap: 15px;align-items: center;flex-wrap: wrap;margin-bottom: 15px;">
+      <input type="text" id="monster-name-filter" placeholder="Search by monster name..."
+               style="flex: 1;min-width: 200px;padding: 8px 12px;border: 1px solid rgba(88, 91, 112, 0.5);border-radius: 6px;background: rgba(17, 17, 27, 0.8);color: #cdd6f4;font-size: 14px;transition: all 0.2s ease;">        
         <div style="position: relative; display: inline-block;">
-          <button id="monster-type-toggle" style="padding: 5px 10px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; cursor: pointer; min-width: 120px; text-align: left;">
+          <button id="monster-type-toggle" style="height: 33px;padding: 5px 10px;background: rgb(30, 30, 46);color: rgb(205, 214, 244);border: 1px solid rgb(69, 71, 90);border-radius: 4px;cursor: pointer;min-width: 120px;text-align: left;">
             Monster Types ▼
           </button>
           <div id="monster-type-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 200px; max-height: 200px; overflow-y: auto;">
@@ -11148,7 +11005,7 @@ window.toggleSection = function(header) {
         </div>
         
         <div style="position: relative; display: inline-block;">
-          <button id="loot-filter-toggle" style="padding: 5px 10px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; cursor: pointer; min-width: 120px; text-align: left;">
+          <button id="loot-filter-toggle" style="height: 33px;padding: 5px 10px;background: rgb(30, 30, 46);color: rgb(205, 214, 244);border: 1px solid rgb(69, 71, 90);border-radius: 4px;cursor: pointer;min-width: 120px;text-align: left;">
             Loot Filter ▼
           </button>
           <div id="loot-filter-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 250px; max-height: 300px; overflow-y: auto;">
@@ -11165,15 +11022,15 @@ window.toggleSection = function(header) {
           </div>
         </div>
         
-        <select id="hp-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
-          <option value="">All HP</option>
+        <select id="hp-filter" style="height: 33px;padding: 5px 10px;background: rgb(30, 30, 46);color: rgb(205, 214, 244);border: 1px solid rgb(69, 71, 90);border-radius: 4px;cursor: pointer;min-width: 120px;text-align: left;">
+          <option value="">All HP Levels</option>
           <option value="low">Low HP (&lt;50%)</option>
           <option value="medium">Medium HP (50-80%)</option>
           <option value="high">High HP (&gt;80%)</option>
           <option value="full">Full HP (100%)</option>
         </select>
         
-        <select id="player-count-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
+        <select id="player-count-filter" style="height: 33px;padding: 5px 10px;background: rgb(30, 30, 46);color: rgb(205, 214, 244);border: 1px solid rgb(69, 71, 90);border-radius: 4px;cursor: pointer;min-width: 120px;text-align: left;">
           <option value="">All Players</option>
           <option value="empty">Empty (0 players)</option>
           <option value="few">Few (&lt;10 players)</option>
@@ -11181,31 +11038,11 @@ window.toggleSection = function(header) {
           <option value="full">Full (30 players)</option>
         </select>
         
-      <label style="display: flex; align-items: center; gap: 5px; color: #cdd6f4;">
-          <input type="checkbox" id="hide-img-monsters" class="cyberpunk-checkbox">
-        Hide images
-      </label>
-      
-      <label style="display: flex; align-items: center; gap: 5px; color: #cdd6f4;">
-          <input type="checkbox" id="wave-auto-refresh-toggle" class="cyberpunk-checkbox" ${extensionSettings.waveAutoRefresh.enabled ? 'checked' : ''}>
-        🔄 Auto-refresh
-      </label>
-        
-      <label style="display: flex; align-items: center; gap: 5px; color: #cdd6f4;">
-          <input type="checkbox" id="battle-limit-alarm" class="cyberpunk-checkbox">
-        Battle limit alarm
-        <br>
-          <input type="checkbox" id="battle-limit-alarm-sound" class="cyberpunk-checkbox" checked>
-        <label for="battle-limit-alarm-sound" style="color: #cdd6f4; font-size: 12px;">🔊 Play alarm sound</label>
-        <br>
-        <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
-          <label for="battle-limit-alarm-volume" style="color: #cdd6f4; font-size: 12px;">Volume:</label>
-          <input type="range" id="battle-limit-alarm-volume" min="10" max="100" value="70" style="width: 80px;">
-          <span id="battle-limit-alarm-volume-display" style="color: #cdd6f4; font-size: 12px; min-width: 30px;">70%</span>
-        </div>
-      </label>
-        
-        <button id="clear-filters" style="padding: 5px 10px; background: #f38ba8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+        <button id="hide-img-monsters" style="display: flex;align-items: center;gap: 8px;padding: 6px 16px;background: rgba(137, 180, 250, 0.2);border: 1px solid rgba(137, 180, 250, 0.4);color: #89b4fa;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: all 0.2s ease;">
+          <span>🖼️</span>
+          <span>Hide Images</span>
+        </button>
+        <button id="clear-filters" style="display: flex;align-items: center;gap: 8px;padding: 7px 16px;background: #f38ba8;border: 1px solid #f38ba8;color: white;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: all 0.2s ease;margin-left: auto;order: 999;flex-shrink: 0;">
           Clear All
         </button>
       </div>
@@ -11221,49 +11058,28 @@ window.toggleSection = function(header) {
     document.getElementById('monster-name-filter').addEventListener('input', applyMonsterFilters);
     document.getElementById('hp-filter').addEventListener('change', applyMonsterFilters);
     document.getElementById('player-count-filter').addEventListener('change', applyMonsterFilters);
-    document.getElementById('hide-img-monsters').addEventListener('change', applyMonsterFilters);
-    
-    // Wave auto-refresh toggle handler
-    const waveAutoRefreshToggle = document.getElementById('wave-auto-refresh-toggle');
-    if (waveAutoRefreshToggle) {
-      waveAutoRefreshToggle.addEventListener('change', function() {
-        extensionSettings.waveAutoRefresh.enabled = this.checked;
-        saveSettings();
-        
-        if (this.checked) {
-          initWaveAutoRefresh();
-          showNotification('Wave auto-refresh enabled', 'success');
-        } else {
-          stopWaveAutoRefresh();
-          showNotification('Wave auto-refresh disabled', 'success');
+
+    // Hide images control now a button instead of checkbox
+    const hideImagesBtn = document.getElementById('hide-img-monsters');
+    if (hideImagesBtn) {
+      // Initialize dataset flag if missing
+      if (!hideImagesBtn.dataset.hidden) hideImagesBtn.dataset.hidden = 'false';
+      const syncHideImagesBtn = () => {
+        const active = hideImagesBtn.dataset.hidden === 'true';
+        hideImagesBtn.classList.toggle('active', active);
+        // Update label text second span if present
+        const spans = hideImagesBtn.querySelectorAll('span');
+        if (spans.length > 1) {
+          spans[1].textContent = active ? 'Show Images' : 'Hide Images';
         }
-        
-        console.log('Wave auto refresh toggled:', this.checked);
-      });
-    }
-    
-    document.getElementById('battle-limit-alarm').addEventListener('change', (e) => {
-      const soundCheckbox = document.getElementById('battle-limit-alarm-sound');
-      if (e.target.checked) {
-        soundCheckbox.checked = true;
-        soundCheckbox.disabled = false;
-      } else {
-        soundCheckbox.checked = false;
-        soundCheckbox.disabled = true;
-      }
-      applyMonsterFilters();
-    });
-    
-    document.getElementById('battle-limit-alarm-sound').addEventListener('change', applyMonsterFilters);
-    
-    // Volume control
-    const volumeSlider = document.getElementById('battle-limit-alarm-volume');
-    const volumeDisplay = document.getElementById('battle-limit-alarm-volume-display');
-    if (volumeSlider && volumeDisplay) {
-      volumeSlider.addEventListener('input', (e) => {
-        volumeDisplay.textContent = e.target.value + '%';
+      };
+      hideImagesBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        hideImagesBtn.dataset.hidden = hideImagesBtn.dataset.hidden === 'true' ? 'false' : 'true';
+        syncHideImagesBtn();
         applyMonsterFilters();
       });
+      syncHideImagesBtn();
     }
     document.getElementById('clear-filters').addEventListener('click', clearAllFilters);
     
@@ -11354,22 +11170,12 @@ window.toggleSection = function(header) {
     if (settings.nameFilter) document.getElementById('monster-name-filter').value = settings.nameFilter;
     if (settings.hpFilter) document.getElementById('hp-filter').value = settings.hpFilter;
     if (settings.playerCountFilter) document.getElementById('player-count-filter').value = settings.playerCountFilter;
-    if (settings.hideImg) document.getElementById('hide-img-monsters').checked = settings.hideImg;
-    if (settings.battleLimitAlarm) {
-      document.getElementById('battle-limit-alarm').checked = settings.battleLimitAlarm;
-      const soundCheckbox = document.getElementById('battle-limit-alarm-sound');
-      if (settings.battleLimitAlarmSound !== undefined) {
-        soundCheckbox.checked = settings.battleLimitAlarmSound;
-      }
-      soundCheckbox.disabled = !settings.battleLimitAlarm;
-      
-      // Set volume
-      const volumeSlider = document.getElementById('battle-limit-alarm-volume');
-      const volumeDisplay = document.getElementById('battle-limit-alarm-volume-display');
-      if (volumeSlider && volumeDisplay) {
-        const volume = settings.battleLimitAlarmVolume || 70;
-        volumeSlider.value = volume;
-        volumeDisplay.textContent = volume + '%';
+    if (settings.hideImg) {
+      const btn = document.getElementById('hide-img-monsters');
+      if (btn) {
+        btn.dataset.hidden = 'true';
+        const spans = btn.querySelectorAll('span');
+        if (spans.length > 1) spans[1].textContent = 'Show Images';
       }
     }
 
@@ -11515,10 +11321,8 @@ window.toggleSection = function(header) {
     const nameFilter = document.getElementById('monster-name-filter').value.toLowerCase();
     const hpFilter = document.getElementById('hp-filter').value;
     const playerCountFilter = document.getElementById('player-count-filter').value;
-    const hideImg = document.getElementById('hide-img-monsters').checked;
-    const battleLimitAlarm = document.getElementById('battle-limit-alarm').checked;
-    const battleLimitAlarmSound = document.getElementById('battle-limit-alarm-sound').checked;
-    const battleLimitAlarmVolume = parseInt(document.getElementById('battle-limit-alarm-volume').value, 10);
+  const hideImagesBtn2 = document.getElementById('hide-img-monsters');
+  const hideImg = hideImagesBtn2 ? (hideImagesBtn2.dataset.hidden === 'true') : false;
 
     // Get selected monster types
     const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value);
@@ -11546,14 +11350,6 @@ window.toggleSection = function(header) {
       } else {
         lootFilterToggle.textContent = `${selectedLootItems.length} Items ▼`;
       }
-    }
-
-    if (battleLimitAlarm) {
-      alarmInterval = setInterval(() => {
-        location.reload();
-      }, 5000);
-    } else {
-      clearInterval(alarmInterval);
     }
 
     const monsters = document.querySelectorAll('.monster-card');
@@ -11710,15 +11506,6 @@ window.toggleSection = function(header) {
     // Update section header counts
     updateSectionHeaderCounts(visibleContinueCount, visibleLootCount, visibleJoinCount);
 
-    if (battleLimitAlarm && limitBattleCount < 3) {
-      showNotification('🔔 Battle limit alarm: Less than 3 battles!', 'success');
-      
-      // Play alarm sound if enabled
-      if (battleLimitAlarmSound) {
-        playAlarmSound();
-      }
-    }
-
     // Save all filter settings
     const settings = {
       nameFilter: document.getElementById('monster-name-filter').value,
@@ -11726,10 +11513,7 @@ window.toggleSection = function(header) {
       lootFilter: selectedLootItems,
       hpFilter: document.getElementById('hp-filter').value,
       playerCountFilter: document.getElementById('player-count-filter').value,
-      hideImg: document.getElementById('hide-img-monsters').checked,
-      battleLimitAlarm: document.getElementById('battle-limit-alarm').checked,
-      battleLimitAlarmSound: document.getElementById('battle-limit-alarm-sound').checked,
-      battleLimitAlarmVolume: parseInt(document.getElementById('battle-limit-alarm-volume').value, 10)
+      hideImg: (document.getElementById('hide-img-monsters')?.dataset.hidden === 'true'),
     };
     localStorage.setItem('demonGameFilterSettings', JSON.stringify(settings));
   }
@@ -11782,12 +11566,13 @@ window.toggleSection = function(header) {
     document.getElementById('monster-name-filter').value = '';
     document.getElementById('hp-filter').value = '';
     document.getElementById('player-count-filter').value = '';
-    document.getElementById('hide-img-monsters').checked = false;
-    document.getElementById('battle-limit-alarm').checked = false;
-    document.getElementById('battle-limit-alarm-sound').checked = true;
-    document.getElementById('battle-limit-alarm-sound').disabled = true;
-    document.getElementById('battle-limit-alarm-volume').value = 70;
-    document.getElementById('battle-limit-alarm-volume-display').textContent = '70%';
+    const hideImagesBtn3 = document.getElementById('hide-img-monsters');
+    if (hideImagesBtn3) {
+      hideImagesBtn3.dataset.hidden = 'false';
+      const spans = hideImagesBtn3.querySelectorAll('span');
+      if (spans.length > 1) spans[1].textContent = 'Hide Images';
+      hideImagesBtn3.classList.remove('active');
+    }
     
     // Clear all monster type checkboxes
     document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
@@ -13682,7 +13467,6 @@ window.toggleSection = function(header) {
     initContinueBattleFirst()
     initImprovedWaveButtons()
     initMonsterSorting()
-    initWaveAutoRefresh()
     initMonsterLootPreview()
     initContinueBattleModal()
     initMonsterStatOverlay()
