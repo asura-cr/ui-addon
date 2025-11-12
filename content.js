@@ -1623,6 +1623,18 @@ function parseAttackLogs(html) {
       const originalText = btn.textContent;
       let loadPromises = [];
       btn.style.backgroundColor = 'rgba(70, 140, 252, 1)';
+      // Capture previous stamina to detect if any was used
+      let prevStamina = null;
+      try {
+        const staminaSpan = document.getElementById('stamina_span');
+        if (staminaSpan) {
+          const txt = String(staminaSpan.textContent || '').replace(/[^\d]/g, '');
+          if (txt) prevStamina = parseInt(txt, 10);
+        }
+        if (prevStamina == null && typeof userData?.currentStamina === 'number') {
+          prevStamina = userData.currentStamina;
+        }
+      } catch {}
       const staminaCost = skillId === "-1" ? 10 : skillId === "-2" ? 50 : skillId === "-3" ? 100 : skillId === "-4" ? 200 : 1;
       const body = `monster_id=${encodeURIComponent(monsterId)}&skill_id=${encodeURIComponent(skillId)}&stamina_cost=${encodeURIComponent(staminaCost)}`;
       const response = await fetch('damage.php', {
@@ -1699,6 +1711,20 @@ function parseAttackLogs(html) {
       if (staminaElem) {
         staminaElem.textContent = newStamina;
       }
+      // Keep userData in sync
+      if (typeof userData === 'object') {
+        userData.currentStamina = newStamina;
+      }
+      // Attention note: if stamina used equals 0 (dragons saved it)
+      try {
+        if (prevStamina != null) {
+          const used = Number(prevStamina) - Number(newStamina);
+          if (Number.isFinite(used) && used === 0 && staminaCost > 0) {
+            // Show a non-error attention note in warning/yellow
+            showNotification('Your dragons saved your stamina', '#f1c40f');
+          }
+        }
+      } catch {}
 
         console.log('[BattleModal] Updating monster card for:', updatedMonster);
       // Update modal with new monster data
