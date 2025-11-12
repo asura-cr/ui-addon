@@ -15318,7 +15318,7 @@ window.toggleSection = function(header) {
 
   function toggleAutoSlash() {
     const btn = document.getElementById('auto-slash-btn');
-    const slashBtn = document.querySelector('.attack-btn[data-skill-id="0"]');
+    const slashBtn = document.querySelector('.attack-btn[data-skill-id="-1"]');
     
     if (!slashBtn) {
       console.log('Slash button not found');
