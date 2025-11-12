@@ -6948,11 +6948,10 @@ function parseAttackLogs(html) {
       setupLootHighlightingSettings();
       setupCustomBackgroundSettings();
       setupPvPAutoSurrenderSettings();
-      setupNewWaveAutoRefreshSettings();
       setupGateGraktharSettings();
       setupEquipSetsSettings();
       setupBattleModalSettings();
-  setupHotkeySettings();
+      setupHotkeySettings();
       setupMenuCustomizationListeners();
       // Initialize all cyberpunk checkboxes
       initializeAllCheckboxes();
