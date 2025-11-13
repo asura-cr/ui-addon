@@ -2856,205 +2856,6 @@ function parseAttackLogs(html) {
     }
   }
 
-  // Function to generate menu items based on customization settings
-  function generateMenuItems() {
-    // Sort menu items by order and filter visible ones
-    const sortedItems = [...extensionSettings.menuItems]
-      .sort((a, b) => a.order - b.order)
-      .filter(item => item.visible);
-    
-    let menuHTML = '';
-    
-    sortedItems.forEach(item => {
-      switch(item.id) {
-        case 'halloween_event':
-          menuHTML += `<li><a href="event_goblin_feast_of_shadows.php"><img src="images/events/The_Goblin_Feast_of_Shadows/compressed_goblin_halloween_event.webp" alt="Halloween Event">Halloween Event</a></li>`;
-          break;
-        case 'pvp':
-          menuHTML += `<li><a href="pvp.php"><img src="images/pvp/season_2/compressed_pvp_season_2.webp" alt="PvP Arena"> PvP Arena</a></li>`;
-          break;
-        case 'event_battlefield':
-          menuHTML += `<li><a href="active_wave.php?event=3&wave=1" draggable="false"><img src="/images/events/The_Goblin_Feast_of_Shadows/compressed_goblin_halloween_event.webp" alt="Event Battlefield"> Event Battlefield</a></li>`;
-          break;
-        case 'gate_grakthar': {
-          const g = Number(extensionSettings?.waveSelection?.gate ?? 3);
-          const w = Number(extensionSettings?.waveSelection?.wave ?? 3);
-          menuHTML += `<li><a href="active_wave.php?gate=${g}&wave=${w}"><img src="images/gates/gate_688e438aba7f24.99262397.webp" alt="Gate"> Gate</a></li>`;
-          break;
-        }
-        case 'battle_pass':
-          menuHTML += `
-        <li>
-          <div class="sidebar-menu-expandable">
-            <a href="battle_pass.php"><img src="images/battle%20pass/enternal%20season/enternal_season_banner.webp" alt="Battle Pass"> Battle Pass</a>
-            <button class="expand-btn" id="battle-pass-expand-btn" draggable="false">${extensionSettings.battlePassExpanded ? '–' : '+'}</button>
-          </div>
-          <div id="battle-pass-expanded" class="sidebar-submenu ${extensionSettings.battlePassExpanded ? '' : 'collapsed'}">
-            <div class="battle-pass-section">
-              <div class="battle-pass-header">
-                <span>Daily Quests</span>
-                <button class="refresh-btn" id="battle-pass-refresh-btn" title="Refresh Daily Quests">🔄</button>
-              </div>
-              <div id="battle-pass-quests" class="battle-pass-quests-container">
-                <div class="loading-text">Loading quests...</div>
-              </div>
-            </div>
-          </div>
-        </li>`;
-          break;
-        case 'guild':
-          menuHTML += `<li><a href="guild_dash.php"><img src="images/menu/compressed_guilds.webp" alt="Guild">Guild</a></li>`;
-          break;
-        case 'legendary_forge':
-          menuHTML += `<li><a href="legendary_forge.php"><img src="images/menu/compressed_legendary_forge.webp" alt="Legendary Forge">Legendary Forge</a></li>`;
-          break;
-        case 'inventory':
-          menuHTML += `<li><a href="inventory.php"><img src="images/menu/compressed_chest.webp" alt="Inventory"> Inventory & Equipment</a></li>`;
-          break;
-
-        case 'pets':
-          menuHTML += `
-        <li>
-          <div class="sidebar-menu-expandable">
-            <a href="pets.php"><img src="images/menu/compressed_eggs_menu.webp" alt="Pets"> Pets & Eggs</a>
-            <button class="expand-btn" id="pets-expand-btn">+</button>
-          </div>
-          <div id="pets-expanded" class="sidebar-submenu collapsed">
-            <div class="coming-soon-text">🚧 Working on it / Coming Soon</div>
-          </div>
-            </li>`;
-          break;
-        case 'stats':
-          menuHTML += `
-        <li>
-          <div class="sidebar-menu-expandable">
-            <a href="stats.php" draggable="false">
-              <img src="images/menu/compressed_stats_menu.webp" alt="Stats"> 
-              <span id="stats-menu-text">Stats ⚔️<span id="sidebar-attack">-</span> 🛡️<span id="sidebar-defense">-</span> ⚡<span id="sidebar-stamina">-</span> 🔵<span id="sidebar-points">-</span></span>
-            </a>
-            <button class="expand-btn" id="stats-expand-btn" draggable="false">${extensionSettings.statsExpanded ? '–' : '+'}</button>
-          </div>
-          <div id="stats-expanded" class="sidebar-submenu ${extensionSettings.statsExpanded ? '' : 'collapsed'}">
-            <div class="stats-allocation-section">
-              <div class="upgrade-section">
-                <div class="stat-upgrade-row" data-stat="attack">
-                  <div class="stat-info">
-                    <span>⚔️ Attack:</span>
-                    <span id="sidebar-attack-alloc">-</span>
-                  </div>
-                  <div class="upgrade-controls">
-                    <button class="upgrade-btn" draggable="false">+1</button>
-                    <button class="upgrade-btn" draggable="false">+5</button>
-                  </div>
-                </div>
-                <div class="stat-upgrade-row" data-stat="defense">
-                  <div class="stat-info">
-                    <span>🛡️ Defense:</span>
-                    <span id="sidebar-defense-alloc">-</span>
-                  </div>
-                  <div class="upgrade-controls">
-                    <button class="upgrade-btn" draggable="false">+1</button>
-                    <button class="upgrade-btn" draggable="false">+5</button>
-                  </div>
-                </div>
-                <div class="stat-upgrade-row" data-stat="stamina">
-                  <div class="stat-info">
-                    <span>⚡ Stamina:</span>
-                    <span id="sidebar-stamina-alloc">-</span>
-                  </div>
-                  <div class="upgrade-controls">
-                    <button class="upgrade-btn" draggable="false">+1</button>
-                    <button class="upgrade-btn" draggable="false">+5</button>
-                  </div>
-                </div>
-              </div>
-                  <div style="text-align: center; margin-top: 8px; color: #888;">
-                    Points Available: <span id="sidebar-points-alloc">-</span>
-            </div>
-          </div>
-              </div>
-            </li>`;
-          break;
-        case 'blacksmith':
-          menuHTML += `
-        <li>
-          <div class="sidebar-menu-expandable">
-            <a href="blacksmith.php"><img src="images/menu/compressed_crafting.webp" alt="Blacksmith"> Blacksmith</a>
-            <button class="expand-btn" id="blacksmith-expand-btn">+</button>
-          </div>
-          <div id="blacksmith-expanded" class="sidebar-submenu collapsed">
-            <div class="coming-soon-text">🚧 Working on it / Coming Soon</div>
-          </div>
-            </li>`;
-          break;
-        case 'merchant':
-          menuHTML += `
-        <li>
-          <div class="sidebar-menu-expandable">
-            <a href="merchant.php"><img src="images/menu/compressed_merchant.webp" alt="Merchant"> Merchant</a>
-                <button class="expand-btn" id="merchant-expand-btn">+</button>
-          </div>
-          <div id="merchant-expanded" class="sidebar-submenu ${extensionSettings.merchantExpanded ? '' : 'collapsed'}">
-                <div class="quick-access-section">
-                  <div class="quick-access-header">
-                    <span>Quick Access Items</span>
-                    <button class="refresh-btn" id="merchant-refresh-btn" title="Refresh Merchant Items">🔄</button>
-          </div>
-                  <div id="merchant-quick-access" class="quick-access-items">
-                    <div class="quick-access-empty">No pinned items. Visit merchant to pin items.</div>
-                  </div>
-                </div>
-              </div>
-            </li>`;
-          break;
-        case 'inventory_quick':
-          menuHTML += `
-        <li>
-          <div class="sidebar-menu-expandable">
-            <a href="inventory.php"><img src="images/menu/compressed_chest.webp" alt="Inventory"> Inventory Quick Access</a>
-                <button class="expand-btn" id="inventory-expand-btn">+</button>
-          </div>
-          <div id="inventory-expanded" class="sidebar-submenu ${extensionSettings.inventoryExpanded ? '' : 'collapsed'}">
-                <div class="quick-access-section">
-                  <div class="quick-access-header">
-                    <span>Quick Access Items</span>
-                    <button class="refresh-btn" id="inventory-refresh-btn" title="Refresh Inventory Items">🔄</button>
-          </div>
-                  <div id="inventory-quick-access" class="quick-access-items">
-                    <div class="quick-access-empty">No pinned items. Visit inventory to pin items.</div>
-                  </div>
-                </div>
-              </div>
-            </li>`;
-          break;
-        case 'achievements':
-          menuHTML += `<li><a href="achievements.php"><img src="images/menu/compressed_achievments.webp" alt="Achievements"> Achievements</a></li>`;
-          break;
-        case 'collections':
-          menuHTML += `<li><a href="collections.php"><img src="images/menu/compressed_collections.webp" alt="Collections"> Collections</a></li>`;
-          break;
-        case 'guide':
-          menuHTML += `<li><a href="guide.php"><img src="images/menu/compressed_guide.webp" alt="Guide"> How To Play</a></li>`;
-          break;
-        case 'leaderboard':
-          menuHTML += `<li><a href="weekly.php"><img src="images/menu/weekly_leaderboard.webp" alt="Leaderboard"> Weekly Leaderboard</a></li>`;
-          break;
-        case 'chat':
-          menuHTML += `<li><a href="chat.php"><img src="images/menu/compressed_chat.webp" alt="Chat"> Global Chat</a></li>`;
-          break;
-        case 'patches':
-          menuHTML += `<li><a href="patches.php"><img src="images/menu/compressed_patches.webp" alt="PatchNotes"> Patch Notes</a></li>`;
-          break;
-        case 'manga':
-          menuHTML += `<li><a href="index.php"><img src="images/menu/compressed_manga.webp" alt="Manga"> Manga-Manhwa-Manhua</a></li>`;
-          break;
-
-      }
-    });
-    
-    return menuHTML;
-  }
-
   async function getProfileLink() {
     const profileHeader = document.querySelector('.small-user');
     if (!profileHeader) {
@@ -3532,7 +3333,111 @@ function parseAttackLogs(html) {
               pathname = rawHref;
             }
 
-            if (pathname.endsWith('/stats.php') || pathname === 'stats.php') {
+            if (pathname.endsWith('/pets.php') || pathname === 'pets.php') {
+              try {
+                // Don't add multiple toggles
+                if (a.dataset.petsEnhanced) return;
+                a.dataset.petsEnhanced = 'true';
+                // Create toggle button (will sit to the right of the anchor)
+                const toggle = document.createElement('button');
+                toggle.className = 'pets-toggle-btn';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', extensionSettings.petsExpanded ? 'true' : 'false');
+                toggle.textContent = extensionSettings.petsExpanded ? '−' : '+';
+                toggle.style.cssText = 'margin-left:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); color:#89b4fa; padding:2px 6px; border-radius:4px; cursor:pointer; font-weight:700;';
+
+                // Create expand panel (hidden by default) that will be inserted right after the anchor wrapper
+                const panel = document.createElement('div');
+                panel.className = 'pets-expand-panel';
+                panel.style.cssText = 'display:' + (extensionSettings.petsExpanded ? 'block' : 'none') + '; padding:8px; margin-top:8px; margin-bottom:8px; background:rgba(20,20,26,0.6); border-radius:6px; border:1px solid rgba(69,71,90,0.4);';
+                // Place the toggle inside the <a> so it appears on the right-hand side of the pets item
+                try {
+                  // Make the anchor a flex container so the label stays left and the toggle sits right
+                  a.classList.add('sidebar-menu-expandable');
+                  a.style.display = a.style.display || 'flex';
+                  a.style.alignItems = a.style.alignItems || 'center';
+                  a.style.justifyContent = a.style.justifyContent || 'space-between';
+                  // Create a non-navigable control area inside the anchor and put the toggle there
+                  const controlArea = document.createElement('div');
+                  controlArea.className = 'side-control';
+                  controlArea.style.cssText = 'margin-left:8px; display:flex; align-items:center; gap:6px;';
+                  // Prevent clicks in the control area from triggering anchor navigation
+                  controlArea.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+                  controlArea.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') { ev.preventDefault(); ev.stopPropagation(); } });
+                  controlArea.appendChild(toggle);
+                  a.appendChild(controlArea);
+                  // Insert the panel directly after the anchor so it expands downward under the pets item
+                  const parent = a.parentNode;
+                  if (parent) parent.insertBefore(panel, a.nextSibling);
+                } catch (e) {
+                  // Fallback: append toggle after anchor
+                  a.parentNode.insertBefore(toggle, a.nextSibling);
+                  a.parentNode.insertBefore(panel, toggle.nextSibling);
+                }
+                // Helper to fill the Pets expandable panel with Pet Teams controls
+                const populatePetsPanel = () => {
+                  if (panel.dataset.inited === '1') return;
+                  panel.dataset.inited = '1';
+                  const teams = (function(){
+                    try { return JSON.parse(localStorage.getItem(PET_STORAGE_KEY) || '{}'); } catch { return {}; }
+                  })();
+                  const names = Object.keys(teams);
+                  if (!names.length) {
+                    panel.innerHTML = '<div style="color:#a6adc8; padding:8px;">No pet teams saved yet. Open Pets to create one.</div>';
+                    return;
+                  }
+                  const list = names.map(n => {
+                    const count = Object.keys(teams[n]||{}).length;
+                    return `
+                      <div style="background:#181825; border-radius:8px; padding:12px; border:1px solid #313244; margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                          <div>
+                            <div style="font-weight:700; color:#cba6f7;">${n}</div>
+                            <div style="font-size:12px; color:#a6adc8;">${count} pet(s)</div>
+                          </div>
+                          <div style="display:flex; gap:6px;">
+                            <button data-pt-action="apply" data-team="${n}" style="background:#a6e3a1;color:#1e1e2e;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Apply</button>
+                          </div>
+                        </div>
+                      </div>`;
+                  }).join('');
+                  panel.innerHTML = list;
+                  panel.querySelectorAll('button[data-pt-action]').forEach(btn => {
+                    btn.addEventListener('click', (ev) => {
+                      ev.preventDefault(); ev.stopPropagation();
+                      const action = btn.getAttribute('data-pt-action');
+                      const team = btn.getAttribute('data-team');
+                      if (!team) return;
+                      if (action === 'apply') {
+                        try { applyPetTeam(team); } catch (e) { console.error('Apply pet team failed:', e); }
+                      }
+                    });
+                  });
+                };
+                // Toggle interaction
+                toggle.addEventListener('click', (ev) => {
+                  ev.preventDefault(); ev.stopPropagation();
+                  const isOpen = panel.style.display !== 'none';
+                  if (isOpen) {
+                    panel.style.display = 'none';
+                    toggle.textContent = '+';
+                    toggle.setAttribute('aria-expanded', 'false');
+                    try { extensionSettings.petsExpanded = false; saveSettings(); } catch {}
+                  } else {
+                    panel.style.display = 'block';
+                    toggle.textContent = '−';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    populatePetsPanel();
+                    try { extensionSettings.petsExpanded = true; saveSettings(); } catch {}
+                  }
+                });
+                // If initially expanded, populate immediately
+                if (extensionSettings.petsExpanded) {
+                  populatePetsPanel();
+                }
+                
+              } catch (e) { /* pets expand outer try */ }
+            } else if (pathname.endsWith('/stats.php') || pathname === 'stats.php') {
               try {
                 // Don't add multiple toggles
                 if (a.dataset.statsEnhanced) return;
@@ -3983,7 +3888,6 @@ function parseAttackLogs(html) {
           try { saveSettings(); } catch (e) { console.error('Failed to save settings after merging menuItems', e); }
 
           // Refresh the sidebar DOM and re-apply ordering/hiding
-          try { refreshSidebar(); } catch (e) { /* ignore */ }
           try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('Failed to apply side drawer names after merging', e); }
 
           return true;
@@ -7283,8 +7187,6 @@ window.toggleSection = function(header) {
     if (applyBtn) {
       applyBtn.addEventListener('click', function() {
         saveSettings();
-        // Regenerate sidebar DOM from current settings
-        refreshSidebar();
         // Reorder and hide side drawer items according to saved names in storage
         try { applySideDrawerNamesFromStorage(); } catch (e) { console.error('applySideDrawerNamesFromStorage failed on apply', e); }
       });
@@ -7813,7 +7715,6 @@ window.toggleSection = function(header) {
         extensionSettings.waveSelection = { gate: g, wave: w };
         extensionSettings.waveSelectionLabel = 'Gate 3';
         saveSettings();
-        try { refreshSidebar(); } catch {}
         try { updateSideNavWaveLinks(); } catch {}
         showNotification('Wave selection updated!', 'success');
       });
@@ -7862,7 +7763,6 @@ window.toggleSection = function(header) {
         extensionSettings.waveSelection = { gate: g, wave: w };
         extensionSettings.waveSelectionLabel = gate.name || `Gate ${g}`;
         saveSettings();
-        try { refreshSidebar(); } catch {}
         try { updateSideNavWaveLinks(); } catch {}
         showNotification(`Wave set to ${gate.name || `Gate ${g}`} — ${sel.options[sel.selectedIndex]?.textContent || ''}`, 'success');
       });
@@ -9827,20 +9727,7 @@ window.toggleSection = function(header) {
 
   window.applyMenuCustomization = function() {
     saveSettings();
-    refreshSidebar();
   };
-
-  function refreshSidebar() {
-    const sidebar = document.getElementById('game-sidebar');
-    if (sidebar) {
-      const menuList = sidebar.querySelector('.sidebar-menu');
-      if (menuList) {
-        menuList.innerHTML = generateMenuItems();
-        // Re-initialize sidebar functionality after refresh
-        initSidebarFunctionality();
-      }
-    }
-  }
 
   function initSidebarFunctionality() {
     // Re-initialize all sidebar event listeners and functionality
@@ -14863,6 +14750,16 @@ window.toggleSection = function(header) {
     if (window.location.pathname.includes('pets.php')) {
       addPetTeamsToPage();
       setupPetClickDetection();
+      // If routed here to edit a team from sidebar, open edit mode
+      setTimeout(() => {
+        try {
+          const pending = localStorage.getItem('petTeamEdit');
+          if (pending) {
+            editPetTeam(pending);
+            localStorage.removeItem('petTeamEdit');
+          }
+        } catch {}
+      }, 600);
     }
   }
 
