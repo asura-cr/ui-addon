@@ -970,7 +970,7 @@ function parseLeaderboardFromHtml(html) {
       
       .equip-set-preview {
         display: flex;
-        gap: 5px;
+        gap: 3px;
         margin: 5px 0;
       }
       
@@ -1356,8 +1356,8 @@ function parseLeaderboardFromHtml(html) {
         <div>
           <div class="equip-set-name">${setName}</div>
           <div class="equip-set-preview">
-            ${equipmentList.slice(0, 6).map(item => `<img src="${item.img}" title="${item.name}" />`).join('')}
-            ${equipmentList.length > 6 ? `<span style="color: #6c7086; font-size: 12px;">+${equipmentList.length - 6} more</span>` : ''}
+            ${equipmentList.slice(0, 8).map(item => `<img src="${item.img}" title="${item.name}" />`).join('')}
+            ${equipmentList.length > 8 ? `<span style="color: #6c7086; font-size: 12px;">+${equipmentList.length - 8} more</span>` : ''}
           </div>
           <div style="font-size: 12px; color: #6c7086;">${Object.keys(setData).length} items</div>
         </div>
@@ -3493,13 +3493,13 @@ function parseAttackLogs(html) {
                   panel.innerHTML = names.map(n => {
                     const items = Object.values(sets[n]||{});
                     const count = items.length;
-                    const thumbs = items.slice(0,6).map(it => `<img src="${it.img||''}" title="${it.name||''}" style="width:22px;height:22px;border-radius:3px;border:1px solid #45475a;margin-right:3px;"/>`).join('');
+                    const thumbs = items.slice(0,8).map(it => `<img src="${it.img||''}" title="${it.name||''}" style="width:22px;height:22px;border-radius:3px;border:1px solid #45475a;margin-right:3px;"/>`).join('');
                     return `
                       <div style="background:#181825; border-radius:8px; padding:12px; border:1px solid #313244; margin-bottom:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <div>
                             <div style="font-weight:700; color:#b2cdee;">${n}</div>
-                            <div class="equip-set-preview" style="margin:6px 0;">${thumbs}${count>6?`<span style=\"color:#6c7086;font-size:12px;\">+${count-6} more</span>`:''}</div>
+                            <div class="equip-set-preview" style="display:flex; flex-wrap:wrap; margin:6px 0;">${thumbs}${count>8?`<span style=\"color:#6c7086;font-size:12px;\">+${count-8} more</span>`:''}</div>
                             <div style="font-size:12px; color:#6c7086;">${count} items</div>
                           </div>
                           <div style="display:flex; gap:6px;">
