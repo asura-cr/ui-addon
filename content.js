@@ -1121,6 +1121,12 @@ function parseLeaderboardFromHtml(html) {
       setTimeout(() => {
         addEquipSetsToInventory();
         loadIntegratedSets();
+        try {
+          const pending = localStorage.getItem('equipSetEdit');
+          if (pending) {
+            setTimeout(() => { try { window.editEquipSet(pending); } catch(e) {} localStorage.removeItem('equipSetEdit'); }, 250);
+          }
+        } catch {}
       }, 600);
     }
   }
@@ -3437,6 +3443,103 @@ function parseAttackLogs(html) {
                 }
                 
               } catch (e) { /* pets expand outer try */ }
+            } else if (pathname.endsWith('/inventory.php') || pathname === 'inventory.php') {
+              try {
+                if (!extensionSettings.equipSets?.showInSidebar) return;
+                if (a.dataset.invEnhanced) return;
+                a.dataset.invEnhanced = 'true';
+                const toggle = document.createElement('button');
+                toggle.className = 'inv-toggle-btn';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', extensionSettings.inventoryExpanded ? 'true' : 'false');
+                toggle.textContent = extensionSettings.inventoryExpanded ? '−' : '+';
+                toggle.style.cssText = 'margin-left:8px; background:transparent; border:1px solid rgba(255,255,255,0.06); color:#89b4fa; padding:2px 6px; border-radius:4px; cursor:pointer; font-weight:700;';
+
+                const panel = document.createElement('div');
+                panel.className = 'inventory-expand-panel';
+                panel.style.cssText = 'display:' + (extensionSettings.inventoryExpanded ? 'block' : 'none') + '; padding:8px; margin-top:8px; margin-bottom:8px; background:rgba(20,20,26,0.6); border-radius:6px; border:1px solid rgba(69,71,90,0.4);';
+                try {
+                  a.classList.add('sidebar-menu-expandable');
+                  a.style.display = a.style.display || 'flex';
+                  a.style.alignItems = a.style.alignItems || 'center';
+                  a.style.justifyContent = a.style.justifyContent || 'space-between';
+                  const controlArea = document.createElement('div');
+                  controlArea.className = 'side-control';
+                  controlArea.style.cssText = 'margin-left:8px; display:flex; align-items:center; gap:6px;';
+                  controlArea.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+                  controlArea.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') { ev.preventDefault(); ev.stopPropagation(); } });
+                  controlArea.appendChild(toggle);
+                  a.appendChild(controlArea);
+                  const parent = a.parentNode; if (parent) parent.insertBefore(panel, a.nextSibling);
+                } catch (e) {
+                  a.parentNode.insertBefore(toggle, a.nextSibling);
+                  a.parentNode.insertBefore(panel, toggle.nextSibling);
+                }
+
+                const populateInvPanel = () => {
+                  if (panel.dataset.inited === '1') return;
+                  panel.dataset.inited = '1';
+                  let sets = {};
+                  try { sets = getEquipStorageSets(); } catch { try { sets = JSON.parse(localStorage.getItem(EQUIP_STORAGE_KEY)||'{}'); } catch { sets = {}; } }
+                  const names = Object.keys(sets);
+                  if (!names.length) {
+                    panel.innerHTML = '<div style="color:#a6adc8; padding:8px;">No equipment sets yet. Open Inventory to create one.</div>';
+                    return;
+                  }
+                  panel.innerHTML = names.map(n => {
+                    const items = Object.values(sets[n]||{});
+                    const count = items.length;
+                    const thumbs = items.slice(0,6).map(it => `<img src="${it.img||''}" title="${it.name||''}" style="width:22px;height:22px;border-radius:3px;border:1px solid #45475a;margin-right:3px;"/>`).join('');
+                    return `
+                      <div style="background:#181825; border-radius:8px; padding:12px; border:1px solid #313244; margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                          <div>
+                            <div style="font-weight:700; color:#f9e2af;">⚡ ${n}</div>
+                            <div class="equip-set-preview" style="margin:6px 0;">${thumbs}${count>6?`<span style=\"color:#6c7086;font-size:12px;\">+${count-6} more</span>`:''}</div>
+                            <div style="font-size:12px; color:#6c7086;">${count} items</div>
+                          </div>
+                          <div style="display:flex; gap:6px;">
+                            <button data-es-action="apply" data-set="${n}" style="background:#a6e3a1;color:#1e1e2e;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;">Apply</button>
+                          </div>
+                        </div>
+                      </div>`;
+                  }).join('');
+
+                  panel.querySelectorAll('button[data-es-action]').forEach(btn => {
+                    btn.addEventListener('click', (ev) => {
+                      ev.preventDefault(); ev.stopPropagation();
+                      const action = btn.getAttribute('data-es-action');
+                      const name = btn.getAttribute('data-set');
+                      if (!name) return;
+                      if (action === 'apply') {
+                        try { window.applyEquipSet(name); } catch (e) { console.error('Apply equip set failed:', e); }
+                      }
+                    });
+                  });
+                };
+
+                toggle.addEventListener('click', (ev) => {
+                  ev.preventDefault(); ev.stopPropagation();
+                  const isOpen = panel.style.display !== 'none';
+                  if (isOpen) {
+                    panel.style.display = 'none';
+                    toggle.textContent = '+';
+                    toggle.setAttribute('aria-expanded', 'false');
+                    try { extensionSettings.inventoryExpanded = false; saveSettings(); } catch {}
+                  } else {
+                    panel.style.display = 'block';
+                    toggle.textContent = '−';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    populateInvPanel();
+                    try { extensionSettings.inventoryExpanded = true; saveSettings(); } catch {}
+                  }
+                });
+
+                if (extensionSettings.inventoryExpanded) {
+                  populateInvPanel();
+                }
+
+              } catch (e) { /* inventory expand outer try */ }
             } else if (pathname.endsWith('/stats.php') || pathname === 'stats.php') {
               try {
                 // Don't add multiple toggles
