@@ -15790,9 +15790,9 @@ window.toggleSection = function(header) {
         }
 
         /* Merchant-specific tweaks */
-        #merchant-expanded .sidebar-quick-access .quick-access-item {
-          max-width: 189px;
-          width: 189px;
+        #merchant-expanded {
+          max-width: 189px !important;
+          width: 189px !important;
         }
       `;
       document.head.appendChild(style);
@@ -15901,7 +15901,7 @@ window.toggleSection = function(header) {
               const canBuy = item.maxQ === 0 || remaining > 0;
 
         content += `
-                  <div class="quick-access-item" data-item-id="${item.id}" data-item-name="${item.name}" data-item-currency="${item.currency}" data-item-price="${item.price}" style="max-width: 189px;">
+                  <div class="quick-access-item" data-item-id="${item.id}" data-item-name="${item.name}" data-item-currency="${item.currency}" data-item-price="${item.price}" style="max-width: 155px;">
             <div class="qa-item-header">
                           <img src="${item.image}" alt="${item.name}" style="width: 24px; height: 24px; border-radius: 4px;" onerror="this.style.display='none'">
               <div class="qa-item-info">
