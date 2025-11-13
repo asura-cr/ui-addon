@@ -3393,12 +3393,16 @@ function parseAttackLogs(html) {
                     return;
                   }
                   const list = names.map(n => {
-                    const count = Object.keys(teams[n]||{}).length;
+                    const team = teams[n] || {};
+                    const entries = Object.values(team).sort((a,b) => (a.slot||0) - (b.slot||0));
+                    const count = entries.length;
+                    const thumbs = entries.slice(0,6).map(p => `<img src="${p.image||''}" title="${p.name||''}" style="width:22px;height:22px;border-radius:3px;border:1px solid #45475a;margin-right:3px;object-fit:cover;"/>`).join('');
                     return `
                       <div style="background:#181825; border-radius:8px; padding:12px; border:1px solid #313244; margin-bottom:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <div>
-                            <div style="font-weight:700; color:#cba6f7;">${n}</div>
+                            <div style="font-weight:700; color:#b2cdee;">${n}</div>
+                            <div class="pet-team-preview" style="margin:6px 0;">${thumbs}${count>6?`<span style=\"color:#6c7086;font-size:12px;\">+${count-6} more</span>`:''}</div>
                             <div style="font-size:12px; color:#a6adc8;">${count} pet(s)</div>
                           </div>
                           <div style="display:flex; gap:6px;">
@@ -3494,7 +3498,7 @@ function parseAttackLogs(html) {
                       <div style="background:#181825; border-radius:8px; padding:12px; border:1px solid #313244; margin-bottom:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <div>
-                            <div style="font-weight:700; color:#f9e2af;">⚡ ${n}</div>
+                            <div style="font-weight:700; color:#b2cdee;">${n}</div>
                             <div class="equip-set-preview" style="margin:6px 0;">${thumbs}${count>6?`<span style=\"color:#6c7086;font-size:12px;\">+${count-6} more</span>`:''}</div>
                             <div style="font-size:12px; color:#6c7086;">${count} items</div>
                           </div>
@@ -14749,13 +14753,16 @@ window.toggleSection = function(header) {
     
     listContainer.innerHTML = teamNames.map(name => {
       const team = teams[name];
-      const petCount = Object.keys(team).length;
+      const pets = Object.values(team).sort((a,b) => (a.slot||0) - (b.slot||0));
+      const petCount = pets.length;
+      const thumbs = pets.slice(0, 6).map(p => `<img src="${p.image||''}" title="${p.name||''}" style="width:22px;height:22px;border-radius:3px;border:1px solid #45475a;margin-right:3px;object-fit:cover;"/>`).join('');
       
       return `
         <div style="background: #181825; border-radius: 8px; padding: 15px; border: 1px solid #313244;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <div style="font-weight: bold; color: #cba6f7; margin-bottom: 4px;">${name}</div>
+              <div class="pet-team-preview" style="margin:6px 0;">${thumbs}${petCount>6?`<span style=\"color:#6c7086;font-size:12px;\">+${petCount-6} more</span>`:''}</div>
               <div style="font-size: 12px; color: #a6adc8;">${petCount} pet(s)</div>
             </div>
             <div style="display: flex; gap: 6px;">
