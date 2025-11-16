@@ -11168,6 +11168,10 @@ window.toggleSection = function(header) {
           <span>🖼️</span>
           <span>Hide Images</span>
         </button>
+        <button id="loot-all-btn" style="background: rgba(255, 211, 105, 0.2); border-color: rgba(255, 211, 105, 0.4); color: #ffd369; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s ease; white-space: nowrap;">
+          <span>💰</span>
+          <span>Loot All (<span id="loot-count">0</span>)</span>
+        </button>
         <button id="clear-filters" style="display: flex;align-items: center;gap: 8px;padding: 7px 16px;background: #f38ba8;border: 1px solid #f38ba8;color: white;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: all 0.2s ease;margin-left: auto;order: 999;flex-shrink: 0;">
           Clear All
         </button>
@@ -11329,6 +11333,11 @@ window.toggleSection = function(header) {
     
     // Special case: if we have loot filters but didn't populate the dropdown yet, 
     // we'll apply filters again after the dropdown is populated (see above)
+
+    // Always compute initial loot count from server once UI is ready
+    if (typeof updateLootCountFromServer === 'function') {
+      updateLootCountFromServer();
+    }
   }
 
   async function populateLootFilterDropdown() {
@@ -11642,6 +11651,244 @@ window.toggleSection = function(header) {
       hideImg: (document.getElementById('hide-img-monsters')?.dataset.hidden === 'true'),
     };
     localStorage.setItem('demonGameFilterSettings', JSON.stringify(settings));
+
+    // Update the Loot All count based on server data with dead monsters visible
+    if (typeof updateLootCountFromServer === 'function') {
+      updateLootCountFromServer();
+    }
+  }
+
+  // Helper: get cookie value by name
+  function getCookieValue(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  // Helper: set cookie (path=/ to cover whole site)
+  function setCookie(name, value, options = {}) {
+    const opts = { path: '/', ...options };
+    let updatedCookie = encodeURIComponent(name) + '=' + encodeURIComponent(value);
+    for (const key in opts) {
+      updatedCookie += '; ' + key;
+      const optVal = opts[key];
+      if (optVal !== true) updatedCookie += '=' + optVal;
+    }
+    document.cookie = updatedCookie;
+  }
+
+  // Update the Loot All count by fetching the same page with hide_dead_monsters=0
+  let _lootCountAbortController = null;
+  let _lootCountDebounce = null;
+  async function updateLootCountFromServer() {
+    // Debounce rapid calls
+    clearTimeout(_lootCountDebounce);
+    _lootCountDebounce = setTimeout(_updateLootCountFromServerNow, 150);
+  }
+
+  async function _updateLootCountFromServerNow() {
+    const lootCountEl = document.getElementById('loot-count');
+    if (!lootCountEl) return;
+
+    // Abort previous in-flight request
+    if (_lootCountAbortController) _lootCountAbortController.abort();
+    _lootCountAbortController = new AbortController();
+
+    // Read current filter state from UI
+    const nameFilter = (document.getElementById('monster-name-filter')?.value || '').trim().toLowerCase();
+    const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value.toLowerCase());
+    const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value.toLowerCase());
+    const hpFilter = document.getElementById('hp-filter')?.value || '';
+    const playerCountFilter = document.getElementById('player-count-filter')?.value || '';
+
+    // Temporarily set cookie hide_dead_monsters=0, then restore
+    const prevCookie = getCookieValue('hide_dead_monsters');
+    try {
+      setCookie('hide_dead_monsters', '0');
+
+      const url = window.location.pathname + window.location.search;
+      const res = await fetch(url, { credentials: 'include', signal: _lootCountAbortController.signal });
+      const html = await res.text();
+
+      // Parse the HTML into a document
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Helper: compute HP percent from a card element
+      const getHpPercent = (card) => {
+        const fill = card.querySelector('.hp-fill');
+        if (fill && fill.style && fill.style.width) {
+          const m = String(fill.style.width).match(/([\d.]+)%/);
+          if (m) return Math.max(0, Math.min(100, parseFloat(m[1])));
+        }
+        const val = card.querySelector('.stat-row .stat-main .stat-value');
+        if (val) {
+          const txt = val.textContent.replace(/[,\s]/g, ''); // remove commas/spaces
+          const m = txt.match(/(\d+)\/(\d+)/);
+          if (m) {
+            const cur = parseFloat(m[1]);
+            const tot = Math.max(1, parseFloat(m[2]));
+            return (cur / tot) * 100;
+          }
+        }
+        return NaN;
+      };
+
+      // Helper: parse players joined
+      const getPlayersJoined = (card) => {
+        const chip = card.querySelector('.mini-chip.party-chip');
+        if (!chip) return { joined: NaN, cap: NaN };
+        const m = chip.textContent.replace(/\s/g, '').match(/(\d+)\/(\d+)/);
+        if (m) return { joined: parseInt(m[1], 10), cap: parseInt(m[2], 10) };
+        return { joined: NaN, cap: NaN };
+      };
+
+      // Helper: HP filter predicate
+      const hpMatches = (pct) => {
+        if (isNaN(pct)) return true; // if unknown, don't filter it out
+        const p = pct / 100;
+        switch (hpFilter) {
+          case 'low': return p < 0.5;
+          case 'medium': return p >= 0.5 && p < 0.8;
+          case 'high': return p >= 0.8 && p < 1.0;
+          case 'full': return p === 1.0;
+          default: return true;
+        }
+      };
+
+      // Helper: player count filter predicate
+      const playersMatch = ({ joined, cap }) => {
+        if (!playerCountFilter) return true;
+        if (isNaN(joined)) return true;
+        switch (playerCountFilter) {
+          case 'empty': return joined === 0;
+          case 'few': return joined < 10;
+          case 'many': return joined > 20;
+          case 'full': return !isNaN(cap) ? joined >= cap : joined >= 30;
+          default: return true;
+        }
+      };
+
+      // Normalize a loot name to comparable form
+      const normalizeLootName = (s) => String(s || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      // Build set of selected loot items for quick checks (normalized)
+      const selectedLootSet = new Set(selectedLootItems.map(normalizeLootName));
+
+      // Use global lootCache if available. Be tolerant of shapes:
+      // - Map<string, string[] | {loot:string[]} | {items: string[]} | Set<string> | Array<{name:string}>>
+      const getMonsterLootSet = (monsterNameLower) => {
+        const asSet = (entry) => {
+          if (!entry) return null;
+          // If already a Set of strings
+          if (entry instanceof Set) return new Set(Array.from(entry, normalizeLootName));
+          // Array of strings or objects
+          if (Array.isArray(entry)) {
+            return new Set(entry.map(x => normalizeLootName(typeof x === 'string' ? x : (x?.name || x?.itemName || ''))));
+          }
+          // Object with loot/items array
+          if (entry.loot && Array.isArray(entry.loot)) {
+            return new Set(entry.loot.map(x => normalizeLootName(typeof x === 'string' ? x : (x?.name || x?.itemName || ''))));
+          }
+          if (entry.items && Array.isArray(entry.items)) {
+            return new Set(entry.items.map(x => normalizeLootName(typeof x === 'string' ? x : (x?.name || x?.itemName || ''))));
+          }
+          return null;
+        };
+
+        try {
+          if (typeof lootCache !== 'undefined' && lootCache && typeof lootCache.forEach === 'function') {
+            let found = null;
+            // Find by case-insensitive key match
+            lootCache.forEach((value, key) => {
+              if (found) return;
+              if (String(key).trim().toLowerCase() === monsterNameLower) {
+                found = value;
+              }
+            });
+            if (!found && typeof lootCache.get === 'function') {
+              // Try direct get with original case (in case keys are already lower)
+              found = lootCache.get(monsterNameLower) || lootCache.get(monsterNameLower.trim());
+            }
+            const set = asSet(found);
+            if (set && set.size > 0) return set;
+          }
+        } catch {}
+
+        // Attempt to read any loot hints directly from the card DOM (defensive)
+        // e.g., chips like .loot-chip or elements with [data-loot]
+        return null;
+      };
+
+      // Exclude monsters we already looted this session
+      const lootedSet = (typeof lootedMonsters !== 'undefined' && lootedMonsters && typeof lootedMonsters.has === 'function') ? lootedMonsters : new Set();
+
+      let count = 0;
+      const cards = doc.querySelectorAll('.monster-container .monster-card');
+      cards.forEach(card => {
+        const id = card.getAttribute('data-monster-id') || card.querySelector('a[href*="battle.php?id="]')?.href?.match(/id=(\d+)/)?.[1];
+        // Only consider dead (lootable) monsters
+        const isDead = card.getAttribute('data-dead') === '1' || getHpPercent(card) === 0;
+        if (!isDead) return;
+        // If site signals eligibility, respect it
+        const eligibleAttr = card.getAttribute('data-eligible');
+        if (eligibleAttr && eligibleAttr !== '1') return;
+        if (id && lootedSet.has(id)) return;
+
+        // Name filters (also doubles as monster type selection)
+        const name = (card.querySelector('.monster-name, h3, h2')?.textContent || '').trim();
+        const nameLower = name.toLowerCase();
+        if (nameFilter && !nameLower.includes(nameFilter)) return;
+        if (selectedMonsterTypes.length > 0 && !selectedMonsterTypes.includes(nameLower)) return;
+
+        // HP filter
+        const hpPct = getHpPercent(card);
+        if (!hpMatches(hpPct)) return;
+
+        // Player count filter
+        if (!playersMatch(getPlayersJoined(card))) return;
+
+        // Loot filter (if configured) using lootCache mapping
+        if (selectedLootSet.size > 0) {
+          let lootSet = getMonsterLootSet(nameLower);
+
+          // If cache has no entry, try to parse any hint from server HTML
+          if (!lootSet) {
+            const possibleChips = card.querySelectorAll('.loot-chip, .loot-item, [data-loot]');
+            if (possibleChips && possibleChips.length) {
+              lootSet = new Set(Array.from(possibleChips, el => normalizeLootName(el.getAttribute('data-loot') || el.textContent || '')));
+            }
+          }
+
+          if (!lootSet || lootSet.size === 0) return; // unknown loot -> exclude when filtering by loot
+          let anyMatch = false;
+          for (const item of selectedLootSet) {
+            if (lootSet.has(item)) { anyMatch = true; break; }
+          }
+          if (!anyMatch) return;
+        }
+
+        count += 1;
+      });
+
+      lootCountEl.textContent = String(count);
+    } catch (e) {
+      // On failure, fall back to visible DOM count
+      try {
+        const visibleLootable = document.querySelectorAll('.monster-card[data-dead="1"]').length;
+        lootCountEl.textContent = String(visibleLootable);
+      } catch {}
+    } finally {
+      // Restore cookie to previous value/state
+      if (prevCookie === null) {
+        // Expire the cookie if it didn't exist before
+        setCookie('hide_dead_monsters', '', { 'max-age': -1 });
+      } else {
+        setCookie('hide_dead_monsters', prevCookie);
+      }
+    }
   }
 
   // Removed unused battle-limit alarm sound function (no alarm.mp3 asset shipped)
