@@ -11099,14 +11099,84 @@ window.toggleSection = function(header) {
       const monsterList = document.querySelectorAll('.monster-card');
       if (monsterList.length > 0) {
         obs.disconnect();
-  const settings = await loadFilterSettings();
-  createFilterUI(monsterList, settings);
+        const settings = await loadFilterSettings();
+        // Build combined list using both hide_dead_monsters states for dropdown population
+        let effectiveList = monsterList;
+        try {
+          const combinedList = await buildCombinedMonsterList();
+          if (combinedList && combinedList.length) {
+            effectiveList = combinedList;
+          }
+        } catch {}
+        createFilterUI(effectiveList, settings);
       }
     });
     observer.observe(document.body, {
       childList: true,
       subtree: true
     });
+  }
+
+  // Build a combined monster list using both hide_dead_monsters=0 and =1 pages
+  async function buildCombinedMonsterList() {
+    const combined = new Map(); // key: name text, value: dummy object with name
+
+    const addFromDoc = (doc) => {
+      if (!doc) return;
+      const cards = doc.querySelectorAll('.monster-card');
+      cards.forEach(card => {
+        const name = (card.querySelector('.monster-name, h3, h2')?.textContent || '').trim();
+        if (!name) return;
+        if (!combined.has(name)) {
+          // Store a minimal object that mimics the part of monsterList createFilterUI uses
+          combined.set(name, { _uiaddon_name: name });
+        }
+      });
+    };
+
+    // Always include monsters from the current DOM
+    const liveCards = document.querySelectorAll('.monster-card');
+    liveCards.forEach(card => {
+      const name = (card.querySelector('.monster-name, h3, h2')?.textContent || '').trim();
+      if (name && !combined.has(name)) {
+        combined.set(name, { _uiaddon_name: name });
+      }
+    });
+
+    // Helper to safely fetch a document with a specific hide_dead_monsters value
+    const fetchWithHideDead = async (value) => {
+      try {
+        pushHideDeadOverride();
+        const url = window.location.pathname + window.location.search;
+        const res = await fetch(url, { credentials: 'include' });
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        return doc;
+      } catch {
+        return null;
+      } finally {
+        popHideDeadOverride();
+      }
+    };
+
+    // Fetch both versions sequentially to avoid overlapping overrides
+    const docShowDead = await fetchWithHideDead('0');
+    addFromDoc(docShowDead);
+
+    const docHideDead = await fetchWithHideDead('1');
+    addFromDoc(docHideDead);
+
+    // Return an array-like object compatible with existing createFilterUI logic
+    // Each element needs a querySelector that returns the stored name
+    return Array.from(combined.values()).map(entry => ({
+      querySelector: (sel) => {
+        if (sel.includes('.monster-name') || sel.includes('h3') || sel.includes('h2')) {
+          return { textContent: entry._uiaddon_name };
+        }
+        return null;
+      }
+    }));
   }
 
   function createFilterUI(monsterList, settings) {
@@ -11121,7 +11191,7 @@ window.toggleSection = function(header) {
             Monster Types ▼
           </button>
           <div id="monster-type-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 200px; max-height: 200px; overflow-y: auto;">
-            <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Wave 1 Monsters</div>
+            <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">WMonsters</div>
             <div id="monster-types-list"></div>
             <div style="margin-top: 8px; padding-top: 5px; border-top: 1px solid #45475a;">
               <button id="select-all-monsters" style="padding: 3px 8px; background: #a6e3a1; color: #1e1e2e; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">Select All</button>
