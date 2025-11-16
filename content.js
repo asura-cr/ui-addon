@@ -11709,18 +11709,32 @@ window.toggleSection = function(header) {
   }
 
   // Guard to avoid overlapping overrides leaving cookie stuck at 0
-  const _hideDeadOverride = { depth: 0, original: null, unloadHandler: null };
+  const _hideDeadOverride = {
+    depth: 0,
+    original: null,
+    unloadHandler: null,
+    pathUsed: null,
+    cookieCountBefore: 0,
+    createdNew: false
+  };
   function pushHideDeadOverride() {
     if (_hideDeadOverride.depth === 0) {
+      // Snapshot current cookie state
+      const cookieStrBefore = document.cookie || '';
+      _hideDeadOverride.cookieCountBefore = (cookieStrBefore.match(/(?:^|;\s*)hide_dead_monsters=/g) || []).length;
       _hideDeadOverride.original = getCookieValue('hide_dead_monsters');
-      // Attach a synchronous restore on page unload/refresh to avoid "stuck" cookies
+      _hideDeadOverride.pathUsed = window.location.pathname || '/';
+
+      // Attach a synchronous cleanup on page unload/refresh
       _hideDeadOverride.unloadHandler = () => {
         try {
-          // Remove any temporary values we may have set, then restore the original
-          clearCookieAcrossPaths('hide_dead_monsters');
-          const prev = _hideDeadOverride.original;
-          if (prev !== null && prev !== undefined && prev !== '') {
-            setCookieAcrossPaths('hide_dead_monsters', prev);
+          // Remove our temporary override cookie on the specific path we used
+          if (_hideDeadOverride.pathUsed) {
+            setCookie('hide_dead_monsters', '', { path: _hideDeadOverride.pathUsed, 'max-age': -1 });
+          }
+          // If we overwrote an existing cookie (not created a new one), restore its value on the same path
+          if (!_hideDeadOverride.createdNew && _hideDeadOverride.original !== null && _hideDeadOverride.pathUsed) {
+            setCookie('hide_dead_monsters', _hideDeadOverride.original, { path: _hideDeadOverride.pathUsed });
           }
         } catch {}
       };
@@ -11728,8 +11742,12 @@ window.toggleSection = function(header) {
       window.addEventListener('pagehide', _hideDeadOverride.unloadHandler);
     }
     _hideDeadOverride.depth += 1;
-    // Set to 0 with a short expiry as extra safety; we will restore immediately
-    setCookieAcrossPaths('hide_dead_monsters', '0', { 'max-age': 180 });
+    // Set to 0 on a specific path only to avoid creating root-path duplicates
+    setCookie('hide_dead_monsters', '0', { path: _hideDeadOverride.pathUsed, 'max-age': 180 });
+    // Detect if this write created an additional cookie (duplicate with different path)
+    const cookieStrAfter = document.cookie || '';
+    const countAfter = (cookieStrAfter.match(/(?:^|;\s*)hide_dead_monsters=/g) || []).length;
+    _hideDeadOverride.createdNew = countAfter > _hideDeadOverride.cookieCountBefore;
   }
 
   function popHideDeadOverride() {
@@ -11743,15 +11761,21 @@ window.toggleSection = function(header) {
         }
         _hideDeadOverride.unloadHandler = null;
 
-        // First, clear any temporary cookies (on any path) we set to 0
-        clearCookieAcrossPaths('hide_dead_monsters');
-
-        // Then restore the previous value if it existed
-        const prev = _hideDeadOverride.original;
-        _hideDeadOverride.original = null;
-        if (prev !== null && prev !== undefined && prev !== '') {
-          setCookieAcrossPaths('hide_dead_monsters', prev);
+        // Remove our temporary cookie at the specific path
+        if (_hideDeadOverride.pathUsed) {
+          setCookie('hide_dead_monsters', '', { path: _hideDeadOverride.pathUsed, 'max-age': -1 });
         }
+
+        // If we overwrote an existing cookie (same-path), restore that value on that path
+        if (!_hideDeadOverride.createdNew && _hideDeadOverride.original !== null && _hideDeadOverride.pathUsed) {
+          setCookie('hide_dead_monsters', _hideDeadOverride.original, { path: _hideDeadOverride.pathUsed });
+        }
+
+        // Reset state
+        _hideDeadOverride.original = null;
+        _hideDeadOverride.pathUsed = null;
+        _hideDeadOverride.cookieCountBefore = 0;
+        _hideDeadOverride.createdNew = false;
       }
     }
   }
