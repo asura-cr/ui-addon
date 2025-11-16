@@ -11296,6 +11296,16 @@ window.toggleSection = function(header) {
       applyMonsterFilters();
     });
 
+    // Hook the Loot All button to existing lootAll() behavior
+    const lootAllBtn = document.getElementById('loot-all-btn');
+    if (lootAllBtn && !lootAllBtn.dataset.listenerAttached) {
+      lootAllBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof lootAll === 'function') lootAll();
+      });
+      lootAllBtn.dataset.listenerAttached = 'true';
+    }
+
     // Initialize filter values from settings
     if (settings.nameFilter) document.getElementById('monster-name-filter').value = settings.nameFilter;
     if (settings.hpFilter) document.getElementById('hp-filter').value = settings.hpFilter;
@@ -11676,6 +11686,76 @@ window.toggleSection = function(header) {
     document.cookie = updatedCookie;
   }
 
+  // Helpers to set/clear a cookie across common path scopes to improve restore reliability
+  function getPathScopes() {
+    const scopes = ['/'];
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    let accum = '';
+    for (const p of parts) {
+      accum += '/' + p;
+      scopes.push(accum);
+    }
+    return Array.from(new Set(scopes));
+  }
+
+  function setCookieAcrossPaths(name, value, baseOptions = {}) {
+    const paths = getPathScopes();
+    paths.forEach(path => setCookie(name, value, { ...baseOptions, path }));
+  }
+
+  function clearCookieAcrossPaths(name) {
+    const paths = getPathScopes();
+    paths.forEach(path => setCookie(name, '', { path, 'max-age': -1 }));
+  }
+
+  // Guard to avoid overlapping overrides leaving cookie stuck at 0
+  const _hideDeadOverride = { depth: 0, original: null, unloadHandler: null };
+  function pushHideDeadOverride() {
+    if (_hideDeadOverride.depth === 0) {
+      _hideDeadOverride.original = getCookieValue('hide_dead_monsters');
+      // Attach a synchronous restore on page unload/refresh to avoid "stuck" cookies
+      _hideDeadOverride.unloadHandler = () => {
+        try {
+          // Remove any temporary values we may have set, then restore the original
+          clearCookieAcrossPaths('hide_dead_monsters');
+          const prev = _hideDeadOverride.original;
+          if (prev !== null && prev !== undefined && prev !== '') {
+            setCookieAcrossPaths('hide_dead_monsters', prev);
+          }
+        } catch {}
+      };
+      window.addEventListener('beforeunload', _hideDeadOverride.unloadHandler);
+      window.addEventListener('pagehide', _hideDeadOverride.unloadHandler);
+    }
+    _hideDeadOverride.depth += 1;
+    // Set to 0 with a short expiry as extra safety; we will restore immediately
+    setCookieAcrossPaths('hide_dead_monsters', '0', { 'max-age': 180 });
+  }
+
+  function popHideDeadOverride() {
+    if (_hideDeadOverride.depth > 0) {
+      _hideDeadOverride.depth -= 1;
+      if (_hideDeadOverride.depth === 0) {
+        // Detach unload listeners now that we're restoring synchronously
+        if (_hideDeadOverride.unloadHandler) {
+          try { window.removeEventListener('beforeunload', _hideDeadOverride.unloadHandler); } catch {}
+          try { window.removeEventListener('pagehide', _hideDeadOverride.unloadHandler); } catch {}
+        }
+        _hideDeadOverride.unloadHandler = null;
+
+        // First, clear any temporary cookies (on any path) we set to 0
+        clearCookieAcrossPaths('hide_dead_monsters');
+
+        // Then restore the previous value if it existed
+        const prev = _hideDeadOverride.original;
+        _hideDeadOverride.original = null;
+        if (prev !== null && prev !== undefined && prev !== '') {
+          setCookieAcrossPaths('hide_dead_monsters', prev);
+        }
+      }
+    }
+  }
+
   // Update the Loot All count by fetching the same page with hide_dead_monsters=0
   let _lootCountAbortController = null;
   let _lootCountDebounce = null;
@@ -11701,9 +11781,8 @@ window.toggleSection = function(header) {
     const playerCountFilter = document.getElementById('player-count-filter')?.value || '';
 
     // Temporarily set cookie hide_dead_monsters=0, then restore
-    const prevCookie = getCookieValue('hide_dead_monsters');
     try {
-      setCookie('hide_dead_monsters', '0');
+      pushHideDeadOverride();
 
       const url = window.location.pathname + window.location.search;
       const res = await fetch(url, { credentials: 'include', signal: _lootCountAbortController.signal });
@@ -11881,13 +11960,7 @@ window.toggleSection = function(header) {
         lootCountEl.textContent = String(visibleLootable);
       } catch {}
     } finally {
-      // Restore cookie to previous value/state
-      if (prevCookie === null) {
-        // Expire the cookie if it didn't exist before
-        setCookie('hide_dead_monsters', '', { 'max-age': -1 });
-      } else {
-        setCookie('hide_dead_monsters', prevCookie);
-      }
+      popHideDeadOverride();
     }
   }
 
@@ -12278,73 +12351,170 @@ window.toggleSection = function(header) {
     const lootAllBtn = document.getElementById('loot-all-btn');
     if (!lootAllBtn) return;
     
-    // Make sure filters are applied before we check for visible monsters
-    console.log('Re-applying filters before loot all...');
+    // Ensure current UI state is saved for filters
     applyMonsterFilters();
+    await new Promise(resolve => setTimeout(resolve, 50));
     
-    // Wait a moment for the DOM to update
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Find all available loot buttons from VISIBLE monsters only
-    const allMonsters = document.querySelectorAll('.monster-card');
-    const availableLootButtons = [];
-    
-    let visibleMonsterCount = 0;
-    
-    allMonsters.forEach((monster, index) => {
-      // Check if monster is actually visible (not hidden by filters)
-      // The applyMonsterFilters function sets display to '' for visible and 'none' for hidden
-      const isVisible = monster.style.display !== 'none';
+    // Gather current filter state (same as server count logic)
+    const nameFilter = (document.getElementById('monster-name-filter')?.value || '').trim().toLowerCase();
+    const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value.toLowerCase());
+    const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value.toLowerCase());
+    const hpFilter = document.getElementById('hp-filter')?.value || '';
+    const playerCountFilter = document.getElementById('player-count-filter')?.value || '';
 
-      if (isVisible) {
-        visibleMonsterCount++;
-        const lootButtons = monster.querySelectorAll('.join-btn');
-        
-        // Find the best loot button for this monster (prefer "Loot Instantly" if available)
-        let bestLootButton = null;
-        lootButtons.forEach(btn => {
-          if ((btn.innerText.includes('💰 Loot Instantly') || btn.innerText.includes('Loot')) && 
-              !btn.disabled && 
-              !btn.innerText.includes('Looted') &&
-              !btn.style.display.includes('none')) {
-            
-            // Prefer "Loot Instantly" over regular "Loot"
-            if (btn.innerText.includes('💰 Loot Instantly')) {
-              bestLootButton = btn;
-            } else if (!bestLootButton && btn.innerText.includes('💰 Loot')) {
-              bestLootButton = btn;
-            }
-          }
-        });
-        
-        // Only add one button per monster
-        if (bestLootButton) {
-          availableLootButtons.push(bestLootButton);
+    const normalizeLootName = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const selectedLootSet = new Set(selectedLootItems.map(normalizeLootName));
+
+    const getHpPercent = (card) => {
+      const fill = card.querySelector('.hp-fill');
+      if (fill && fill.style && fill.style.width) {
+        const m = String(fill.style.width).match(/([\d.]+)%/);
+        if (m) return Math.max(0, Math.min(100, parseFloat(m[1])));
+      }
+      const val = card.querySelector('.stat-row .stat-main .stat-value');
+      if (val) {
+        const txt = val.textContent.replace(/[,\s]/g, '');
+        const m = txt.match(/(\d+)\/(\d+)/);
+        if (m) {
+          const cur = parseFloat(m[1]);
+          const tot = Math.max(1, parseFloat(m[2]));
+          return (cur / tot) * 100;
         }
       }
-    });
-    
-    if (availableLootButtons.length === 0) {
+      return NaN;
+    };
+
+    const getPlayersJoined = (card) => {
+      const chip = card.querySelector('.mini-chip.party-chip');
+      if (!chip) return { joined: NaN, cap: NaN };
+      const m = chip.textContent.replace(/\s/g, '').match(/(\d+)\/(\d+)/);
+      if (m) return { joined: parseInt(m[1], 10), cap: parseInt(m[2], 10) };
+      return { joined: NaN, cap: NaN };
+    };
+
+    const hpMatches = (pct) => {
+      if (isNaN(pct)) return true;
+      const p = pct / 100;
+      switch (hpFilter) {
+        case 'low': return p < 0.5;
+        case 'medium': return p >= 0.5 && p < 0.8;
+        case 'high': return p >= 0.8 && p < 1.0;
+        case 'full': return p === 1.0;
+        default: return true;
+      }
+    };
+
+    const playersMatch = ({ joined, cap }) => {
+      if (!playerCountFilter) return true;
+      if (isNaN(joined)) return true;
+      switch (playerCountFilter) {
+        case 'empty': return joined === 0;
+        case 'few': return joined < 10;
+        case 'many': return joined > 20;
+        case 'full': return !isNaN(cap) ? joined >= cap : joined >= 30;
+        default: return true;
+      }
+    };
+
+    const getMonsterLootSet = (nameLower, card) => {
+      const asSet = (entry) => {
+        if (!entry) return null;
+        if (entry instanceof Set) return new Set(Array.from(entry, normalizeLootName));
+        if (Array.isArray(entry)) return new Set(entry.map(x => normalizeLootName(typeof x === 'string' ? x : (x?.name || x?.itemName || ''))));
+        if (entry.loot && Array.isArray(entry.loot)) return new Set(entry.loot.map(x => normalizeLootName(typeof x === 'string' ? x : (x?.name || x?.itemName || ''))));
+        if (entry.items && Array.isArray(entry.items)) return new Set(entry.items.map(x => normalizeLootName(typeof x === 'string' ? x : (x?.name || x?.itemName || ''))));
+        return null;
+      };
+      try {
+        if (typeof lootCache !== 'undefined' && lootCache && typeof lootCache.forEach === 'function') {
+          let found = null;
+          lootCache.forEach((value, key) => {
+            if (found) return;
+            if (String(key).trim().toLowerCase() === nameLower) found = value;
+          });
+          if (!found && typeof lootCache.get === 'function') {
+            found = lootCache.get(nameLower) || lootCache.get(nameLower.trim());
+          }
+          const set = asSet(found);
+          if (set && set.size > 0) return set;
+        }
+      } catch {}
+      // Fallback: parse hints in card
+      const possibleChips = card?.querySelectorAll?.('.loot-chip, .loot-item, [data-loot]');
+      if (possibleChips && possibleChips.length) {
+        return new Set(Array.from(possibleChips, el => normalizeLootName(el.getAttribute('data-loot') || el.textContent || '')));
+      }
+      return null;
+    };
+
+    // Temporarily force hide_dead_monsters=0 and fetch the page
+    let monsterIdsToLoot = [];
+    try {
+      pushHideDeadOverride();
+      const url = window.location.pathname + window.location.search;
+      const res = await fetch(url, { credentials: 'include' });
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      const cards = doc.querySelectorAll('.monster-container .monster-card');
+      cards.forEach(card => {
+        const id = card.getAttribute('data-monster-id') || card.querySelector('a[href*="battle.php?id="]')?.href?.match(/id=(\d+)/)?.[1];
+        if (!id) return;
+        // Must be dead to loot
+        const isDead = card.getAttribute('data-dead') === '1' || getHpPercent(card) === 0;
+        if (!isDead) return;
+        const eligibleAttr = card.getAttribute('data-eligible');
+        if (eligibleAttr && eligibleAttr !== '1') return;
+        if (lootedMonsters && typeof lootedMonsters.has === 'function' && lootedMonsters.has(id)) return;
+
+        const name = (card.querySelector('.monster-name, h3, h2')?.textContent || '').trim();
+        const nameLower = name.toLowerCase();
+        if (nameFilter && !nameLower.includes(nameFilter)) return;
+        if (selectedMonsterTypes.length > 0 && !selectedMonsterTypes.includes(nameLower)) return;
+
+        const hpPct = getHpPercent(card);
+        if (!hpMatches(hpPct)) return;
+        if (!playersMatch(getPlayersJoined(card))) return;
+
+        if (selectedLootSet.size > 0) {
+          const lootSet = getMonsterLootSet(nameLower, card);
+          if (!lootSet || lootSet.size === 0) return;
+          let any = false;
+          for (const it of selectedLootSet) { if (lootSet.has(it)) { any = true; break; } }
+          if (!any) return;
+        }
+
+        monsterIdsToLoot.push(id);
+      });
+    } catch (e) {
+      showNotification('Failed to load monsters for Loot All.', 'error');
+      return;
+    } finally {
+      popHideDeadOverride();
+    }
+
+    if (monsterIdsToLoot.length === 0) {
       showNotification('No loot available to claim from filtered monsters!', 'info');
       return;
     }
     
     // Show custom confirmation dialog with loot amount option
-    const lootAmount = prompt(`How many monsters do you want to loot?\n\nAvailable: ${availableLootButtons.length} monsters\n\nEnter a number (1-${availableLootButtons.length}) or leave empty for all:`, availableLootButtons.length.toString());
+    const lootAmount = prompt(`How many monsters do you want to loot?\n\nAvailable: ${monsterIdsToLoot.length} monsters\n\nEnter a number (1-${monsterIdsToLoot.length}) or leave empty for all:`, monsterIdsToLoot.length.toString());
     
     if (lootAmount === null) {
       return; // User cancelled
     }
     
-    let targetCount = availableLootButtons.length; // Default to all
+    let targetCount = monsterIdsToLoot.length; // Default to all
     
     if (lootAmount.trim() !== '') {
       const parsedAmount = parseInt(lootAmount);
       if (isNaN(parsedAmount) || parsedAmount < 1) {
-        showNotification('Invalid amount! Please enter a number between 1 and ' + availableLootButtons.length, 'error');
+        showNotification('Invalid amount! Please enter a number between 1 and ' + monsterIdsToLoot.length, 'error');
         return;
       }
-      targetCount = Math.min(parsedAmount, availableLootButtons.length);
+      targetCount = Math.min(parsedAmount, monsterIdsToLoot.length);
     }
     
     // Final confirmation
@@ -12355,23 +12525,19 @@ window.toggleSection = function(header) {
     
     // Disable button and show loading state
     lootAllBtn.disabled = true;
-    lootAllBtn.innerText = '🎁 Looting...';
     lootAllBtn.style.opacity = '0.7';
+    lootAllBtn.setAttribute('aria-busy', 'true');
     
-    // Extract monster IDs from data attributes (limit to targetCount)
-    const monsterIds = [];
-    availableLootButtons.slice(0, targetCount).forEach(btn => {
-      const monsterId = btn.getAttribute('data-monster-id');
-      if (monsterId) {
-        monsterIds.push(monsterId);
-      }
-    });
+    // Select targetCount monster IDs
+    const monsterIds = monsterIdsToLoot.slice(0, targetCount);
     
     if (monsterIds.length === 0) {
       showNotification('No valid monster IDs found!', 'error');
       lootAllBtn.disabled = false;
-      lootAllBtn.innerText = '🎁 Loot All (0)';
       lootAllBtn.style.opacity = '1';
+      lootAllBtn.removeAttribute('aria-busy');
+      const countEl = document.getElementById('loot-count');
+      if (countEl) countEl.textContent = '0';
       return;
     }
     
@@ -12401,13 +12567,8 @@ window.toggleSection = function(header) {
           allLootItems = allLootItems.concat(data.items);
           
           // Track this monster as looted so it won't be counted anymore
-          const lootButton = availableLootButtons[index];
-          if (lootButton) {
-            const monsterId = lootButton.getAttribute('data-monster-id');
-            if (monsterId) {
-              lootedMonsters.add(monsterId);
-            }
-          }
+          const monsterId = monsterIds[index];
+          if (monsterId) lootedMonsters.add(monsterId);
         } else {
           errorCount++;
         }
@@ -12455,24 +12616,28 @@ window.toggleSection = function(header) {
           applyMonsterFilters(); // This will recount and update all section headers
         }, 1500); // Increased delay to ensure page updates
         
-        // Remove the button after successful looting
-        setTimeout(() => {
-          lootAllBtn.remove();
-        }, 2000);
+        // Update server-based loot count after looting
+        if (typeof updateLootCountFromServer === 'function') {
+          setTimeout(() => updateLootCountFromServer(), 800);
+        }
         
       } else {
         showNotification('No loot was claimed!', 'error');
         lootAllBtn.disabled = false;
-        lootAllBtn.innerText = '🎁 Loot All (0)';
         lootAllBtn.style.opacity = '1';
+        lootAllBtn.removeAttribute('aria-busy');
+        const countEl = document.getElementById('loot-count');
+        if (countEl) countEl.textContent = '0';
       }
       
     } catch (error) {
       console.error('Error looting all monsters:', error);
       showNotification('Server error. Please try again.', 'error');
       lootAllBtn.disabled = false;
-      lootAllBtn.innerText = '🎁 Loot All (0)';
       lootAllBtn.style.opacity = '1';
+      lootAllBtn.removeAttribute('aria-busy');
+      const countEl = document.getElementById('loot-count');
+      if (countEl) countEl.textContent = '0';
     }
   }
 
