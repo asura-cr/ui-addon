@@ -1467,11 +1467,11 @@ function parseLeaderboardFromHtml(html) {
       const joinSuccess = joinMsg.toLowerCase().startsWith('you have successfully');
       if (!joinSuccess) {
         if (joinMsg.toLowerCase().includes('you can only join 5 monsters at a time in this wave')) {
-          showNotification('You have reached the maximum of 5 active battles in this wave.', '#e74c3c');
+          showNotification('You have reached the maximum of 5 active battles in this wave.', 'error');
           enhanceJoinButtonWithPlayers(btn, monsterCard);
           btn.disabled = false;
         } else if (joinMsg.toLowerCase().includes('invalid monster')) {
-          showNotification('Monster already died', '#e74c3c');
+          showNotification('Monster already died', 'error');
           enhanceJoinButtonWithPlayers(btn, monsterCard);
         } else {
           throw new Error(joinMsg || 'Failed to join battle');
@@ -1574,11 +1574,11 @@ function parseLeaderboardFromHtml(html) {
       }
     } catch (error) {
       if (error.message.includes('Invalid monster')) {
-        showNotification('Monster already died', '#e74c3c');
+        showNotification('Monster already died', 'error');
         enhanceJoinButtonWithPlayers(btn, monsterCard);
       } else {
         console.error('Error joining battle:', error);
-        showNotification('Error joining battle', '#e74c3c');
+        showNotification('Error joining battle', 'error');
         enhanceJoinButtonWithPlayers(btn, monsterCard);
         btn.disabled = false;
       }
@@ -1653,7 +1653,7 @@ function parseAttackLogs(html) {
         rawText = await response.text();
         if (rawText.trim().startsWith('<')) {
           console.error('[BattleModal] Attack failed: server returned HTML:', rawText);
-          showNotification('Attack failed: server returned HTML', '#e74c3c');
+          showNotification('Attack failed: server returned HTML', 'error');
           btn.style.backgroundColor = 'rgb(137, 180, 250)';
           btn.disabled = false;
           return;
@@ -1661,13 +1661,13 @@ function parseAttackLogs(html) {
         result = JSON.parse(rawText);
       } catch (e) {
         console.error('[BattleModal] Attack failed: invalid server response:', rawText);
-        showNotification('Attack failed: invalid server response', '#e74c3c');
+        showNotification('Attack failed: invalid server response', 'error');
         btn.style.backgroundColor = 'rgb(137, 180, 250)';
         btn.disabled = false;
         return;
       }
       if (!result || result.status !== 'success') {
-        showNotification('Attack failed: ' + (result?.message || 'Unknown error'), '#e74c3c');
+        showNotification('Attack failed: ' + (result?.message || 'Unknown error'), 'error');
         btn.style.backgroundColor = 'rgb(137, 180, 250)';
         btn.disabled = false;
         return;
@@ -1720,7 +1720,7 @@ function parseAttackLogs(html) {
           const used = Number(prevStamina) - Number(newStamina);
           if (Number.isFinite(used) && used === 0 && staminaCost > 0) {
             // Show a non-error attention note in warning/yellow
-            showNotification('Your dragons saved your stamina', '#2ecc71');
+            showNotification('Your dragons saved your stamina', 'info');
           }
         }
       } catch {}
