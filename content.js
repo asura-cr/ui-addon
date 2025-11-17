@@ -120,9 +120,7 @@
       enabled: true, // Enable wave filters
       hpOptions: ['20-50%', '50-80%', '80-100%', '100%'], // HP filter options
       showCompactToggle: true, // Show compact toggle
-      hideImages: false, // Hide monster images
-      autoRefresh: false, // Auto-refresh waves
-      refreshInterval: 10 // Refresh interval in seconds
+      hideImages: false // Hide monster images
     },
     menuItems: [
       { id: 'halloween_event', name: 'Halloween Event', visible: true, order: 1 },
@@ -8997,11 +8995,6 @@ window.toggleSection = function(header) {
       ensureSemiTransparentPersistence();
     }, 5000);
   }
-
-  // Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    stopWaveAutoRefresh();
-  });
 
   // PvP Auto-Surrender System
   let pvpBattleData = {
