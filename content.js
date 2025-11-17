@@ -786,17 +786,15 @@ function parseLeaderboardFromHtml(html) {
 
   // ===== END BATTLE MODAL UTILITY FUNCTIONS =====
 
-  // Removed unused EXP potion timer constants (no references)
-
   const PET_STORAGE_KEY = "pet_teams_v1";
-  const PET_APPLY_DELAY = 350;
+  const PET_APPLY_DELAY = 150;
 
-  // ===== END POTION AND PET TEAM CONSTANTS =====
+  // ===== END PET TEAM CONSTANTS =====
 
   // ===== ADVANCED EQUIPMENT SETS SYSTEM =====
 
   const EQUIP_STORAGE_KEY = "equip_sets_v1";
-  const EQUIP_APPLY_DELAY = 350;
+  const EQUIP_APPLY_DELAY = 150;
 
   // Equipment sets utility functions
   function equipSetsSelector(sel, root = document) {
@@ -849,8 +847,8 @@ function parseLeaderboardFromHtml(html) {
     
     // Set initial styles based on saved state
     const contentStyles = isCollapsed 
-      ? 'transition: all 0.3s ease; overflow: hidden; max-height: 0px; opacity: 0; margin-top: 0px;'
-      : 'transition: all 0.3s ease; overflow: hidden; max-height: 1000px; opacity: 1; margin-top: 15px;';
+      ? 'transition: opacity 0.15s ease, max-height 0.15s ease, margin-top 0.15s ease; overflow: hidden; max-height: 0px; opacity: 0; margin-top: 0px;'
+      : 'transition: opacity 0.15s ease, max-height 0.15s ease, margin-top 0.15s ease; overflow: hidden; max-height: 1000px; opacity: 1; margin-top: 15px;';
     
     const toggleStyles = isCollapsed
       ? 'font-size: 16px; color: #89b4fa; transition: transform 0.3s ease; transform: rotate(-90deg);'
@@ -861,7 +859,7 @@ function parseLeaderboardFromHtml(html) {
     const equipSetsPanel = document.createElement('div');
     equipSetsPanel.id = 'integrated-equip-sets';
     equipSetsPanel.innerHTML = `
-      <div style="background: rgba(30, 30, 46, 0.8); border: 1px solid rgba(43, 46, 73, 0.6); border-radius: 10px; padding: 20px; margin: 20px 0; backdrop-filter: blur(10px);">
+      <div style="background: rgba(30, 30, 46, 0.9); border: 1px solid rgba(43, 46, 73, 0.6); border-radius: 10px; padding: 20px; margin: 20px 0;">
         <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" id="equip-sets-header">
           <div style="font-size: 18px; font-weight: 800; color: #f9e2af;">⚡ Equipment Sets</div>
           <div id="equip-sets-toggle" style="${toggleStyles}">${toggleIcon}</div>
@@ -897,7 +895,7 @@ function parseLeaderboardFromHtml(html) {
         cursor: pointer;
         font-weight: 600;
         font-size: 12px;
-        transition: all 0.2s ease;
+        transition: background-color 0.15s ease, transform 0.1s ease;
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -917,7 +915,7 @@ function parseLeaderboardFromHtml(html) {
         border-radius: 6px;
         padding: 8px;
         margin: -8px;
-        transition: all 0.2s ease;
+        transition: background-color 0.15s ease;
         user-select: none;
       }
       
@@ -926,7 +924,7 @@ function parseLeaderboardFromHtml(html) {
       }
       
       #equip-sets-content {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: opacity 0.15s ease, max-height 0.15s ease, margin-top 0.15s ease;
       }
       
       .equip-btn.apply-set {
@@ -957,7 +955,7 @@ function parseLeaderboardFromHtml(html) {
         border: 1px solid rgba(69, 71, 90, 0.5);
         border-radius: 8px;
         margin-bottom: 8px;
-        backdrop-filter: blur(5px);
+        backdrop-filter: blur(3px);
       }
       
       .equip-set-name {
@@ -992,7 +990,7 @@ function parseLeaderboardFromHtml(html) {
         border: 1px solid rgba(69, 71, 90, 0.4);
         border-radius: 4px;
         position: relative;
-        backdrop-filter: blur(3px);
+        backdrop-filter: blur(2px);
       }
       
       .preview-item img {
@@ -1110,7 +1108,7 @@ function parseLeaderboardFromHtml(html) {
     }
     
     showNotification("Equipment set applied successfully! Reloading...", 'success');
-    setTimeout(() => location.reload(), 800);
+    setTimeout(() => location.reload(), 250);
   }
 
   // Initialize equipment sets on inventory page
@@ -1122,10 +1120,10 @@ function parseLeaderboardFromHtml(html) {
         try {
           const pending = localStorage.getItem('equipSetEdit');
           if (pending) {
-            setTimeout(() => { try { window.editEquipSet(pending); } catch(e) {} localStorage.removeItem('equipSetEdit'); }, 250);
+            setTimeout(() => { try { window.editEquipSet(pending); } catch(e) {} localStorage.removeItem('equipSetEdit'); }, 200);
           }
         } catch {}
-      }, 600);
+      }, 250);
     }
   }
 
@@ -2166,7 +2164,7 @@ function parseAttackLogs(html) {
       monster.skillButtons
         .filter(skill => skill && skill.name && skill.name.trim() !== '⚡ Attack FX: ON')
         .forEach(skill => {
-          html += `<button class="modal-skill-btn" data-skill-id="${typeof skill.id !== 'undefined' ? skill.id : ''}" style="background: #89b4fa; color: #1e1e2e; border: 2px solid #cdd6f4; padding: ${(typeof compact !== 'undefined' && compact) ? '8px' : '12px'}; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: ${(typeof compact !== 'undefined' && compact) ? '12px' : '14px'}; transition: all 0.2s; margin-bottom: 6px;">${skill.name}${skill.stamina ? ` (${skill.stamina} STAMINA)` : ''}</button>`;
+          html += `<button class="modal-skill-btn" data-skill-id="${typeof skill.id !== 'undefined' ? skill.id : ''}" style="background: #89b4fa; color: #1e1e2e; border: 2px solid #cdd6f4; padding: ${(typeof compact !== 'undefined' && compact) ? '8px' : '12px'}; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: ${(typeof compact !== 'undefined' && compact) ? '12px' : '14px'}; transition: background-color 0.15s ease, transform 0.1s ease; margin-bottom: 6px;">${skill.name}${skill.stamina ? ` (${skill.stamina} STAMINA)` : ''}</button>`;
         });
       html += '</div>';
       // Add event listeners to skill buttons to refresh modal after attack
@@ -2463,6 +2461,8 @@ function parseAttackLogs(html) {
         // Remove battle iframe when closing modal
         const iframe = document.getElementById('battle-session-iframe');
         if (iframe) iframe.remove();
+        const backdrop = document.getElementById('battle-modal-backdrop');
+        if (backdrop) backdrop.remove();
         updateWaveData(true);
       });
     }
@@ -8953,11 +8953,11 @@ window.toggleSection = function(header) {
     style.textContent = `
       .panel, .card, .section, .sidebar, .game-sidebar {
         background-color: rgba(30, 30, 46, ${opacity}) !important;
-        backdrop-filter: blur(10px) !important;
+        backdrop-filter: blur(4px) !important;
       }
       .modal-content, .modal-body {
         background-color: rgba(30, 30, 46, ${opacity}) !important;
-        backdrop-filter: blur(10px) !important;
+        backdrop-filter: blur(4px) !important;
       }
     `;
     
@@ -11452,15 +11452,15 @@ window.toggleSection = function(header) {
           <option value="full">Full (30 players)</option>
         </select>
         
-        <button id="hide-img-monsters" style="display: flex;align-items: center;gap: 8px;padding: 6px 16px;background: rgba(137, 180, 250, 0.2);border: 1px solid rgba(137, 180, 250, 0.4);color: #89b4fa;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: all 0.2s ease;">
+        <button id="hide-img-monsters" style="display: flex;align-items: center;gap: 8px;padding: 6px 16px;background: rgba(137, 180, 250, 0.2);border: 1px solid rgba(137, 180, 250, 0.4);color: #89b4fa;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: background-color 0.15s ease, transform 0.1s ease;">
           <span>🖼️</span>
           <span>Hide Images</span>
         </button>
-        <button id="loot-all-btn" style="background: rgba(255, 211, 105, 0.2); border-color: rgba(255, 211, 105, 0.4); color: #ffd369; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s ease; white-space: nowrap;">
+        <button id="loot-all-btn" style="background: rgba(255, 211, 105, 0.2); border-color: rgba(255, 211, 105, 0.4); color: #ffd369; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background-color 0.15s ease, transform 0.1s ease; white-space: nowrap;">
           <span>💰</span>
           <span>Loot All (<span id="loot-count">0</span>)</span>
         </button>
-        <button id="clear-filters" style="display: flex;align-items: center;gap: 8px;padding: 7px 16px;background: #f38ba8;border: 1px solid #f38ba8;color: white;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: all 0.2s ease;margin-left: auto;order: 999;flex-shrink: 0;">
+        <button id="clear-filters" style="display: flex;align-items: center;gap: 8px;padding: 7px 16px;background: #f38ba8;border: 1px solid #f38ba8;color: white;border-radius: 6px;cursor: pointer;font-size: 14px;font-weight: 500;transition: background-color 0.15s ease, transform 0.1s ease;margin-left: auto;order: 999;flex-shrink: 0;">
           Clear All
         </button>
       </div>
@@ -13015,7 +13015,7 @@ window.toggleSection = function(header) {
         
         // Update server-based loot count after looting
         if (typeof updateLootCountFromServer === 'function') {
-          setTimeout(() => updateLootCountFromServer(), 800);
+          setTimeout(() => updateLootCountFromServer(), 250);
         }
         
       } else {
@@ -13284,7 +13284,7 @@ window.toggleSection = function(header) {
       }
     });
 
-    // Default sort: name ascending
+    // Default sort: name ascending (will be influenced by filter state)
     function sortJoinCards(cards, sortType) {
       return cards.slice().sort((a, b) => {
         const statsA = getCardStats(a);
@@ -13304,8 +13304,18 @@ window.toggleSection = function(header) {
       });
     }
 
-    // Initial sort type
-    let currentSortType = localStorage.getItem('joinSortType') || 'name-asc';
+    // Initial sort type: prefer any existing dropdown value (if page already
+    // has one from previous render), then saved value, then default
+    let currentSortType = 'name-asc';
+    const existingSortSelect = document.getElementById('join-sort-select');
+    if (existingSortSelect && existingSortSelect.value) {
+      currentSortType = existingSortSelect.value;
+    } else {
+      const saved = localStorage.getItem('joinSortType');
+      if (saved) {
+        currentSortType = saved;
+      }
+    }
 
     // Render join cards with current sort
     function renderJoinCards() {
@@ -13315,18 +13325,16 @@ window.toggleSection = function(header) {
       sorted.forEach(card => joinContainer.appendChild(card));
     }
 
-    // Listen for sort changes
-    setTimeout(() => {
-      const sortSelect = joinBattleSection.querySelector('#join-sort-select');
-      if (sortSelect) {
-        sortSelect.value = currentSortType;
-        sortSelect.addEventListener('change', e => {
-          currentSortType = sortSelect.value;
-          localStorage.setItem('joinSortType', currentSortType);
-          renderJoinCards();
-        });
-      }
-    }, 0);
+    // Listen for sort changes immediately
+    const newSortSelect = joinBattleSection.querySelector('#join-sort-select');
+    if (newSortSelect) {
+      newSortSelect.value = currentSortType;
+      newSortSelect.addEventListener('change', () => {
+        currentSortType = newSortSelect.value;
+        localStorage.setItem('joinSortType', currentSortType);
+        renderJoinCards();
+      });
+    }
 
     monsterContainer.innerHTML = '';
 
@@ -13349,17 +13357,13 @@ window.toggleSection = function(header) {
       monsterContainer.appendChild(lootSection);
     }
 
-    // Render join cards with sorting controls
+    // Render join cards with sorting controls (respecting current filters immediately)
     if (joinCards.length > 0) {
       monsterContainer.appendChild(joinBattleSection);
-        // Set dropdown value before initial render
-        setTimeout(() => {
-          const sortSelect = joinBattleSection.querySelector('#join-sort-select');
-          if (sortSelect) {
-            sortSelect.value = currentSortType;
-          }
-          renderJoinCards();
-        }, 0);
+      // Filters (monster name/types/loot/HP/players) are already wired and
+      // applied via applyMonsterFilters(), so on first render we just sort
+      // according to currentSortType and show the result.
+      renderJoinCards();
     }
 
     const continueToggle = document.getElementById('continue-battle-toggle');
@@ -14376,15 +14380,15 @@ window.toggleSection = function(header) {
 
   // Page initialization functions
   function initWaveMods() {
-    initGateCollapse()
-    initMonsterFilter()
-    loadInstaLoot()
-    initContinueBattleFirst()
-    initImprovedWaveButtons()
-    initMonsterSorting()
-    initMonsterLootPreview()
-    initContinueBattleModal()
-    initMonsterStatOverlay()
+    initGateCollapse();                  
+    initMonsterFilter();      
+    initContinueBattleFirst();   
+    initImprovedWaveButtons();   
+    initMonsterStatOverlay();    
+    initMonsterLootPreview(); 
+    initMonsterSorting();      
+    loadInstaLoot();             
+    initContinueBattleModal();   
   }
 
   function initHighlightSideButton() {
@@ -14742,10 +14746,10 @@ window.toggleSection = function(header) {
     applyMonsterBackgrounds();
     applyLootPanelColors();
 
-    // Initialize leaderboard highlighting
+    // Initialize leaderboard highlighting (slightly quicker)
     setTimeout(() => {
       highlightCurrentUserInLeaderboard();
-    }, 1000);
+    }, 300);
 
     // Set up observer for panel changes
     const observer = new MutationObserver(() => {
@@ -15236,9 +15240,9 @@ window.toggleSection = function(header) {
     const savedCollapseState = localStorage.getItem('petTeamsCollapsed');
     const isCollapsed = savedCollapseState === null ? true : savedCollapseState === 'true';
     
-    const contentStyles = isCollapsed 
-      ? 'transition: all 0.3s ease; overflow: hidden; max-height: 0px; opacity: 0; margin-top: 0px;'
-      : 'transition: all 0.3s ease; overflow: hidden; max-height: 1000px; opacity: 1; margin-top: 15px;';
+    const contentStyles = isCollapsed
+      ? 'transition: opacity 0.15s ease, max-height 0.15s ease, margin-top 0.15s ease; overflow: hidden; max-height: 0px; opacity: 0; margin-top: 0px;'
+      : 'transition: opacity 0.15s ease, max-height 0.15s ease, margin-top 0.15s ease; overflow: hidden; max-height: 1000px; opacity: 1; margin-top: 15px;';
     
     const toggleStyles = isCollapsed
       ? 'font-size: 16px; color: #89b4fa; transition: transform 0.3s ease; transform: rotate(-90deg);'
@@ -15399,7 +15403,7 @@ window.toggleSection = function(header) {
       // Reload the page to show the updated pets
       setTimeout(() => {
         window.location.reload();
-      }, 1000);
+      }, 250);
       
     } catch (error) {
       console.error('Error applying pet team:', error);
@@ -20187,8 +20191,8 @@ window.toggleSection = function(header) {
   // Initialize + observe
   initHotkeys();
   if(window.location.pathname.includes('/active_wave.php')){
-    setTimeout(addMonsterCardHotkeyOverlays,800);
-    const hotkeyObserver = new MutationObserver(()=>{ setTimeout(addMonsterCardHotkeyOverlays,300); });
+    setTimeout(addMonsterCardHotkeyOverlays,250);
+    const hotkeyObserver = new MutationObserver(()=>{ setTimeout(addMonsterCardHotkeyOverlays,250); });
     hotkeyObserver.observe(document.body,{childList:true,subtree:true});
   }
   // Inject battle page hotkey overlays after DOM settles if on battle.php
