@@ -1860,21 +1860,40 @@ function parseAttackLogs(html) {
 
   // Show battle modal
   async function showBattleModal(monster) {
-    // Remove existing modal if present
+    // Remove existing modal/backdrop if present
+    const existingBackdrop = document.getElementById('battle-modal-backdrop');
+    if (existingBackdrop) existingBackdrop.remove();
     const existingModal = document.getElementById('battle-modal');
-    if (existingModal) {
-      existingModal.remove();
-    }  
+    if (existingModal) existingModal.remove();
+
     setModalOpen(true);
     let html = "";
+
+    // Create backdrop that blocks the page and holds the modal
+    const backdrop = document.createElement('div');
+    backdrop.id = 'battle-modal-backdrop';
+    backdrop.style.position = 'fixed';
+    backdrop.style.top = '0';
+    backdrop.style.left = '0';
+    backdrop.style.width = '100%';
+    backdrop.style.height = '100%';
+    backdrop.style.background = 'rgba(0, 0, 0, 0.65)';
+    // Backdrop sits above the page, modal sits above the backdrop
+    backdrop.style.zIndex = '9998';
+    backdrop.style.display = 'flex';
+    backdrop.style.alignItems = 'center';
+    backdrop.style.justifyContent = 'center';
+    backdrop.style.padding = '10px';
+
+    // Create the modal card itself
     let modal = document.createElement('div');
     let content = document.createElement('div');
-    // Add robust default styles to ensure modal is visible
+    // Center the card within the flex backdrop
     modal.style.position = 'fixed';
     modal.style.top = '50%';
     modal.style.left = '50%';
     modal.style.transform = 'translate(-50%, -50%)';
-    modal.style.zIndex = '9999';
+    modal.style.zIndex = '10005';
     modal.style.background = '#1e1e2e';
     modal.style.color = '#cdd6f4';
     modal.style.borderRadius = '12px';
@@ -1888,6 +1907,23 @@ function parseAttackLogs(html) {
     modal.id = 'battle-modal';
     content.id = 'battle-modal-content';
     modal.appendChild(content);
+
+    // Close when clicking/tapping the dimmed background (but not the modal itself)
+    backdrop.addEventListener('click', (e) => {
+      // Only react if the click actually landed on the backdrop, not the modal
+      if (e.target !== backdrop) return;
+
+      // Prefer the central close helper so all related cleanup runs
+      if (typeof closeBattleModal === 'function') {
+        closeBattleModal();
+      } else {
+        setModalOpen(false);
+        backdrop.remove();
+      }
+    });
+
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
 
     // Fix ReferenceError: compact is not defined
     let compact = false;  
@@ -5199,7 +5235,7 @@ function parseAttackLogs(html) {
         margin-left: 0 !important;
         position: fixed !important;
         top: 0 !important;
-        z-index: 1000 !important;
+        z-index: 10000 !important;
       }
 
       .settings-section {
@@ -11191,7 +11227,7 @@ window.toggleSection = function(header) {
             Monster Types ▼
           </button>
           <div id="monster-type-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 200px; max-height: 200px; overflow-y: auto;">
-            <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">WMonsters</div>
+            <div style="margin-bottom: 8px; font-weight: bold; color: #cba6f7; border-bottom: 1px solid #45475a; padding-bottom: 5px;">Monsters</div>
             <div id="monster-types-list"></div>
             <div style="margin-top: 8px; padding-top: 5px; border-top: 1px solid #45475a;">
               <button id="select-all-monsters" style="padding: 3px 8px; background: #a6e3a1; color: #1e1e2e; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 5px;">Select All</button>
@@ -19657,6 +19693,8 @@ window.toggleSection = function(header) {
   function closeBattleModal(){
     try {
       const modal = document.getElementById('battleModal') || document.getElementById('battle-modal');
+      const backdrop = document.getElementById('battle-modal-backdrop');
+      if (backdrop) backdrop.remove();
       if(modal){
         modal.remove();
         setModalOpen(false);
