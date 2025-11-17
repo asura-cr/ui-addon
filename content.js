@@ -1747,7 +1747,7 @@ function parseAttackLogs(html) {
     } catch (error) {
       const originalText = btn.textContent;
       console.error('[BattleModal] Error attacking:', error);
-      showNotification('Error attacking monster', '#e74c3c');
+      showNotification('Error attacking monster', 'error');
       btn.textContent = originalText || 'Attack';
       btn.disabled = false;
     }
@@ -2029,7 +2029,7 @@ function parseAttackLogs(html) {
 
             if (!response.ok) {
               console.error('[ExpPotion] use_item.php request failed:', response.status);
-              showNotification('Failed to use item (network error)', '#e74c3c');
+              showNotification('Failed to use item (network error)', 'error');
               return false;
             }
 
@@ -2316,13 +2316,13 @@ function parseAttackLogs(html) {
                       // Refresh only the HP bar part
                       await refreshModalPlayerHp(monster.id);
                       if (healResult.success) {
-                        showNotification(healResult.message || 'Potion used!', '#2ecc71');
+                        showNotification(healResult.message || 'Potion used!', 'success');
                       } else {
-                        showNotification(healResult.message || 'Potion use failed', '#e74c3c');
+                        showNotification(healResult.message || 'Potion use failed', 'error');
                       }
                     } catch (err) {
                       console.error('[Battle Modal] Healing error:', err);
-                      showNotification('Error using potion', '#e74c3c');
+                      showNotification('Error using potion', 'error');
                     } finally {
                       potionBtn.disabled = false;
                     }
@@ -2337,7 +2337,7 @@ function parseAttackLogs(html) {
                   e.preventDefault();
                   const uid = userData.userID || getCookieExtension('demon');
                   if (!uid) {
-                    showNotification('User ID not found for healing.', '#e74c3c');
+                    showNotification('User ID not found for healing.', 'error');
                     return;
                   }
                   // Don't proceed if the button is disabled
@@ -2347,13 +2347,13 @@ function parseAttackLogs(html) {
                     const healResult = await healPlayerTimed(uid);
                     await refreshModalPlayerHp(monster.id);
                     if (healResult.success) {
-                      showNotification(healResult.message || 'Healed!', '#2ecc71');
+                      showNotification(healResult.message || 'Healed!', 'success');
                     } else {
-                      showNotification(healResult.message || 'Heal failed', '#e74c3c');
+                      showNotification(healResult.message || 'Heal failed', 'error');
                     }
                   } catch (err) {
                     console.error('[Battle Modal] Timed heal error:', err);
-                    showNotification('Error using heal', '#e74c3c');
+                    showNotification('Error using heal', 'error');
                   } finally {
                     // Re-enable; the server timer may disable it again on next refresh
                     timedHealBtn.disabled = false;
@@ -2501,7 +2501,7 @@ function parseAttackLogs(html) {
       });
       
       if (result.success) {
-        showNotification(result.message || 'Loot collected!', '#2ecc71');
+        showNotification(result.message || 'Loot collected!', 'success');
         
         if (extensionSettings.battleModal.showLootModal && result.loot) {
           showLootModal(result.loot, monsterName);
@@ -2514,14 +2514,14 @@ function parseAttackLogs(html) {
         // Refresh wave data
         updateWaveData(true);
       } else {
-        showNotification(result.message || 'Failed to loot', '#e74c3c');
+        showNotification(result.message || 'Failed to loot', 'error');
       }
       
       btn.textContent = 'Loot';
       btn.disabled = false;
     } catch (error) {
       console.error('Error looting:', error);
-      showNotification('Error collecting loot', '#e74c3c');
+      showNotification('Error collecting loot', 'error');
       btn.textContent = 'Loot';
       btn.disabled = false;
     }
@@ -3888,9 +3888,9 @@ function parseAttackLogs(html) {
                             btn.disabled = true;
                             const res = await postAction('stats_ajax.php', { action: 'allocate', stat: stat, amount: amount });
                             if (res && res.success) {
-                              showNotification(res.message || 'Allocated points', '#2ecc71');
+                              showNotification(res.message || 'Allocated points', 'success');
                             } else {
-                              showNotification(res.message || 'Allocation failed', '#e74c3c');
+                              showNotification(res.message || 'Allocation failed', 'error');
                             }
                             await fetchAndUpdateSidebarStats();
                             btn.disabled = false;
@@ -4013,11 +4013,11 @@ function parseAttackLogs(html) {
                         try {
                           if (container) container.innerHTML = '<div class="loading-text">Refreshing quests...</div>';
                           await loadBattlePassQuests();
-                          showNotification('Battle Pass refreshed', '#89b4fa');
+                          showNotification('Battle Pass refreshed', 'info');
                         } catch (err) {
                           if (container) container.innerHTML = '<div class="quest-error">Error loading battle pass data</div>';
                           console.error('Error refreshing battle pass panel:', err);
-                          showNotification('Failed to refresh', '#e74c3c');
+                          showNotification('Failed to refresh', 'error');
                         }
                       });
                     }
@@ -6703,7 +6703,7 @@ function parseAttackLogs(html) {
       looted++;
     }
     
-    showNotification(`Looted ${looted} monster(s)`, '#2ecc71');
+    showNotification(`Looted ${looted} monster(s)`, 'success');
   }
 
   async function performWaveLoot(type, amount, wave) {
@@ -6726,7 +6726,7 @@ function parseAttackLogs(html) {
         }
       }
       
-      showNotification(`Looted ${looted} monster(s) from wave ${wave}`, '#2ecc71');
+      showNotification(`Looted ${looted} monster(s) from wave ${wave}`, 'success');
       updateWaveData(true);
     } catch (error) {
       console.error('Error looting wave:', error);
@@ -12555,7 +12555,7 @@ window.toggleSection = function(header) {
               monster.id = monsterId;
               showBattleModal(monster);
             } catch (err) {
-              showNotification('Could not load battle info', '#e74c3c');
+              showNotification('Could not load battle info', 'error');
             }
             return;
           }
@@ -18905,7 +18905,7 @@ window.toggleSection = function(header) {
         const monsterId = urlParams.get('dgmid');
 
         if (!monsterId) {
-          showNotification('Invalid monster ID', '#e74c3c');
+          showNotification('Invalid monster ID', 'error');
           return;
         }
 
@@ -18933,7 +18933,7 @@ window.toggleSection = function(header) {
 
         } catch (error) {
           console.error('Loot error:', error);
-          showNotification('Error looting', '#e74c3c');
+          showNotification('Error looting', 'error');
           lootBtn.disabled = false;
           lootBtn.innerHTML = '💰 Loot';
         }
@@ -18990,7 +18990,7 @@ window.toggleSection = function(header) {
         const monsterId = urlParams.get('id');
 
         if (!monsterId) {
-          showNotification('Invalid monster ID', '#e74c3c');
+          showNotification('Invalid monster ID', 'error');
           return;
         }
 
@@ -19008,7 +19008,7 @@ window.toggleSection = function(header) {
           const ok = msg.toLowerCase().startsWith('you have successfully');
 
           if (ok) {
-            showNotification('Battle joined successfully!', '#2ecc71');
+            showNotification('Battle joined successfully!', 'success');
 
             // Update the card to show it's now joined
             card.classList.add('dungeon-joined');
@@ -19025,13 +19025,13 @@ window.toggleSection = function(header) {
             // Move card to Continue Battle section
             moveDungeonCardToSection(card, 'continue');
           } else {
-            showNotification(msg || 'Failed to join battle', '#e74c3c');
+            showNotification(msg || 'Failed to join battle', 'error');
             joinBtn.disabled = false;
             joinBtn.innerHTML = '⚔️ Join Battle';
           }
         } catch (error) {
           console.error('Join battle error:', error);
-          showNotification('Server error. Please try again.', '#e74c3c');
+          showNotification('Server error. Please try again.', 'error');
           joinBtn.disabled = false;
           joinBtn.innerHTML = '⚔️ Join Battle';
         }
@@ -19171,14 +19171,14 @@ window.toggleSection = function(header) {
         });
         
         if (!lootSection) {
-          showNotification('No loot available', '#e74c3c');
+          showNotification('No loot available', 'error');
           return;
         }
         
         const lootCards = lootSection.querySelectorAll('.dungeon-monster-card:not([style*="display: none"])');
         
         if (lootCards.length === 0) {
-          showNotification('No loot available', '#e74c3c');
+          showNotification('No loot available', 'error');
           return;
         }
         
@@ -19261,7 +19261,7 @@ window.toggleSection = function(header) {
 
         // Show summary and aggregated modal if any items
         if (successCount > 0) {
-          showNotification(`Successfully looted ${successCount} monster${successCount > 1 ? 's' : ''}!`, '#2ecc71');
+          showNotification(`Successfully looted ${successCount} monster${successCount > 1 ? 's' : ''}!`, 'success');
           if (allLootItems.length > 0) {
             renderDungeonLootModal({ items: allLootItems, rewards: aggregatedRewards, note: 'Batch loot summary' });
           }
@@ -19269,7 +19269,7 @@ window.toggleSection = function(header) {
         
         // Show summary
         if (successCount > 0) {
-          showNotification(`Successfully looted ${successCount} monster${successCount > 1 ? 's' : ''}!`, '#2ecc71');
+          showNotification(`Successfully looted ${successCount} monster${successCount > 1 ? 's' : ''}!`, 'success');
           
           // Move looted cards to completed section after a delay
           setTimeout(() => {
@@ -19282,7 +19282,7 @@ window.toggleSection = function(header) {
         }
         
         if (failCount > 0) {
-          showNotification(`Failed to loot ${failCount} monster${failCount > 1 ? 's' : ''}`, '#e74c3c');
+          showNotification(`Failed to loot ${failCount} monster${failCount > 1 ? 's' : ''}`, 'error');
         }
         
         lootAllBtn.innerHTML = '<span>💰</span><span>Loot All (<span id="dungeon-loot-count">0</span>)</span>';
@@ -20029,7 +20029,7 @@ window.toggleSection = function(header) {
         // Battle modal enabled -> delegate to the button click (modal flow handles it)
         joinBtn.click();
       }
-      showNotification(`Selected monster ${index+1}`,'#2ecc71');
+      showNotification(`Selected monster ${index+1}`,'info');
     } catch (err) {
       try { joinBtn.click(); } catch {}
     }
@@ -20057,7 +20057,7 @@ window.toggleSection = function(header) {
     btn.click();
     const names={'0':'Slash','-1':'Power Slash','-2':'Heroic Slash','-3':'Ultimate Slash','-4':'Legendary Slash'};
     const keyLetter = extensionSettings.hotkeys.battleAttackKeys[number-1]?.toUpperCase() || number;
-    showNotification(`Used ${names[skillId]} (${keyLetter})`,'#2ecc71');
+    showNotification(`Used ${names[skillId]} (${keyLetter})`,'info');
   }
 
   function addMonsterCardHotkeyOverlays(){
