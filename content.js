@@ -11286,6 +11286,14 @@ window.toggleSection = function(header) {
   }
 
   //#region Monster filters and existing functionality
+  // Lightweight debounce to avoid rerunning filters on every keystroke
+  function debounce(fn, delay = 120) {
+    let t = null;
+    return function(...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), delay);
+    };
+  }
   async function loadFilterSettings() {
     return new Promise((resolve) => {
       try {
@@ -11303,15 +11311,11 @@ window.toggleSection = function(header) {
       if (monsterList.length > 0) {
         obs.disconnect();
         const settings = await loadFilterSettings();
-        // Build combined list using both hide_dead_monsters states for dropdown population
-        let effectiveList = monsterList;
-        try {
-          const combinedList = await buildCombinedMonsterList();
-          if (combinedList && combinedList.length) {
-            effectiveList = combinedList;
-          }
-        } catch {}
-        createFilterUI(effectiveList, settings);
+        // Render immediately with live DOM for instant UI paint
+        createFilterUI(monsterList, settings);
+        // Optional: warm up in background (non-blocking) to enrich types later if needed
+        // We intentionally skip updating the UI here to keep things snappy.
+        // buildCombinedMonsterList().catch(() => {});
       }
     });
     observer.observe(document.body, {
@@ -11487,10 +11491,12 @@ window.toggleSection = function(header) {
       contentArea.insertBefore(filterContainer, monsterContainer);
     }
 
+    // Debounced filters for snappier typing and less churn
+    const applyMonsterFiltersDebounced = debounce(applyMonsterFilters, 120);
     // Add event listeners for all filter elements
-    document.getElementById('monster-name-filter').addEventListener('input', applyMonsterFilters);
-    document.getElementById('hp-filter').addEventListener('change', applyMonsterFilters);
-    document.getElementById('player-count-filter').addEventListener('change', applyMonsterFilters);
+    document.getElementById('monster-name-filter').addEventListener('input', applyMonsterFiltersDebounced);
+    document.getElementById('hp-filter').addEventListener('change', applyMonsterFiltersDebounced);
+    document.getElementById('player-count-filter').addEventListener('change', applyMonsterFiltersDebounced);
 
     // Hide images control now a button instead of checkbox
     const hideImagesBtn = document.getElementById('hide-img-monsters');
@@ -11545,7 +11551,7 @@ window.toggleSection = function(header) {
       `).join('');
       // Add listeners to new checkboxes
       monsterTypeList.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', applyMonsterFilters);
+        checkbox.addEventListener('change', applyMonsterFiltersDebounced);
       });
     }
     
@@ -11554,14 +11560,14 @@ window.toggleSection = function(header) {
       document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
         checkbox.checked = true;
       });
-      applyMonsterFilters();
+      applyMonsterFiltersDebounced();
     });
     
     document.getElementById('clear-monsters').addEventListener('click', () => {
       document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
         checkbox.checked = false;
       });
-      applyMonsterFilters();
+      applyMonsterFiltersDebounced();
     });
 
     // Loot filter dropdown functionality
@@ -11589,14 +11595,14 @@ window.toggleSection = function(header) {
       document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
         checkbox.checked = true;
       });
-      applyMonsterFilters();
+      applyMonsterFiltersDebounced();
     });
     
     document.getElementById('clear-loot').addEventListener('click', () => {
       document.querySelectorAll('.loot-filter-checkbox').forEach(checkbox => {
         checkbox.checked = false;
       });
-      applyMonsterFilters();
+      applyMonsterFiltersDebounced();
     });
 
     // Hook the Loot All button to existing lootAll() behavior
@@ -11834,12 +11840,37 @@ window.toggleSection = function(header) {
       }
       // players joined when needed
       if (playersNeeded && !card.dataset.players) {
-        const txt = card.textContent || '';
-        const pm = txt.match(/👥\s*Players\s*Joined\s*(\d+)\/\d+/);
-        card.dataset.players = pm ? pm[1] : '0';
+        // Prefer structured stat rows first
+        let players = null;
+        const stats = card.querySelector('.monster-stats');
+        if (stats) {
+          const rows = Array.from(stats.querySelectorAll('.stat-row'));
+          for (const row of rows) {
+            const label = (row.querySelector('.stat-label')?.textContent || '').trim();
+            const iconClass = (row.querySelector('.stat-icon')?.className || '').toLowerCase();
+            if (/players\s*joined/i.test(label) || /\bgrp\b/.test(iconClass) || /👥/.test(row.textContent)) {
+              const chip = row.querySelector('.party-chip, .mini-chip.party-chip, .stat-value .mini-chip') || row.querySelector('.stat-value');
+              const text = (chip?.textContent || row.textContent || '').trim();
+              const m = text.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+              if (m) {
+                players = m[1].replace(/,/g, '');
+                break;
+              }
+            }
+          }
+        }
+        if (players == null) {
+          const txt = card.textContent || '';
+          const pm = txt.match(/👥\s*Players\s*Joined\s*(\d+)\/\d+/);
+          players = pm ? pm[1] : '0';
+        }
+        card.dataset.players = String(players);
       }
     });
   }
+
+  // Cache last filter state to skip redundant work
+  let _lastFilterState = null;
 
   function applyMonsterFilters() {
     const nameFilter = document.getElementById('monster-name-filter').value.toLowerCase();
@@ -11875,6 +11906,20 @@ window.toggleSection = function(header) {
         lootFilterToggle.textContent = `${selectedLootItems.length} Items ▼`;
       }
     }
+
+    // Skip if state hasn't changed
+    const stateNow = JSON.stringify({
+      nameFilter,
+      hpFilter,
+      playerCountFilter,
+      types: selectedMonsterTypes.slice().sort(),
+      loot: selectedLootItems.slice().sort(),
+      hideImg
+    });
+    if (_lastFilterState === stateNow) {
+      return;
+    }
+    _lastFilterState = stateNow;
 
     // Ensure indices are present for fast filtering
     ensureMonsterIndex(!!hpFilter, !!playerCountFilter);
@@ -14364,6 +14409,17 @@ window.toggleSection = function(header) {
     initMonsterSorting();      
     loadInstaLoot();             
     initContinueBattleModal();   
+    // Pre-index cards during idle time so first filter is instant
+    const idle = window.requestIdleCallback || function(fn){ return setTimeout(fn, 120); };
+    idle(() => {
+      try { ensureMonsterIndex(true, true); } catch (e) { /* no-op */ }
+    });
+    // Reset cached state when cards change
+    try {
+      const container = document.querySelector('.monster-container') || document.body;
+      const obs = new MutationObserver(() => { _lastFilterState = null; });
+      obs.observe(container, { childList: true, subtree: true });
+    } catch { /* ignore */ }
   }
 
   function initHighlightSideButton() {
