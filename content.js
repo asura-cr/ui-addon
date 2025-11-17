@@ -2,6 +2,9 @@
 
   // Global variables (pruned unused)
   var userDataUpdateInterval = null;
+  // Reuse a single DOMParser instance to avoid repeated allocations
+  const DOM_PARSER = new DOMParser();
+  const parseHTML = (html) => DOM_PARSER.parseFromString(html, 'text/html');
   
   // Monster loot cache for performance optimization
   const lootCache = new Map(); // Cache loot data by monster name  // Enhanced settings management
@@ -457,18 +460,23 @@
   }
 
   function showNotification(msg, bgColor = '#2ecc71') {
+    let container = document.getElementById('uiaddon-toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'uiaddon-toast-container';
+      container.style.cssText = `position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 8px;`;
+      document.body.appendChild(container);
+    }
     const notification = document.createElement('div');
     notification.style.cssText = `
-      position: fixed; top: 20px; right: 20px; z-index: 10000;
-      background: ${bgColor}; color: white; padding: 15px 20px;
+      background: ${bgColor}; color: white; padding: 12px 14px;
       border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      font-size: 14px; max-width: 300px; animation: slideIn 0.3s ease;
+      font-size: 13px; max-width: 320px; opacity: 1; transition: opacity 0.3s ease;
     `;
     notification.textContent = msg;
-    document.body.appendChild(notification);
+    container.appendChild(notification);
     setTimeout(() => {
       notification.style.opacity = '0';
-      notification.style.transition = 'opacity 0.3s';
       setTimeout(() => notification.remove(), 300);
     }, 3000);
   }
@@ -526,8 +534,7 @@
   // Parse battle page HTML to extract relevant data
 // Utility: Extract leaderboard from battle HTML
 function parseLeaderboardFromHtml(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+  const doc = parseHTML(html);
   const rows = doc.querySelectorAll('.lb-list .lb-row');
   const leaderboard = [];
   for (const row of rows) {
@@ -544,8 +551,7 @@ function parseLeaderboardFromHtml(html) {
   return leaderboard;
 }
   function parseBattleHtml(html) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parseHTML(html);
     
     console.log('Parsing battle HTML...');
     
@@ -1823,7 +1829,7 @@ function parseAttackLogs(html) {
     try {
       const res = await fetch(`battle.php?id=${monsterId}`, { credentials: 'include' });
       const html = await res.text();
-      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const doc = parseHTML(html);
       const pCard = doc.querySelector('.battle-card.player-card');
       if (!pCard) return;
 
@@ -1940,8 +1946,7 @@ function parseAttackLogs(html) {
     const html = await res.text();
 
     // 2. Parse the HTML in a detached DOM
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parseHTML(html);
 
     // 3. Find the slot-box with the matching image
     const targetSrc = 'images/items/1758633119_10_exp_potion.webp';
@@ -2211,8 +2216,7 @@ function parseAttackLogs(html) {
           const response = await fetch(`battle.php?id=${monster.id}`);
           const htmlText = await response.text();
           // Inject player info section as a separate part
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(htmlText, 'text/html');
+          const doc = parseHTML(htmlText);
           const playerCard = doc.querySelector('.battle-card.player-card');
           if (playerCard) {
             // Transform the player card to match requested structure
@@ -2631,7 +2635,7 @@ function parseAttackLogs(html) {
   // Parse monsters from a provided Document (or current document)
   async function extractMonsters(htmlOrDoc = document) {
     const doc = typeof htmlOrDoc === 'string' 
-      ? new DOMParser().parseFromString(htmlOrDoc, 'text/html')
+      ? parseHTML(htmlOrDoc)
       : htmlOrDoc;
     
     const monsters = [];
@@ -2669,7 +2673,7 @@ function parseAttackLogs(html) {
   // Extract basic user data (stamina/exp/gold) from a Document
   function extractUserData(htmlOrDoc = document) {
     const doc = typeof htmlOrDoc === 'string'
-      ? new DOMParser().parseFromString(htmlOrDoc, 'text/html')
+      ? parseHTML(htmlOrDoc)
       : htmlOrDoc;
     
     const data = {};
@@ -2719,10 +2723,21 @@ function parseAttackLogs(html) {
     });
   };
 
-  // Set up periodic refresh every 5 seconds
-  setInterval(() => {
-    updateData();
-  }, 5000);
+  // Set up periodic refresh every 5 seconds, pausing when tab is hidden
+  let updateDataRunning = false;
+  const tickUpdate = async () => {
+    if (updateDataRunning) return;
+    if (document.hidden) return;
+    updateDataRunning = true;
+    try { await updateData(); } finally { updateDataRunning = false; }
+  };
+  const updateTimer = setInterval(tickUpdate, 5000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      // Kick an immediate refresh on return to tab
+      tickUpdate();
+    }
+  });
 
   // ===== END BATTLE MODAL SYSTEM =====
 
@@ -11792,6 +11807,40 @@ window.toggleSection = function(header) {
     });
   }
 
+  // Build or refresh lightweight indices on monster cards to speed filtering
+  function ensureMonsterIndex(hpNeeded = false, playersNeeded = false) {
+    const cards = document.querySelectorAll('.monster-card');
+    cards.forEach(card => {
+      // name/original
+      if (!card.dataset.nameLower || !card.dataset.originalName) {
+        const nameEl = card.querySelector('h3');
+        const original = nameEl ? nameEl.textContent.trim() : '';
+        card.dataset.originalName = original;
+        card.dataset.nameLower = original.toLowerCase();
+      }
+      // category (continue/loot/join) – coarse but cheap
+      if (!card.dataset.category) {
+        const txt = card.textContent || '';
+        card.dataset.category = txt.includes('Continue the Battle') ? 'continue' : (txt.includes('Loot') ? 'loot' : 'join');
+      }
+      // hp percent when needed
+      if (hpNeeded && !card.dataset.hpPct) {
+        const hpText = card.querySelector('.hp-bar')?.nextElementSibling?.textContent || '';
+        const m = hpText.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
+        const curr = m ? parseInt(m[1].replace(/,/g, ''), 10) : 0;
+        const max = m ? parseInt(m[2].replace(/,/g, ''), 10) : 1;
+        const pct = max > 0 ? (curr / max) * 100 : 0;
+        card.dataset.hpPct = String(pct);
+      }
+      // players joined when needed
+      if (playersNeeded && !card.dataset.players) {
+        const txt = card.textContent || '';
+        const pm = txt.match(/👥\s*Players\s*Joined\s*(\d+)\/\d+/);
+        card.dataset.players = pm ? pm[1] : '0';
+      }
+    });
+  }
+
   function applyMonsterFilters() {
     const nameFilter = document.getElementById('monster-name-filter').value.toLowerCase();
     const hpFilter = document.getElementById('hp-filter').value;
@@ -11827,218 +11876,144 @@ window.toggleSection = function(header) {
       }
     }
 
+    // Ensure indices are present for fast filtering
+    ensureMonsterIndex(!!hpFilter, !!playerCountFilter);
+
     const monsters = document.querySelectorAll('.monster-card');
     var limitBattleCount = 0;
-    
-    // Track visible monsters by category
+
+    // Apply body class for image visibility instead of toggling per card
+    document.body.classList.toggle('monster-images-hidden', hideImg);
+
     let visibleContinueCount = 0;
     let visibleLootCount = 0;
     let visibleJoinCount = 0;
 
-    monsters.forEach(monster => {
-      const monsterNameElement = monster.querySelector('h3');
-      const monsterName = monsterNameElement ? monsterNameElement.textContent.toLowerCase() : '';
-      const originalMonsterName = monsterNameElement ? monsterNameElement.textContent.trim() : '';
-      const monsterImg = monster.querySelector('img');
-      
-      // Get HP information
-      const hpText = monster.querySelector('.hp-bar')?.nextElementSibling?.textContent || '';
-      const hpMatch = hpText.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
-      const currentHp = hpMatch ? parseInt(hpMatch[1].replace(/,/g, '')) : 0;
-      const maxHp = hpMatch ? parseInt(hpMatch[2].replace(/,/g, '')) : 1;
-      const hpPercentage = maxHp > 0 ? (currentHp / maxHp) * 100 : 0;
-      
-      // Get player count information
-      const playerText = monster.textContent;
-      const playerMatch = playerText.match(/👥 Players Joined (\d+)\/30/);
-      const playerCount = playerMatch ? parseInt(playerMatch[1]) : 0;
+    const selectedTypesLower = selectedMonsterTypes.map(t => t.toLowerCase());
+    const selectedLootSet = new Set(selectedLootItems);
 
-      // Determine monster wave based on name
-      const monsterWave = getMonsterWave(monsterName);
+    // Process in chunks to keep UI responsive on large lists
+    const cards = Array.from(monsters);
+    let i = 0;
+    const BATCH = 60;
 
-      // Apply all filters
-      let shouldShow = true;
+    const processBatch = () => {
+      const end = Math.min(i + BATCH, cards.length);
+      for (; i < end; i++) {
+        const monster = cards[i];
+        const nameLower = monster.dataset.nameLower || '';
+        const originalMonsterName = monster.dataset.originalName || '';
+        const category = monster.dataset.category || 'join';
 
-      // Name filter
-      if (nameFilter && !monsterName.includes(nameFilter)) {
-        shouldShow = false;
-      }
+        let shouldShow = true;
 
-      // Wave filter (removed - no longer used)
-
-      // Monster type filter (multiple selection)
-      if (selectedMonsterTypes.length > 0) {
-        const matchesType = selectedMonsterTypes.some(type => 
-          monsterName.includes(type.toLowerCase())
-        );
-        if (!matchesType) {
+        // Name filter
+        if (nameFilter && !nameLower.includes(nameFilter)) {
           shouldShow = false;
         }
-      }
 
-      // Loot filter (multiple selection) - use original monster name for cache lookup
-      if (selectedLootItems.length > 0 && shouldShow) {
-        const monsterLoot = lootCache.get(originalMonsterName);
-        if (monsterLoot && monsterLoot.length > 0) {
-          // Check if monster has any of the selected loot items
-          const hasSelectedLoot = selectedLootItems.some(lootName => 
-            monsterLoot.some(lootItem => lootItem.name === lootName)
-          );
-          if (!hasSelectedLoot) {
+        // Monster type filter
+        if (shouldShow && selectedTypesLower.length > 0) {
+          const matchesType = selectedTypesLower.some(type => nameLower.includes(type));
+          if (!matchesType) shouldShow = false;
+        }
+
+        // Loot filter (uses cache by original name)
+        if (shouldShow && selectedLootSet.size > 0) {
+          const monsterLoot = lootCache.get(originalMonsterName);
+          if (monsterLoot && monsterLoot.length > 0) {
+            const hasSelected = monsterLoot.some(lootItem => selectedLootSet.has(lootItem.name));
+            if (!hasSelected) shouldShow = false;
+          } else {
             shouldShow = false;
           }
-        } else {
-          // If no loot data available for this monster, hide it when loot filter is active
-          shouldShow = false;
+        }
+
+        // HP filter
+        if (shouldShow && hpFilter) {
+          let pct = monster.dataset.hpPct ? parseFloat(monster.dataset.hpPct) : NaN;
+          if (!Number.isFinite(pct)) {
+            // Lazily compute if missing
+            const hpText = monster.querySelector('.hp-bar')?.nextElementSibling?.textContent || '';
+            const m = hpText.match(/❤️\s*([\d,]+)\s*\/\s*([\d,]+)\s*HP/);
+            const curr = m ? parseInt(m[1].replace(/,/g, ''), 10) : 0;
+            const max = m ? parseInt(m[2].replace(/,/g, ''), 10) : 1;
+            pct = max > 0 ? (curr / max) * 100 : 0;
+            monster.dataset.hpPct = String(pct);
+          }
+          if (hpFilter === 'low' && !(pct < 50)) shouldShow = false;
+          else if (hpFilter === 'medium' && !(pct >= 50 && pct <= 80)) shouldShow = false;
+          else if (hpFilter === 'high' && !(pct > 80)) shouldShow = false;
+          else if (hpFilter === 'full' && !(pct >= 100)) shouldShow = false;
+        }
+
+        // Player count filter
+        if (shouldShow && playerCountFilter) {
+          let joined = monster.dataset.players ? parseInt(monster.dataset.players, 10) : NaN;
+          if (!Number.isFinite(joined)) {
+            const txt = monster.textContent || '';
+            const pm = txt.match(/👥\s*Players\s*Joined\s*(\d+)\/\d+/);
+            joined = pm ? parseInt(pm[1], 10) : 0;
+            monster.dataset.players = String(joined);
+          }
+          if (playerCountFilter === 'empty' && !(joined === 0)) shouldShow = false;
+          else if (playerCountFilter === 'few' && !(joined < 10)) shouldShow = false;
+          else if (playerCountFilter === 'many' && !(joined > 20)) shouldShow = false;
+          else if (playerCountFilter === 'full' && !(joined >= 30)) shouldShow = false;
+        }
+
+        // Apply visibility (single write)
+        monster.style.display = shouldShow ? '' : 'none';
+
+        if (shouldShow) {
+          const monsterId = monster.getAttribute('data-monster-id');
+          if (!lootedMonsters.has(monsterId)) {
+            if (category === 'continue') visibleContinueCount++;
+            else if (category === 'loot') visibleLootCount++;
+            else visibleJoinCount++;
+          }
+        }
+
+        // Count battles for alarm (cheap check)
+        if (category === 'continue') {
+          limitBattleCount++;
         }
       }
+      if (i < cards.length) {
+        requestAnimationFrame(processBatch);
+      } else {
+        // Finalize counts and persist state
+        updateSectionHeaderCounts(visibleContinueCount, visibleLootCount, visibleJoinCount);
 
-      // HP filter
-      if (hpFilter) {
-        switch (hpFilter) {
-          case 'low':
-            if (hpPercentage >= 50) shouldShow = false;
-            break;
-          case 'medium':
-            if (hpPercentage < 50 || hpPercentage > 80) shouldShow = false;
-            break;
-          case 'high':
-            if (hpPercentage <= 80) shouldShow = false;
-            break;
-          case 'full':
-            if (hpPercentage < 100) shouldShow = false;
-            break;
-        }
-      }
+        // Save filter state
+        const urlParams = new URLSearchParams(window.location.search || '');
+        const waveParam = urlParams.get('wave') || 'default';
+        const gateParam = urlParams.get('gate') || urlParams.get('gate_id') || 'default';
+        const waveKey = `gate_${gateParam}_wave_${waveParam}`;
 
-      // Player count filter
-      if (playerCountFilter) {
-        switch (playerCountFilter) {
-          case 'empty':
-            if (playerCount > 0) shouldShow = false;
-            break;
-          case 'few':
-            if (playerCount >= 10) shouldShow = false;
-            break;
-          case 'many':
-            if (playerCount <= 20) shouldShow = false;
-            break;
-          case 'full':
-            if (playerCount < 30) shouldShow = false;
-            break;
-        }
-      }
-
-      // Apply visibility
-      monster.style.display = shouldShow ? '' : 'none';
-      
-      // Count visible monsters by category (only if monster is visible)
-      if (shouldShow) {
-        const monsterText = monster.textContent;
-        const monsterId = monster.getAttribute('data-monster-id');
-        
-        // Skip counting if this monster was already looted
-        if (lootedMonsters.has(monsterId)) {
-          return; // Skip this monster from counting
-        }
-        
-        if (monsterText.includes('Continue the Battle')) {
-          visibleContinueCount++;
-        } else if (monsterText.includes('Loot')) {
-          visibleLootCount++;
-        } else {
-          visibleJoinCount++;
-        }
-      }
-
-      // Handle image visibility and loot preview
-      const lootPreview = monster.querySelector('.loot-preview-container');
-      const mobStat = monster.querySelector('.monster-overlay');
-      if (hideImg && monsterImg) {
-        monsterImg.style.display = 'none';
-        if (lootPreview) {
-          lootPreview.style.display = 'none';
-        }
-        if (mobStat) {
-          mobStat.style.display = 'none';
-        }
-      } else if (monsterImg) {
-        monsterImg.style.removeProperty('display');
-        if (lootPreview) {
-          lootPreview.style.removeProperty('display');
-        }
-        if (mobStat) {
-          mobStat.style.removeProperty('display');
-        }
-      }
-
-      // Count battles for alarm
-      if (monster.innerText.includes('Continue the Battle')) {
-        limitBattleCount++;
-      }
-    });
-    
-    // Update section header counts
-    updateSectionHeaderCounts(visibleContinueCount, visibleLootCount, visibleJoinCount);
-
-    // Save all filter settings
-    // Build the per-gate/per-wave key
-    const urlParams = new URLSearchParams(window.location.search || '');
-    const waveParam = urlParams.get('wave') || 'default';
-    const gateParam = urlParams.get('gate') || urlParams.get('gate_id') || 'default';
-    const waveKey = `gate_${gateParam}_wave_${waveParam}`;
-
-    // Load existing settings (for backward compatibility this may be a flat object)
-    let stored = {};
-    try {
-      const raw = localStorage.getItem('demonGameFilterSettings');
-      if (raw) stored = JSON.parse(raw) || {};
-    } catch (e) {
-      stored = {};
-    }
-
-    // Normalize into new schema: { activeKey, waves: { [waveKey]: {..filters..} } }
-    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
-      stored = {};
-    }
-    if (!stored.waves || typeof stored.waves !== 'object') {
-      const legacy = stored && !stored.waves ? stored : {};
-      stored = {
-        activeKey: waveKey,
-        waves: {}
-      };
-      // If legacy had flat filters, migrate them into the current wave as starting point
-      if (legacy && (legacy.nameFilter || legacy.hpFilter || legacy.playerCountFilter || legacy.monsterTypeFilter || legacy.lootFilter || legacy.hideImg)) {
+        let stored = {};
+        try { const raw = localStorage.getItem('demonGameFilterSettings'); if (raw) stored = JSON.parse(raw) || {}; } catch (e) { stored = {}; }
+        if (!stored || typeof stored !== 'object' || Array.isArray(stored)) stored = {};
+        if (!stored.waves || typeof stored.waves !== 'object') stored = { activeKey: waveKey, waves: {} };
+        if (!stored.waves[waveKey]) stored.waves[waveKey] = {};
         stored.waves[waveKey] = {
-          nameFilter: legacy.nameFilter || '',
-          monsterTypeFilter: legacy.monsterTypeFilter || [],
-          lootFilter: legacy.lootFilter || [],
-          hpFilter: legacy.hpFilter || '',
-          playerCountFilter: legacy.playerCountFilter || '',
-          hideImg: !!legacy.hideImg
+          nameFilter: document.getElementById('monster-name-filter').value,
+          monsterTypeFilter: selectedMonsterTypes,
+          lootFilter: selectedLootItems,
+          hpFilter: document.getElementById('hp-filter').value,
+          playerCountFilter: document.getElementById('player-count-filter').value,
+          hideImg: (document.getElementById('hide-img-monsters')?.dataset.hidden === 'true'),
         };
+        stored.activeKey = waveKey;
+        localStorage.setItem('demonGameFilterSettings', JSON.stringify(stored));
+
+        if (typeof updateLootCountFromServer === 'function') {
+          updateLootCountFromServer();
+        }
       }
-    }
-
-    if (!stored.waves[waveKey]) stored.waves[waveKey] = {};
-
-    // Save current filter state under this gate/wave
-    stored.waves[waveKey] = {
-      nameFilter: document.getElementById('monster-name-filter').value,
-      monsterTypeFilter: selectedMonsterTypes,
-      lootFilter: selectedLootItems,
-      hpFilter: document.getElementById('hp-filter').value,
-      playerCountFilter: document.getElementById('player-count-filter').value,
-      hideImg: (document.getElementById('hide-img-monsters')?.dataset.hidden === 'true'),
     };
-    stored.activeKey = waveKey;
-
-    localStorage.setItem('demonGameFilterSettings', JSON.stringify(stored));
-
-    // Update the Loot All count based on server data with dead monsters visible
-    if (typeof updateLootCountFromServer === 'function') {
-      updateLootCountFromServer();
-    }
+    processBatch();
+    
   }
 
   // Helper: get cookie value by name
