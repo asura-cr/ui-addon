@@ -708,17 +708,17 @@ function parseLeaderboardFromHtml(html) {
   function updateUserDataUI() {
     const staminaElem = document.querySelector('.sidebar-stamina, .stamina-value');
     if (staminaElem && userData.currentStamina !== undefined) {
-      staminaElem.textContent = userData.currentStamina;
+      staminaElem.textContent = userData.currentStamina || 0;
     }
     
     const expElem = document.querySelector('.sidebar-exp, .exp-value');
     if (expElem && userData.currentExp !== undefined) {
-      expElem.textContent = userData.currentExp;
+      expElem.textContent = userData.currentExp || 0;
     }
     
     const goldElem = document.querySelector('.sidebar-gold, .gold-value');
     if (goldElem && userData.gold !== undefined) {
-      goldElem.textContent = userData.gold;
+      goldElem.textContent = userData.gold || 0;
     }
       // Update other UI elements if needed
       updateCapNotice(userData.currentStamina);
@@ -1855,6 +1855,205 @@ function parseAttackLogs(html) {
       }
     } catch (e) {
       console.error('[Potion] Failed to refresh modal HP:', e);
+    }
+  }
+
+  // ===== EXP POTION INTEGRATION (BATTLE DRAWER) =====
+
+  // Helper to build a generic potion card element
+  function createBattleDrawerPotionCard(options) {
+    const {
+      idSuffix,
+      imgSrc,
+      imgAlt,
+      name,
+      description,
+      maxQty,
+      readonly,
+      onUse
+    } = options;
+
+    const card = document.createElement('div');
+    card.className = 'potion-card';
+    card.dataset.invId = idSuffix;
+
+    card.innerHTML = `
+      <img src="${imgSrc}" alt="${imgAlt}">
+      <div class="potion-main">
+        <div class="potion-name">
+          <span>${name}</span>
+          <span class="qtyleft">
+            x<span class="potion-qty-left" id="pqty_${idSuffix}">${maxQty}</span>
+          </span>
+        </div>
+        <div class="potion-desc">${description}</div>
+        <div class="potion-actions">
+          <button class="potion-use-btn" data-custom="exp" data-id="${idSuffix}" type="button" draggable="false">Use</button>
+        </div>
+      </div>
+    `;
+
+    const qtySpan = card.querySelector(`#pqty_${idSuffix}`);
+    const input = card.querySelector(`#puse_${idSuffix}`);
+    const btn = card.querySelector('.potion-use-btn');
+
+    if (btn) {
+      btn.addEventListener('click', async (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        const qty = 1;
+        if (qty <= 0) return;
+
+        const confirmed = window.confirm(`Use ${qty}x ${name}? This will consume the item(s).`);
+        if (!confirmed) return;
+
+        // Call provided hook; it should handle server interaction.
+        const ok = await onUse(qty, {
+          card,
+          qtySpan,
+          input,
+          btn
+        });
+
+        if (!ok) return;
+
+        const current = parseInt(qtySpan.textContent.replace(/[^0-9]/g, ''), 10) || 0;
+        const next = current - qty;
+        qtySpan.textContent = next > 0 ? String(next) : '0';
+        if (input) {
+          input.max = String(Math.max(next, 0));
+        }
+        if (next <= 0) {
+          btn.disabled = true;
+          btn.textContent = 'None left';
+        }
+      });
+    }
+
+    return card;
+  }
+
+  async function fetchExpPotionSlot() {
+    // 1. Fetch the inventory page
+    const res = await fetch('/inventory.php', {
+      credentials: 'include'
+    });
+    const html = await res.text();
+
+    // 2. Parse the HTML in a detached DOM
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // 3. Find the slot-box with the matching image
+    const targetSrc = 'images/items/1758633119_10_exp_potion.webp';
+    const slot = Array.from(doc.querySelectorAll('.slot-box')).find(box => {
+      const img = box.querySelector('img');
+      return img && img.getAttribute('src') === targetSrc;
+    });
+
+    if (!slot) {
+      console.warn('[ExpPotion] No matching slot-box found for', targetSrc);
+      return null;
+    }
+
+    // 4. Extract the data you need
+    const img = slot.querySelector('img');
+    const infoBtn = slot.querySelector('.info-btn');
+    const useBtn = slot.querySelector('.btn[onclick*="useItem"]');
+    const qtyEl = slot.querySelector('.label div');
+
+    const src = img?.getAttribute('src') || '';
+    const name = infoBtn?.dataset.name || '';
+    const desc = infoBtn?.dataset.desc || '';
+    const quantityText = qtyEl?.textContent.trim() || 'x0';
+    const quantity = parseInt(quantityText.replace(/[^0-9]/g, ''), 10) || 0;
+
+    // Parse the useItem(...) call from the onclick
+    let useItemArgs = null;
+    if (useBtn && useBtn.getAttribute('onclick')) {
+      const onclick = useBtn.getAttribute('onclick');
+      const match = onclick.match(/useItem\s*\(([^)]*)\)/);
+      if (match) {
+        useItemArgs = match[1]
+          .split(',')
+          .map(s => s.trim().replace(/^'|'$/g, ''));
+      }
+    }
+
+    return {
+      src,
+      name,
+      desc,
+      quantity,
+      useItemArgs
+    };
+  }
+
+  // Inject EXP potion card into battle drawer when available
+  async function injectExpPotionIntoBattleDrawer() {
+    try {
+      const drawer = document.getElementById('battleDrawer');
+      if (!drawer) return;
+
+      const potionSlot = await fetchExpPotionSlot();
+      if (!potionSlot || potionSlot.quantity <= 0) return;
+
+      // Use potionSlot.name, potionSlot.desc, potionSlot.useItemArgs, etc.
+      console.log('Fetched Exp Potion slot:', potionSlot);
+      const potionCard = createBattleDrawerPotionCard({
+        idSuffix: potionSlot.name.replace(/\s+/g, '_').toLowerCase(),
+        imgSrc: potionSlot.src,
+        imgAlt: potionSlot.name,
+        name: potionSlot.name,
+        description: potionSlot.desc,
+        maxQty: potionSlot.quantity,
+        readonly: false,
+        onUse: async (qty) => {
+          if (!Array.isArray(potionSlot.useItemArgs)) return false;
+
+          // Parsed from inventory onclick: [itemId, slotId, itemName, totalQty]
+          const [itemId] = potionSlot.useItemArgs;
+
+          try {
+            const response = await fetch('https://demonicscans.org/use_item.php', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+              },
+              credentials: 'include',
+              body: `inv_id=${encodeURIComponent(itemId)}`
+            });
+
+            if (!response.ok) {
+              console.error('[ExpPotion] use_item.php request failed:', response.status);
+              showNotification('Failed to use item (network error)', '#e74c3c');
+              return false;
+            }
+
+            const text = await response.text();
+            const trimmed = (text || '').trim();
+
+            if (trimmed === 'Item not found or not usable.') {
+              showNotification('Item could not be used', 'error');
+              return false;
+            } else {
+              showNotification(`${potionSlot.name} used successfully!`, 'success');
+              return true;
+            }
+          } catch (err) {
+            console.error('[ExpPotion] Failed to call use_item.php from battle drawer:', err);
+            showNotification('Error calling use_item.php', 'error');
+            return false;
+          }
+        }
+      });
+
+      drawer.appendChild(potionCard);
+    } catch (e) {
+      console.error('[ExpPotion] Failed to inject EXP potion into battle drawer:', e);
     }
   }
 
@@ -3289,6 +3488,10 @@ function parseAttackLogs(html) {
         sideHeaderTitle.parentNode.removeChild(sideHeaderTitle);
       }
     }
+
+    // Inject EXP potion into battle drawer (if both exist)
+    injectExpPotionIntoBattleDrawer();
+    console.log('Battle drawer updated');
 
     if (sidebar) {
       const sidebarContent = sidebar.querySelector('.side-nav');
@@ -10148,52 +10351,8 @@ window.toggleSection = function(header) {
               if (attempts < maxAttempts) {
                   setTimeout(checkAndAddButtons, 100);
               }
-      return;
-    }
-
-          console.log(`Adding pin buttons to ${inventoryItems.length} inventory items`);
-          
-          inventoryItems.forEach(item => {
-              // Skip if already processed or is empty slot
-              if (item.hasAttribute('data-pin-added') || item.querySelector('.empty')) return;
-              
-              // Extract item data properly from the DOM structure
-              const itemData = extractInventoryItemData(item);
-              if (!itemData) return;
-              
-              // Create pin button
-              const pinBtn = document.createElement('button');
-              pinBtn.className = 'btn extension-pin-btn';
-              pinBtn.textContent = '📌 Pin';
-              pinBtn.style.cssText = `
-                  background: #8a2be2; 
-                  color: white; 
-                  margin-top: 5px; 
-                  font-size: 11px; 
-                  padding: 4px 8px; 
-                  border: none; 
-                  border-radius: 4px; 
-                  cursor: pointer;
-                  width: 100%;
-              `;
-              
-              pinBtn.onclick = (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  addToInventoryQuickAccess(itemData, item);
-              };
-              
-              // Add button to the item's label section
-              const labelDiv = item.querySelector('.label');
-              if (labelDiv) {
-                  labelDiv.appendChild(pinBtn);
-              } else {
-                  item.appendChild(pinBtn);
-              }
-              
-              // Mark as processed
-              item.setAttribute('data-pin-added', 'true');
-          });
+          return;
+          }
       };
       
       checkAndAddButtons();
