@@ -11181,18 +11181,48 @@ window.toggleSection = function(header) {
 
     // Helper to safely fetch a document with a specific hide_dead_monsters value
     const fetchWithHideDead = async (value) => {
+      const url = window.location.pathname + window.location.search;
+
+      // If we want hide_dead_monsters = 0, use the robust override helpers
+      if (String(value) === '0') {
+        try {
+          pushHideDeadOverride();
+          const res = await fetch(url, { credentials: 'include' });
+          const html = await res.text();
+          const parser = new DOMParser();
+          return parser.parseFromString(html, 'text/html');
+        } catch {
+          return null;
+        } finally {
+          popHideDeadOverride();
+        }
+      }
+
+      // For hide_dead_monsters = 1 we want to reliably fetch the
+      // "hide dead" variant without creating additional cookies.
+      // If a cookie already exists, respect it and just fetch once.
+      // If none exists, set it on the same path that the override
+      // helper uses, then clean it up afterwards.
+      const path = window.location.pathname || '/';
+      const existing = getCookieValue('hide_dead_monsters');
+      let touched = false;
       try {
-        pushHideDeadOverride();
-        const url = window.location.pathname + window.location.search;
+        if (existing === null) {
+          setCookie('hide_dead_monsters', '1', { path });
+          touched = true;
+        }
+
         const res = await fetch(url, { credentials: 'include' });
         const html = await res.text();
         const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        return doc;
+        return parser.parseFromString(html, 'text/html');
       } catch {
         return null;
       } finally {
-        popHideDeadOverride();
+        // Only clean up if we created a new cookie on this path.
+        if (touched) {
+          setCookie('hide_dead_monsters', '', { path, 'max-age': -1 });
+        }
       }
     };
 
@@ -11412,39 +11442,59 @@ window.toggleSection = function(header) {
       lootAllBtn.dataset.listenerAttached = 'true';
     }
 
-    // Initialize filter values from settings
-    if (settings.nameFilter) document.getElementById('monster-name-filter').value = settings.nameFilter;
-    if (settings.hpFilter) document.getElementById('hp-filter').value = settings.hpFilter;
-    if (settings.playerCountFilter) document.getElementById('player-count-filter').value = settings.playerCountFilter;
-    if (settings.hideImg) {
-      const btn = document.getElementById('hide-img-monsters');
-      if (btn) {
-        btn.dataset.hidden = 'true';
-        const spans = btn.querySelectorAll('span');
-        if (spans.length > 1) spans[1].textContent = 'Show Images';
+    // Determine current gate/wave key
+    const urlParams = new URLSearchParams(window.location.search || '');
+    const waveParam = urlParams.get('wave') || 'default';
+    const gateParam = urlParams.get('gate') || urlParams.get('gate_id') || 'default';
+    const waveKey = `gate_${gateParam}_wave_${waveParam}`;
+
+    // Normalize incoming settings to per-gate/wave schema
+    let activeFilters = null;
+    if (settings && typeof settings === 'object') {
+      if (settings.waves && typeof settings.waves === 'object') {
+        // New schema
+        activeFilters = settings.waves[waveKey] || null;
+      } else {
+        // Legacy flat schema
+        activeFilters = settings;
       }
     }
 
-    // Initialize monster type checkboxes
-    if (settings.monsterTypeFilter && Array.isArray(settings.monsterTypeFilter)) {
-      settings.monsterTypeFilter.forEach(monsterType => {
-        const checkbox = document.querySelector(`.monster-type-checkbox[value="${monsterType}"]`);
-        if (checkbox) checkbox.checked = true;
-      });
-    }
+    // Initialize filter values from activeFilters
+    if (activeFilters) {
+      if (activeFilters.nameFilter) document.getElementById('monster-name-filter').value = activeFilters.nameFilter;
+      if (activeFilters.hpFilter) document.getElementById('hp-filter').value = activeFilters.hpFilter;
+      if (activeFilters.playerCountFilter) document.getElementById('player-count-filter').value = activeFilters.playerCountFilter;
+      if (activeFilters.hideImg) {
+        const btn = document.getElementById('hide-img-monsters');
+        if (btn) {
+          btn.dataset.hidden = 'true';
+          const spans = btn.querySelectorAll('span');
+          if (spans.length > 1) spans[1].textContent = 'Show Images';
+        }
+      }
 
-    // Initialize loot filter by populating dropdown and restoring settings
-    if (settings.lootFilter && Array.isArray(settings.lootFilter) && settings.lootFilter.length > 0) {
-      // Populate the loot filter dropdown immediately so we can restore the settings
-      populateLootFilterDropdown().then(() => {
-        // After dropdown is populated, apply the filters
+      // Initialize monster type checkboxes
+      if (activeFilters.monsterTypeFilter && Array.isArray(activeFilters.monsterTypeFilter)) {
+        activeFilters.monsterTypeFilter.forEach(monsterType => {
+          const checkbox = document.querySelector(`.monster-type-checkbox[value="${monsterType}"]`);
+          if (checkbox) checkbox.checked = true;
+        });
+      }
+
+      // Initialize loot filter by populating dropdown and restoring settings
+      if (activeFilters.lootFilter && Array.isArray(activeFilters.lootFilter) && activeFilters.lootFilter.length > 0) {
+        // Populate the loot filter dropdown immediately so we can restore the settings
+        populateLootFilterDropdown().then(() => {
+          // After dropdown is populated, apply the filters
+          applyMonsterFilters();
+        });
+      }
+
+      // Apply filters if any are set
+      if (activeFilters.nameFilter || (activeFilters.monsterTypeFilter && activeFilters.monsterTypeFilter.length > 0) || activeFilters.hpFilter || activeFilters.playerCountFilter || activeFilters.hideImg) {
         applyMonsterFilters();
-      });
-    }
-
-    // Apply filters if any are set
-    if (settings.nameFilter || (settings.monsterTypeFilter && settings.monsterTypeFilter.length > 0) || settings.hpFilter || settings.playerCountFilter || settings.hideImg) {
-      applyMonsterFilters();
+      }
     }
     
     // Special case: if we have loot filters but didn't populate the dropdown yet, 
@@ -11533,13 +11583,35 @@ window.toggleSection = function(header) {
       });
     });
     
-    // Restore saved filter state
-    const savedSettings = JSON.parse(localStorage.getItem('demonGameFilterSettings') || '{}');
-    if (savedSettings.lootFilter && Array.isArray(savedSettings.lootFilter)) {
-      savedSettings.lootFilter.forEach(lootName => {
-        const checkbox = document.querySelector(`.loot-filter-checkbox[value="${lootName}"]`);
-        if (checkbox) checkbox.checked = true;
-      });
+    // Restore saved filter state (per gate+wave if available)
+    try {
+      const raw = localStorage.getItem('demonGameFilterSettings');
+      if (raw) {
+        const savedSettings = JSON.parse(raw) || {};
+
+        // Build current gate/wave key
+        const urlParams = new URLSearchParams(window.location.search || '');
+        const waveParam = urlParams.get('wave') || 'default';
+        const gateParam = urlParams.get('gate') || urlParams.get('gate_id') || 'default';
+        const waveKey = `gate_${gateParam}_wave_${waveParam}`;
+
+        let lootFilterList = null;
+        if (savedSettings.waves && typeof savedSettings.waves === 'object' && savedSettings.waves[waveKey]) {
+          lootFilterList = savedSettings.waves[waveKey].lootFilter;
+        } else if (Array.isArray(savedSettings.lootFilter)) {
+          // Legacy flat format
+          lootFilterList = savedSettings.lootFilter;
+        }
+
+        if (Array.isArray(lootFilterList)) {
+          lootFilterList.forEach(lootName => {
+            const checkbox = document.querySelector(`.loot-filter-checkbox[value="${lootName}"]`);
+            if (checkbox) checkbox.checked = true;
+          });
+        }
+      }
+    } catch (e) {
+      // Ignore malformed storage
     }
     
     dropdown.dataset.loaded = 'true';
@@ -11758,7 +11830,48 @@ window.toggleSection = function(header) {
     updateSectionHeaderCounts(visibleContinueCount, visibleLootCount, visibleJoinCount);
 
     // Save all filter settings
-    const settings = {
+    // Build the per-gate/per-wave key
+    const urlParams = new URLSearchParams(window.location.search || '');
+    const waveParam = urlParams.get('wave') || 'default';
+    const gateParam = urlParams.get('gate') || urlParams.get('gate_id') || 'default';
+    const waveKey = `gate_${gateParam}_wave_${waveParam}`;
+
+    // Load existing settings (for backward compatibility this may be a flat object)
+    let stored = {};
+    try {
+      const raw = localStorage.getItem('demonGameFilterSettings');
+      if (raw) stored = JSON.parse(raw) || {};
+    } catch (e) {
+      stored = {};
+    }
+
+    // Normalize into new schema: { activeKey, waves: { [waveKey]: {..filters..} } }
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+      stored = {};
+    }
+    if (!stored.waves || typeof stored.waves !== 'object') {
+      const legacy = stored && !stored.waves ? stored : {};
+      stored = {
+        activeKey: waveKey,
+        waves: {}
+      };
+      // If legacy had flat filters, migrate them into the current wave as starting point
+      if (legacy && (legacy.nameFilter || legacy.hpFilter || legacy.playerCountFilter || legacy.monsterTypeFilter || legacy.lootFilter || legacy.hideImg)) {
+        stored.waves[waveKey] = {
+          nameFilter: legacy.nameFilter || '',
+          monsterTypeFilter: legacy.monsterTypeFilter || [],
+          lootFilter: legacy.lootFilter || [],
+          hpFilter: legacy.hpFilter || '',
+          playerCountFilter: legacy.playerCountFilter || '',
+          hideImg: !!legacy.hideImg
+        };
+      }
+    }
+
+    if (!stored.waves[waveKey]) stored.waves[waveKey] = {};
+
+    // Save current filter state under this gate/wave
+    stored.waves[waveKey] = {
       nameFilter: document.getElementById('monster-name-filter').value,
       monsterTypeFilter: selectedMonsterTypes,
       lootFilter: selectedLootItems,
@@ -11766,7 +11879,9 @@ window.toggleSection = function(header) {
       playerCountFilter: document.getElementById('player-count-filter').value,
       hideImg: (document.getElementById('hide-img-monsters')?.dataset.hidden === 'true'),
     };
-    localStorage.setItem('demonGameFilterSettings', JSON.stringify(settings));
+    stored.activeKey = waveKey;
+
+    localStorage.setItem('demonGameFilterSettings', JSON.stringify(stored));
 
     // Update the Loot All count based on server data with dead monsters visible
     if (typeof updateLootCountFromServer === 'function') {
