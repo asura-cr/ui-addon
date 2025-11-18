@@ -619,10 +619,47 @@ function parseLeaderboardFromHtml(html) {
     
     // Extract damage done
     let damageDone = 0;
-    // Try new chip span first
-    const dmgChip = doc.querySelector('span.chip #yourDamageValue');
-    if (dmgChip) {
-      damageDone = parseInt(dmgChip.textContent.replace(/,/g, '')) || 0;
+    const parseDamageValue = (text) => {
+      if (!text) return null;
+      const match = text.match(/([\d,.]+)/);
+      if (!match) return null;
+      const cleaned = match[1].replace(/,/g, '');
+      const num = parseInt(cleaned, 10);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const damageSources = [
+      () => doc.querySelector('#yourDamageValue'),
+      () => doc.querySelector('.stats-stack span:nth-of-type(1) strong#yourDamageValue'),
+      () => doc.querySelector('.stats-stack span span#yourDamageValue'),
+      () => {
+        const chipText = doc.querySelector('#yourDamageValue')?.parentElement?.textContent;
+        if (chipText) return { textContent: chipText };
+        return null;
+      },
+      () => {
+        const spans = Array.from(doc.querySelectorAll('.stats-stack span, .chip'));
+        return spans.find(span => /your\s+damage[:]?/i.test(span.textContent));
+      }
+    ];
+
+    for (const sourceFn of damageSources) {
+      const node = sourceFn();
+      if (node && typeof node.textContent === 'string') {
+        const parsed = parseDamageValue(node.textContent);
+        if (parsed !== null) {
+          damageDone = parsed;
+          break;
+        }
+      }
+    }
+
+    if (!damageDone) {
+      const textMatch = allText.match(/your\s+damage[:\s]+([\d,.]+)/i);
+      if (textMatch) {
+        const fallback = parseDamageValue(textMatch[1]);
+        if (fallback !== null) damageDone = fallback;
+      }
     }
     
     // Extract skill buttons - look for attack buttons
@@ -2517,7 +2554,7 @@ function parseAttackLogs(html) {
           const response = await fetch(`battle.php?id=${monster.id}`);
           const htmlText = await response.text();
           const lootData = parseLootFromBattlePage(htmlText);
-          displayLootPreview(`modal-${monster.id}`, lootData);
+          displayLootPreview(`modal-${monster.id}`, lootData, { damageDone: monster.damageDone });
         } catch (error) {
           console.error('[Battle Modal] Failed to load loot preview:', error);
           const grid = document.getElementById(`loot-grid-modal-${monster.id}`);
@@ -14453,6 +14490,12 @@ window.toggleSection = function(header) {
       }
       
       .loot-preview-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .loot-preview-thumb {
         position: relative;
         border-radius: 4px;
         overflow: hidden;
@@ -14460,20 +14503,32 @@ window.toggleSection = function(header) {
         border: 1px solid rgba(69, 71, 90, 0.5);
         aspect-ratio: 1;
       }
-      
-      .loot-preview-item img {
+
+      .loot-preview-thumb img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        display: block;
       }
-      
-      .loot-preview-item .tier-indicator {
+
+      .loot-preview-item.requirement-met .loot-preview-thumb::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(166, 227, 161, 0.35), rgba(34, 197, 94, 0.2));
+        border: 2px solid rgba(166, 227, 161, 0.8);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .loot-preview-thumb .tier-indicator {
         position: absolute;
         bottom: 0;
         left: 0;
         right: 0;
         height: 3px;
         background: #666;
+        z-index: 2;
       }
       
       .loot-preview-item .tier-indicator.legendary {
@@ -14492,7 +14547,7 @@ window.toggleSection = function(header) {
         background: linear-gradient(90deg, #95a5a6, #7f8c8d);
       }
       
-      .loot-preview-item .drop-rate {
+      .loot-preview-thumb .drop-rate {
         position: absolute;
         top: 2px;
         right: 2px;
@@ -14502,6 +14557,33 @@ window.toggleSection = function(header) {
         padding: 1px 3px;
         border-radius: 2px;
         font-weight: bold;
+        z-index: 2;
+      }
+
+      .loot-requirement {
+        background: rgba(0, 0, 0, 0.75);
+        color: #f9e2af;
+        font-size: 9px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        text-align: center;
+        line-height: 1.2;
+      }
+
+      .loot-requirement.small-grid {
+        font-size: 8px;
+      }
+
+      .loot-requirement.met {
+        background: rgba(166, 227, 161, 0.60);
+        color: #a6e3a1;
+      }
+
+      .loot-requirement small {
+        display: block;
+        font-size: 8px;
+        color: #cdd6f4;
+        margin-top: 1px;
       }
       
       .loot-loading {
@@ -14645,52 +14727,83 @@ window.toggleSection = function(header) {
 
   function parseLootCards(lootCards) {
     const lootData = [];
-    
-    lootCards.forEach((card, index) => {
-      if (lootData.length >= 8) return; // Limit to 8 items
-      
+
+    const parseRequirementValue = (text) => {
+      if (!text) return null;
+      const match = text.match(/([\d,.]+)/);
+      if (!match) return null;
+      const cleaned = match[1].replace(/[^\d]/g, '');
+      return cleaned ? Number(cleaned) : null;
+    };
+
+    lootCards.forEach(card => {
       const img = card.querySelector('img');
       const name = card.querySelector('.loot-name');
       const stats = card.querySelectorAll('.loot-stats .chip, .chip');
-      
+
       if (img && name) {
         let dropRate = '';
         let tier = 'common';
-        
+        let requirementText = '';
+        let requirementValue = null;
+        let requirementType = null;
+
         stats.forEach(stat => {
-          const text = stat.textContent.trim();
-          if (text.includes('Drop:')) {
-            dropRate = text.replace('Drop:', '').trim();
+          const text = (stat.textContent || '').trim();
+          if (!text) return;
+
+          if (text.toLowerCase().includes('drop:')) {
+            dropRate = text.replace(/drop:/i, '').trim();
           }
-          
+
           // Check for tier classes
           if (stat.classList.contains('legendary')) tier = 'legendary';
           else if (stat.classList.contains('epic')) tier = 'epic';
           else if (stat.classList.contains('rare')) tier = 'rare';
           else if (stat.classList.contains('common')) tier = 'common';
-          
+
           // Also check for tier in text content
           const lowerText = text.toLowerCase();
           if (lowerText.includes('legendary')) tier = 'legendary';
           else if (lowerText.includes('epic')) tier = 'epic';
           else if (lowerText.includes('rare')) tier = 'rare';
+
+          if (!requirementText && /req/i.test(text)) {
+            requirementText = text;
+            if (/dmg/i.test(text) || /damage/i.test(text)) {
+              requirementType = 'damage';
+              requirementValue = parseRequirementValue(text);
+            }
+          }
         });
-        
+
+        if (!requirementText) {
+          const requirementNode = card.querySelector('[class*="require"], .loot-requirement');
+          if (requirementNode) {
+            requirementText = requirementNode.textContent.trim();
+          }
+        }
+
         const itemData = {
           name: name.textContent.trim(),
           image: img.src,
           dropRate: dropRate,
-          tier: tier
+          tier: tier,
+          requirement: requirementText ? {
+            text: requirementText,
+            value: requirementValue,
+            type: requirementType
+          } : null
         };
-        
+
         lootData.push(itemData);
       }
     });
-    
+
     return lootData;
   }
 
-  function displayLootPreview(monsterId, lootData) {
+  function displayLootPreview(monsterId, lootData, options = {}) {
     // Support both card and modal loot preview containers
     const grid = document.getElementById(`loot-grid-${monsterId}`) || document.getElementById(`loot-grid-modal-${monsterId}`);
     if (!grid) return;
@@ -14700,14 +14813,66 @@ window.toggleSection = function(header) {
       return;
     }
 
-    // Create loot items
-    const lootHTML = lootData.map(item => `
-      <div class="loot-preview-item" title="${item.name}">
-        <img src="${item.image}" alt="${item.name}">
-        <div class="tier-indicator ${item.tier}"></div>
-        <div class="drop-rate">${item.dropRate}</div>
-      </div>
-    `).join('');
+    const normalizeId = (id) => String(id).replace(/^modal-/, '');
+    const parseNumericValue = (value) => {
+      if (value === undefined || value === null) return null;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const str = String(value).trim();
+      if (!str) return null;
+      const cleaned = str.replace(/[^\d]/g, '');
+      return cleaned ? Number(cleaned) : null;
+    };
+    const formatNumber = (value) => Number(value).toLocaleString('en-US');
+
+    const cleanRequirementLabel = (text) => {
+      if (!text) return '';
+      const cleaned = text.replace(/^\s*DMG\s*(?:req|requirement)\s*:?-?\s*/i, '').trim();
+      return cleaned || text.trim();
+    };
+
+    const cardId = normalizeId(monsterId);
+    const cardElement = document.querySelector(`.monster-card[data-monster-id="${cardId}"]`);
+    const cardDamageSource = cardElement?.dataset?.yourDamage || cardElement?.querySelector('.monster-overlay .damage')?.textContent;
+    let userDamage = parseNumericValue(options?.damageDone);
+    if (userDamage === null) {
+      userDamage = parseNumericValue(cardDamageSource);
+    }
+
+    const isModalGrid = grid.id.startsWith('loot-grid-modal-');
+    if (userDamage === null && isModalGrid) {
+      const modalDamageText = document.getElementById('modal-your-damage')?.textContent;
+      userDamage = parseNumericValue(modalDamageText);
+    }
+
+    const lootHTML = lootData.map(item => {
+      const requirement = item.requirement || null;
+      const meetsRequirement = requirement && requirement.type === 'damage' && requirement.value !== null && userDamage !== null && userDamage >= requirement.value;
+      const progressText = (requirement && requirement.type === 'damage' && requirement.value && userDamage !== null)
+        ? `${formatNumber(userDamage)} / ${formatNumber(requirement.value)}`
+        : '';
+      const requirementClass = requirement ? `loot-requirement ${!isModalGrid ? 'small-grid' : ''} ${meetsRequirement ? 'met' : ''}` : '';
+      const requirementLabel = requirement ? cleanRequirementLabel(requirement.text || '') : '';
+      const requirementHtml = requirement ? `
+        <div class="${requirementClass.trim()}">
+          <span>${requirementLabel}</span>
+        </div>
+      ` : '';
+      const thumbHtml = `
+        <div class="loot-preview-thumb">
+          <img src="${item.image}" alt="${item.name}">
+          <div class="tier-indicator ${item.tier}"></div>
+          <div class="drop-rate">${item.dropRate}</div>
+        </div>
+      `;
+      const itemClasses = ['loot-preview-item'];
+      if (meetsRequirement) itemClasses.push('requirement-met');
+      return `
+        <div class="${itemClasses.join(' ')}" title="${item.name}">
+          ${thumbHtml}
+          ${requirementHtml}
+        </div>
+      `;
+    }).join('');
 
     grid.innerHTML = lootHTML;
 
