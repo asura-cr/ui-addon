@@ -11539,19 +11539,21 @@ window.toggleSection = function(header) {
       }
     });
     
-    // Dynamically populate monster types
+    // Dynamically populate monster types (from live DOM for instant paint)
     const monsterTypeList = document.getElementById('monster-types-list');
     if (monsterTypeList) {
-      // Get unique monster names from monsterList
-      const uniqueMonsters = Array.from(new Set(Array.from(monsterList).map(m => m.querySelector('.monster-name, h3, h2')?.textContent?.trim() || 'Unknown'))).sort();
+      const uniqueMonsters = Array.from(new Set(Array.from(monsterList)
+        .map(m => m.querySelector('.monster-name, h3, h2')?.textContent?.trim() || 'Unknown'))).sort();
       monsterTypeList.innerHTML = uniqueMonsters.map(monsterName => `
         <label style="display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;">
           <input type="checkbox" value="${monsterName}" class="monster-type-checkbox cyberpunk-checkbox"> ${monsterName}
         </label>
       `).join('');
-      // Add listeners to new checkboxes
       monsterTypeList.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', applyMonsterFiltersDebounced);
+        if (!checkbox.dataset.listenerAttached) {
+          checkbox.addEventListener('change', applyMonsterFiltersDebounced);
+          checkbox.dataset.listenerAttached = 'true';
+        }
       });
     }
     
@@ -11672,6 +11674,66 @@ window.toggleSection = function(header) {
     
     // Special case: if we have loot filters but didn't populate the dropdown yet, 
     // we'll apply filters again after the dropdown is populated (see above)
+
+    // After initial render, asynchronously enrich monster types with hide_dead_monsters=0 list (no initial delay)
+    (async () => {
+      try {
+        const listEl = document.getElementById('monster-types-list');
+        if (!listEl || listEl.dataset.enriched === 'true') return;
+        const combinedList = await buildCombinedMonsterList();
+        if (!combinedList || !combinedList.length) return;
+
+        const existing = new Set(Array.from(listEl.querySelectorAll('input.monster-type-checkbox')).map(cb => cb.value));
+        const combinedNames = Array.from(new Set(Array.from(combinedList)
+          .map(m => m.querySelector('.monster-name, h3, h2')?.textContent?.trim() || 'Unknown')));
+
+        const toAdd = combinedNames.filter(n => n && !existing.has(n)).sort();
+        if (toAdd.length) {
+          const frag = document.createDocumentFragment();
+          toAdd.forEach(name => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display: block; margin: 3px 0; color: #cdd6f4; font-size: 12px;';
+            label.innerHTML = `<input type="checkbox" value="${name}" class="monster-type-checkbox cyberpunk-checkbox"> ${name}`;
+            frag.appendChild(label);
+          });
+          listEl.appendChild(frag);
+          listEl.querySelectorAll('.monster-type-checkbox').forEach(cb => {
+            if (!cb.dataset.listenerAttached) {
+              cb.addEventListener('change', applyMonsterFiltersDebounced);
+              cb.dataset.listenerAttached = 'true';
+            }
+          });
+
+          // Re-apply saved selections if they included types that were missing initially
+          try {
+            const raw = localStorage.getItem('demonGameFilterSettings');
+            if (raw) {
+              const savedSettings = JSON.parse(raw) || {};
+              const urlParams = new URLSearchParams(window.location.search || '');
+              const waveParam = urlParams.get('wave') || 'default';
+              const gateParam = urlParams.get('gate') || urlParams.get('gate_id') || 'default';
+              const waveKey = `gate_${gateParam}_wave_${waveParam}`;
+              let types = null;
+              if (savedSettings.waves && savedSettings.waves[waveKey]) {
+                types = savedSettings.waves[waveKey].monsterTypeFilter;
+              } else if (Array.isArray(savedSettings.monsterTypeFilter)) {
+                // legacy flat
+                types = savedSettings.monsterTypeFilter;
+              }
+              if (Array.isArray(types) && types.length) {
+                types.forEach(t => {
+                  const box = listEl.querySelector(`input.monster-type-checkbox[value="${t}"]`);
+                  if (box) box.checked = true;
+                });
+                // Re-apply filters to include newly added selections
+                applyMonsterFiltersDebounced();
+              }
+            }
+          } catch {}
+        }
+        listEl.dataset.enriched = 'true';
+      } catch {}
+    })();
 
     // Always compute initial loot count from server once UI is ready
     if (typeof updateLootCountFromServer === 'function') {
