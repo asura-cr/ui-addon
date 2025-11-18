@@ -1384,7 +1384,22 @@ function parseLeaderboardFromHtml(html) {
 
   // ===== BATTLE MODAL SYSTEM =====
 
-  // Helper: update a join button to show player count if available
+  // Helper: ensure monster overlay shows player count (returns true on success)
+  function updateOverlayPlayerCount(card, currentPlayers, maxPlayers) {
+    if (!card) return false;
+    const overlay = card.querySelector('.monster-overlay');
+    if (!overlay) return false;
+    let playersSpan = overlay.querySelector('.players');
+    if (!playersSpan) {
+      playersSpan = document.createElement('span');
+      playersSpan.className = 'players';
+      overlay.appendChild(playersSpan);
+    }
+    playersSpan.textContent = `${currentPlayers}/${maxPlayers}`;
+    return true;
+  }
+
+  // Helper: update a join button to show overlay-based player count
   function enhanceJoinButtonWithPlayers(btn, monsterCard) {
     try {
       if (!btn) return;
@@ -1403,10 +1418,8 @@ function parseLeaderboardFromHtml(html) {
               const chip = row.querySelector('.party-chip, .mini-chip.party-chip, .stat-value .mini-chip') || row.querySelector('.stat-value');
               const text = (chip?.textContent || row.textContent || '').trim();
               const m = text.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
-              if (m) {
-                const current = m[1].replace(/,/g, '');
-                const max = m[2].replace(/,/g, '');
-                btn.innerHTML = `⚔️ Join (${current}/${max})`;
+              if (m2) {
+                btn.innerHTML = '⚔️ Join';
                 btn.dataset.enhanced = 'true';
                 return;
               }
@@ -1422,9 +1435,7 @@ function parseLeaderboardFromHtml(html) {
         if (explicit) {
           const m2 = explicit.textContent.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
           if (m2) {
-            const current = m2[1].replace(/,/g, '');
-            const max = m2[2].replace(/,/g, '');
-            btn.innerHTML = `⚔️ Join (${current}/${max})`;
+            btn.innerHTML = '⚔️ Join';
             btn.dataset.enhanced = 'true';
             return;
           }
@@ -14063,18 +14074,18 @@ window.toggleSection = function(header) {
       if (playerMatch) {
         const currentPlayers = playerMatch[1];
         const maxPlayers = playerMatch[2];
-        
+        const overlayUpdated = updateOverlayPlayerCount(card, currentPlayers, maxPlayers);
+
         // Update all join buttons
         joinButtons.forEach(button => {
-          if (!button.dataset.enhanced) {
-            const originalText = button.textContent.trim();
-            if (originalText.includes('⚔️ Join')) {
-              button.innerHTML = `⚔️ Join (${currentPlayers}/${maxPlayers})`;
-            }
-            
-            // Mark as enhanced to avoid duplicate processing
-            button.dataset.enhanced = 'true';
+          const label = (button.textContent || '').toLowerCase();
+          if (!label.includes('join')) return;
+          if (overlayUpdated) {
+            button.innerHTML = '⚔️ Join';
+          } else {
+            button.innerHTML = `⚔️ Join (${currentPlayers}/${maxPlayers})`;
           }
+          button.dataset.enhanced = 'true';
         });
       }
     }
@@ -14596,7 +14607,8 @@ window.toggleSection = function(header) {
           display: none !important;
         }
         .monster-overlay .atk,
-        .monster-overlay .def {
+        .monster-overlay .def,
+        .monster-overlay .players {
           background: rgba(0,0,0,0.7);
           color: #fff;
           border-radius: 6px;
@@ -14612,6 +14624,10 @@ window.toggleSection = function(header) {
         }
         .monster-overlay .def::before {
           content: "🛡";
+          margin-right: 4px;
+        }
+        .monster-overlay .players::before {
+          content: "👥";
           margin-right: 4px;
         }
       `;
