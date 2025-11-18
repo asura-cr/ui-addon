@@ -1490,7 +1490,7 @@ function parseLeaderboardFromHtml(html) {
           throw new Error(joinMsg || 'Failed to join battle');
         }
       } else {
-        // Clean up any old "Continue the Battle" duplicates appended previously
+        // Clean up any old "Continue" duplicates appended previously
         try {
           monsterCard?.querySelectorAll('a .join-btn, a .continue-btn')?.forEach(b => {
             if (/continue/i.test(b.textContent||'')) {
@@ -1509,12 +1509,6 @@ function parseLeaderboardFromHtml(html) {
             }
           });
         } catch(e) { /* no-op */ }
-
-        // Hide "View" companion button; our continue button covers viewing
-        const viewBtn = monsterCard.querySelector('#view-battle-btn');
-        if (viewBtn) {
-          viewBtn.style.display = 'none';
-        }
 
         // Move monster card to Continue Battle section
         let continueSection = document.getElementById('continue-battle-content');
@@ -1558,30 +1552,56 @@ function parseLeaderboardFromHtml(html) {
           playerCount: parsed.playerCount || 0,
           monsterName: parsed.monsterName || 'Unknown Monster'
         };
-        // Create <a><button class="continue-btn">Continue the Battle</button></a> UI
-        try {
-          const anchor = document.createElement('a');
-          anchor.setAttribute('draggable','false');
-          anchor.setAttribute('data-monster-id', monsterId);
-          anchor.style.cursor = 'pointer';
-
-          const continueBtn = document.createElement('button');
-          continueBtn.className = 'continue-btn';
-          continueBtn.setAttribute('draggable','false');
-          continueBtn.textContent = 'Continue the Battle';
-          continueBtn.style.background = 'rgb(230, 126, 34)';
-          continueBtn.setAttribute('data-darkreader-inline-bgimage','');
-          continueBtn.setAttribute('data-darkreader-inline-bgcolor','');
-          continueBtn.style.setProperty('--darkreader-inline-bgimage', 'initial');
-          continueBtn.style.setProperty('--darkreader-inline-bgcolor', 'var(--darkreader-background-e67e22, #b25e14)');
-          continueBtn.addEventListener('click', (ev) => {
-            ev.preventDefault(); ev.stopPropagation();
+        const ensureContinueButton = (target) => {
+          if (!target) return false;
+          let continueBtn = target.querySelector('.continue-btn');
+          if (!continueBtn) {
+            continueBtn = document.createElement('button');
+            continueBtn.className = 'continue-btn';
+            continueBtn.setAttribute('draggable', 'false');
+            continueBtn.textContent = 'Continue';
+            continueBtn.style.cssText = 'flex: 1 1 0%; font-size: 12px; background: rgb(230, 126, 34);';
+          } else {
+            continueBtn.style.display = '';
+            continueBtn.disabled = false;
+          }
+          continueBtn.onclick = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
             showBattleModal(monster);
-          });
+          };
+          if (!continueBtn.parentNode) {
+            const viewBtn = target.querySelector('#view-battle-btn');
+            if (viewBtn) {
+              target.insertBefore(continueBtn, viewBtn);
+            } else {
+              target.appendChild(continueBtn);
+            }
+          }
+          return true;
+        };
 
-          anchor.appendChild(continueBtn);
-          monsterCard.appendChild(anchor);
-        } catch(e) { /* no-op */ }
+        if (!ensureContinueButton(monsterCard.querySelector('.uiaddon-action-bar'))) {
+          try {
+            const anchor = document.createElement('a');
+            anchor.setAttribute('draggable','false');
+            anchor.setAttribute('data-monster-id', monsterId);
+            anchor.style.cursor = 'pointer';
+
+            const fallbackBtn = document.createElement('button');
+            fallbackBtn.className = 'continue-btn';
+            fallbackBtn.setAttribute('draggable','false');
+            fallbackBtn.textContent = 'Continue';
+            fallbackBtn.style.background = 'rgb(230, 126, 34)';
+            fallbackBtn.addEventListener('click', (ev) => {
+              ev.preventDefault(); ev.stopPropagation();
+              showBattleModal(monster);
+            });
+
+            anchor.appendChild(fallbackBtn);
+            monsterCard.appendChild(anchor);
+          } catch (e) { /* no-op */ }
+        }
 
         await showBattleModal(monster);
       }
@@ -11900,7 +11920,7 @@ window.toggleSection = function(header) {
       // category (continue/loot/join) – coarse but cheap
       if (!card.dataset.category) {
         const txt = card.textContent || '';
-        card.dataset.category = txt.includes('Continue the Battle') ? 'continue' : (txt.includes('Loot') ? 'loot' : 'join');
+        card.dataset.category = txt.includes('Continue') ? 'continue' : (txt.includes('Loot') ? 'loot' : 'join');
       }
       // hp percent when needed
       if (hpNeeded && !card.dataset.hpPct) {
@@ -12632,8 +12652,8 @@ window.toggleSection = function(header) {
             return;
           }
 
-          // Check if already joined (button text is 'Continue the Battle')
-          if (newBtn.textContent.trim().toLowerCase() === 'continue the battle') {
+          // Check if already joined (button text is 'Continue')
+          if (newBtn.textContent.trim().toLowerCase() === 'continue') {
             // Fetch battle info and show modal
             try {
               const html = await fetchBattlePageHtml(monsterId);
@@ -13207,82 +13227,166 @@ window.toggleSection = function(header) {
     if (!monsterContainer) return;
 
     document.querySelectorAll('.monster-card').forEach(x => {
-      if (x.innerText.includes('Continue the Battle')) {
+      if (x.innerText.includes('Continue')) {
         monsterContainer.prepend(x);
       }
     });
   }
 
   function initImprovedWaveButtons() {
-    document.querySelectorAll('.monster-card > a').forEach(battleLink => {
-      if (battleLink.innerText.includes('Join the Battle')) {
-        const monsterId = battleLink.href.split("id=")[1];
-
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
-
-        const joinBtn = document.createElement('button');
-        joinBtn.className = "join-btn";
-        joinBtn.style.cssText = 'flex: 1; font-size: 12px;';
-        joinBtn.innerText = "⚔️ Join Battle";
-        joinBtn.addEventListener('click', function(e) {
-          if (e.ctrlKey || e.metaKey) {
-            // Ctrl+Click or Cmd+Click - join battle first, then open new tab
-            e.preventDefault();
-
-            
-            // Join the battle first
-            fetch('user_join_battle.php', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              },
-              body: 'monster_id=' + monsterId + '&user_id=' + userId,
-              referrer: 'https://demonicscans.org/battle.php?id=' + monsterId
-            })
-            .then(res => res.text())
-            .then(data => {
-              const msg = (data || '').trim();
-              const ok = msg.toLowerCase().startsWith('you have successfully');
-              
-              if (ok) {
-                // Battle joined successfully, now open new tab
-                window.open(battleLink.href, '_blank');
-                showNotification('Battle joined! Opening in new tab...', 'success');
-              } else {
-                showNotification(msg || 'Failed to join battle', 'error');
-              }
-            })
-            .catch(() => {
-              showNotification('Server error. Please try again.', 'error');
-            });
-          } else {
-            // Normal click - use instant join
-          joinWaveInstant(monsterId, battleLink);
-          }
-        });
-
-        const viewBtn = document.createElement('button');
-        viewBtn.className = "join-btn";
-        viewBtn.id = "view-battle-btn";
-        viewBtn.style.cssText = 'flex: 1; font-size: 12px; background: #6c7086;';
-        viewBtn.innerText = "👁️ View";
-        viewBtn.addEventListener('click', function(e) {
-          if (e.ctrlKey || e.metaKey) {
-            // Ctrl+Click or Cmd+Click - open in new tab
-            window.open(battleLink.href, '_blank');
-          } else {
-            // Normal click - navigate in same tab
-          window.location.href = battleLink.href;
-          }
-        });
-
-        buttonContainer.appendChild(joinBtn);
-        buttonContainer.appendChild(viewBtn);
-
-        battleLink.style.display = 'none';
-        battleLink.parentNode.appendChild(buttonContainer);
+    const extractMonsterId = (node) => {
+      if (!node) return null;
+      if (node.dataset && node.dataset.monsterId) return node.dataset.monsterId;
+      const href = node.getAttribute && node.getAttribute('href');
+      if (href) {
+        const hrefMatch = href.match(/id=(\d+)/);
+        if (hrefMatch) return hrefMatch[1];
       }
+      const onclick = node.getAttribute && node.getAttribute('onclick');
+      if (onclick) {
+        const onMatch = onclick.match(/id(?:=|:)(\d+)/);
+        if (onMatch) return onMatch[1];
+      }
+      if (node.closest) {
+        const parentLink = node.closest('a[data-monster-id], a[href*="battle.php?id="]');
+        if (parentLink && parentLink !== node) {
+          return extractMonsterId(parentLink);
+        }
+      }
+      return null;
+    };
+
+    document.querySelectorAll('.monster-card > a').forEach(battleLink => {
+      if (!battleLink.innerText.includes('Join the Battle')) return;
+
+      const monsterId = extractMonsterId(battleLink);
+      if (!monsterId) return;
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'uiaddon-action-bar';
+      buttonContainer.dataset.monsterId = monsterId;
+      buttonContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
+
+      const joinBtn = document.createElement('button');
+      joinBtn.className = 'join-btn';
+      joinBtn.style.cssText = 'flex: 1; font-size: 12px;';
+      joinBtn.innerText = '⚔️ Join Battle';
+      joinBtn.setAttribute('data-monster-id', monsterId);
+      joinBtn.addEventListener('click', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          fetch('user_join_battle.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'monster_id=' + monsterId + '&user_id=' + userId,
+            referrer: 'https://demonicscans.org/battle.php?id=' + monsterId
+          })
+          .then(res => res.text())
+          .then(data => {
+            const msg = (data || '').trim();
+            const ok = msg.toLowerCase().startsWith('you have successfully');
+            if (ok) {
+              window.open(battleLink.href, '_blank');
+              showNotification('Battle joined! Opening in new tab...', 'success');
+            } else {
+              showNotification(msg || 'Failed to join battle', 'error');
+            }
+          })
+          .catch(() => {
+            showNotification('Server error. Please try again.', 'error');
+          });
+        } else {
+          joinWaveInstant(monsterId, battleLink);
+        }
+      });
+
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'join-btn';
+      viewBtn.id = 'view-battle-btn';
+      viewBtn.style.cssText = 'flex: 1; font-size: 12px; background: #6c7086;';
+      viewBtn.innerText = '👁️ View';
+      viewBtn.setAttribute('data-monster-id', monsterId);
+      viewBtn.addEventListener('click', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+          window.open(battleLink.href, '_blank');
+        } else {
+          window.location.href = battleLink.href;
+        }
+      });
+
+      buttonContainer.appendChild(joinBtn);
+      buttonContainer.appendChild(viewBtn);
+
+      battleLink.style.display = 'none';
+      battleLink.parentNode.appendChild(buttonContainer);
+    });
+
+    document.querySelectorAll('.monster-card').forEach(card => {
+      if (card.querySelector('.uiaddon-action-bar')) {
+        return;
+      }
+
+      const continueBtn = card.querySelector('button.continue-btn');
+      if (!continueBtn) return;
+
+      const monsterId = continueBtn.getAttribute('data-monster-id') || card.dataset.monsterId || extractMonsterId(card);
+      if (!monsterId) return;
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'uiaddon-action-bar';
+      buttonContainer.dataset.monsterId = monsterId;
+      buttonContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
+
+      const clonedContinue = continueBtn.cloneNode(true);
+      clonedContinue.classList.add('join-btn');
+      clonedContinue.setAttribute('data-monster-id', monsterId);
+      if (!clonedContinue.style.flex) {
+        clonedContinue.style.flex = '1 1 0%';
+        clonedContinue.style.fontSize = '12px';
+      }
+
+      const battleHref = `battle.php?id=${monsterId}`;
+      let viewBtn = card.querySelector('#view-battle-btn');
+      viewBtn = viewBtn ? viewBtn.cloneNode(true) : null;
+      if (!viewBtn) {
+        viewBtn = document.createElement('button');
+        viewBtn.className = 'join-btn';
+        viewBtn.id = 'view-battle-btn';
+        viewBtn.style.cssText = 'flex: 1; font-size: 12px; background: #6c7086;';
+        viewBtn.innerText = '👁️ View';
+        viewBtn.addEventListener('click', (e) => {
+          if (e.ctrlKey || e.metaKey) {
+            window.open(battleHref, '_blank');
+          } else {
+            window.location.href = battleHref;
+          }
+        });
+      }
+      viewBtn.setAttribute('data-monster-id', monsterId);
+
+      buttonContainer.appendChild(clonedContinue);
+      buttonContainer.appendChild(viewBtn);
+
+      const continueAnchor = continueBtn.closest('a');
+      if (continueAnchor) {
+        continueAnchor.style.display = 'none';
+        continueAnchor.removeAttribute('id');
+        continueAnchor.removeAttribute('class');
+      } else {
+        continueBtn.style.display = 'none';
+      }
+
+      const viewAnchor = card.querySelector('a[href*="battle.php?id="]');
+      if (viewAnchor && !viewAnchor.contains(clonedContinue)) {
+        if (/view/i.test(viewAnchor.textContent || '')) {
+          viewAnchor.style.display = 'none';
+        }
+      }
+
+      card.appendChild(buttonContainer);
+      try { addPlayerCountToJoinButton(card); } catch (e) { /* ignore */ }
     });
   }
 
@@ -13368,7 +13472,7 @@ window.toggleSection = function(header) {
     }
 
     monsterCards.forEach(card => {
-      if (card.innerText.includes('Continue the Battle')) {
+      if (card.innerText.includes('Continue')) {
         continueCards.push(card);
       } else if (card.innerText.includes('Loot')) {
         lootCards.push(card);
@@ -14063,32 +14167,71 @@ window.toggleSection = function(header) {
   }
 
   function addPlayerCountToJoinButton(card) {
-    const joinButtons = card.querySelectorAll('.join-btn');
-    const playerText = Array.from(card.querySelectorAll('div')).find(div => 
-      div.textContent.includes('Players Joined') || div.textContent.includes('👥')
-    );
-    
-    if (joinButtons.length > 0 && playerText) {
-      // Extract player count from text
-      const playerMatch = playerText.textContent.match(/👥\s*Players Joined\s*(\d+)\/(\d+)/);
-      if (playerMatch) {
-        const currentPlayers = playerMatch[1];
-        const maxPlayers = playerMatch[2];
-        const overlayUpdated = updateOverlayPlayerCount(card, currentPlayers, maxPlayers);
+    if (!card) return;
 
-        // Update all join buttons
-        joinButtons.forEach(button => {
-          const label = (button.textContent || '').toLowerCase();
-          if (!label.includes('join')) return;
-          if (overlayUpdated) {
-            button.innerHTML = '⚔️ Join';
-          } else {
-            button.innerHTML = `⚔️ Join (${currentPlayers}/${maxPlayers})`;
-          }
-          button.dataset.enhanced = 'true';
-        });
+    const parsePlayers = (text) => {
+      if (!text) return null;
+      const match = text.replace(/\s+/g, ' ').match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+      if (!match) return null;
+      return {
+        currentDisplay: match[1].replace(/\s+/g, ''),
+        maxDisplay: match[2].replace(/\s+/g, '')
+      };
+    };
+
+    const findPlayerCounts = () => {
+      const statRows = card.querySelectorAll('.monster-stats .stat-row, .stat-row');
+      for (const row of statRows) {
+        const labelText = (row.querySelector('.stat-label')?.textContent || '').toLowerCase();
+        const iconClass = row.querySelector('.stat-icon')?.className || '';
+        if (/players/.test(labelText) || /grp/.test(iconClass) || /👥/.test(row.textContent)) {
+          const parsed = parsePlayers(row.textContent);
+          if (parsed) return parsed;
+        }
       }
-    }
+
+      const chips = card.querySelectorAll('.party-chip, .mini-chip, .stat-value');
+      for (const chip of chips) {
+        const parsed = parsePlayers(chip.textContent);
+        if (parsed) return parsed;
+      }
+
+      const fallback = Array.from(card.querySelectorAll('div, span'))
+        .find(el => /players/i.test(el.textContent) || /👥/.test(el.textContent));
+      if (fallback) {
+        const parsed = parsePlayers(fallback.textContent);
+        if (parsed) return parsed;
+      }
+
+      const dataCurrent = card.dataset.players;
+      const dataMax = card.dataset.playersMax || card.dataset.maxPlayers || card.dataset.playerCap;
+      if (dataCurrent && dataMax) {
+        return {
+          currentDisplay: String(dataCurrent),
+          maxDisplay: String(dataMax)
+        };
+      }
+
+      return null;
+    };
+
+    const counts = findPlayerCounts();
+    if (!counts) return;
+
+    const { currentDisplay, maxDisplay } = counts;
+    const overlayUpdated = updateOverlayPlayerCount(card, currentDisplay, maxDisplay);
+
+    const joinButtons = card.querySelectorAll('.join-btn');
+    joinButtons.forEach(button => {
+      const label = (button.textContent || '').toLowerCase();
+      if (!label.includes('join')) return;
+      if (overlayUpdated) {
+        button.innerHTML = '⚔️ Join';
+      } else {
+        button.innerHTML = `⚔️ Join (${currentDisplay}/${maxDisplay})`;
+      }
+      button.dataset.enhanced = 'true';
+    });
   }
 
   function hideRedundantTextElements(card) {
