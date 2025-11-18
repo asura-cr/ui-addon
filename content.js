@@ -1400,6 +1400,14 @@ function parseLeaderboardFromHtml(html) {
     return true;
   }
 
+  function setContinueButtonLabel(btn) {
+    if (!btn) return;
+    const desired = 'Continue';
+    if ((btn.textContent || '').trim() !== desired) {
+      btn.textContent = desired;
+    }
+  }
+
   function applyDamageToCard(card, damageValue) {
     if (!card) return;
     let overlay = card.querySelector('.monster-overlay');
@@ -1654,12 +1662,13 @@ function parseLeaderboardFromHtml(html) {
             continueBtn = document.createElement('button');
             continueBtn.className = 'continue-btn';
             continueBtn.setAttribute('draggable', 'false');
-            continueBtn.textContent = 'Continue';
             continueBtn.style.cssText = 'flex: 1 1 0%; font-size: 12px; background: rgb(230, 126, 34);';
+            setContinueButtonLabel(continueBtn);
           } else {
             continueBtn.style.display = '';
             continueBtn.disabled = false;
           }
+          setContinueButtonLabel(continueBtn);
           continueBtn.onclick = (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -1686,8 +1695,8 @@ function parseLeaderboardFromHtml(html) {
             const fallbackBtn = document.createElement('button');
             fallbackBtn.className = 'continue-btn';
             fallbackBtn.setAttribute('draggable','false');
-            fallbackBtn.textContent = 'Continue';
             fallbackBtn.style.background = 'rgb(230, 126, 34)';
+            setContinueButtonLabel(fallbackBtn);
             fallbackBtn.addEventListener('click', (ev) => {
               ev.preventDefault(); ev.stopPropagation();
               showBattleModal(monster);
@@ -13442,6 +13451,7 @@ window.toggleSection = function(header) {
         clonedContinue.style.flex = '1 1 0%';
         clonedContinue.style.fontSize = '12px';
       }
+      setContinueButtonLabel(clonedContinue);
 
       const battleHref = `battle.php?id=${monsterId}`;
       let viewBtn = card.querySelector('#view-battle-btn');
@@ -14390,7 +14400,8 @@ window.toggleSection = function(header) {
       }
       
       /* Hide loot preview when monster images are hidden */
-      body.monster-images-hidden .loot-preview-grid {
+      body.monster-images-hidden .loot-preview-grid,
+      body.monster-images-hidden .loot-preview-container {
         display: none;
       }
       
@@ -14844,9 +14855,15 @@ window.toggleSection = function(header) {
           max-width: calc(100% - 40px);
           z-index: 2;
         }
-        body.monster-images-hidden .monster-img,
-        body.monster-images-hidden .monster-overlay {
+        body.monster-images-hidden .monster-img {
           display: none !important;
+        }
+
+        body.monster-images-hidden .monster-overlay {
+          position: relative;
+          top: 0;
+          left: 0;
+          margin: 0 0 8px;
         }
         .monster-overlay .atk,
         .monster-overlay .def,
