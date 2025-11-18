@@ -14600,6 +14600,8 @@ window.toggleSection = function(header) {
           left: 20px;
           display: flex;
           gap: 8px;
+          flex-wrap: wrap;
+          max-width: calc(100% - 40px);
           z-index: 2;
         }
         body.monster-images-hidden .monster-img,
