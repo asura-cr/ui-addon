@@ -8,6 +8,7 @@
   
   // Monster loot cache for performance optimization
   const lootCache = new Map(); // Cache loot data by monster name  // Enhanced settings management
+  const damageCache = new Map(); // Cache player damage per monster
   var extensionSettings = {
     sidebarColor: '#1e1e1e',
     backgroundColor: '#000000',
@@ -1399,6 +1400,99 @@ function parseLeaderboardFromHtml(html) {
     return true;
   }
 
+  function applyDamageToCard(card, damageValue) {
+    if (!card) return;
+    let overlay = card.querySelector('.monster-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'monster-overlay';
+      const img = card.querySelector('.monster-img');
+      if (img && img.parentNode === card) {
+        card.insertBefore(overlay, img);
+      } else {
+        card.insertBefore(overlay, card.firstChild);
+      }
+    }
+    let damageSpan = overlay.querySelector('.damage');
+    if (!damageSpan) {
+      damageSpan = document.createElement('span');
+      damageSpan.className = 'damage';
+      overlay.appendChild(damageSpan);
+    }
+    const numeric = Number(damageValue);
+    const safeValue = Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
+    damageSpan.textContent = safeValue.toLocaleString('en-US');
+    card.dataset.yourDamage = String(safeValue);
+  }
+
+  function updateMonsterDamageUI(monsterId, damageValue) {
+    if (!monsterId) return;
+    const normalizedId = String(monsterId);
+    const numeric = Number(damageValue);
+    const safeValue = Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
+    damageCache.set(normalizedId, safeValue);
+    const card = findMonsterById(normalizedId);
+    if (card) {
+      applyDamageToCard(card, safeValue);
+    }
+  }
+
+  async function fetchCardDamage(card) {
+    if (!card) return;
+    const monsterId = card.getAttribute('data-monster-id');
+    if (!monsterId) return;
+    if (card.dataset.yourDamage) {
+      applyDamageToCard(card, Number(card.dataset.yourDamage));
+      damageCache.set(monsterId, Number(card.dataset.yourDamage));
+      return;
+    }
+    if (damageCache.has(monsterId)) {
+      applyDamageToCard(card, damageCache.get(monsterId));
+      return;
+    }
+    if (card.dataset.damageFetching === 'true') return;
+    card.dataset.damageFetching = 'true';
+    try {
+      const html = await fetchBattlePageHtml(monsterId);
+      const parsed = parseBattleHtml(html);
+      const damage = parsed.damageDone || 0;
+      damageCache.set(monsterId, damage);
+      applyDamageToCard(card, damage);
+    } catch (error) {
+      console.error('Failed to load player damage for monster', monsterId, error);
+    } finally {
+      delete card.dataset.damageFetching;
+    }
+  }
+
+  function initContinueDamageTracking() {
+    const processCard = (card) => {
+      if (!card) return;
+      const hasContinueBtn = card.querySelector('.continue-btn');
+      if (!hasContinueBtn) return;
+      fetchCardDamage(card);
+    };
+
+    document.querySelectorAll('.monster-card').forEach(processCard);
+    const root = document.querySelector('.monster-container') || document.body;
+    if (!root) return;
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.classList.contains('monster-card')) {
+            processCard(node);
+          } else {
+            node.querySelectorAll?.('.monster-card').forEach(processCard);
+          }
+        });
+      });
+    });
+
+    observer.observe(root, { childList: true, subtree: true });
+  }
+
   // Helper: update a join button to show overlay-based player count
   function enhanceJoinButtonWithPlayers(btn, monsterCard) {
     try {
@@ -1552,6 +1646,7 @@ function parseLeaderboardFromHtml(html) {
           playerCount: parsed.playerCount || 0,
           monsterName: parsed.monsterName || 'Unknown Monster'
         };
+        updateMonsterDamageUI(monsterId, monster.damageDone || 0);
         const ensureContinueButton = (target) => {
           if (!target) return false;
           let continueBtn = target.querySelector('.continue-btn');
@@ -1761,6 +1856,7 @@ function parseAttackLogs(html) {
         console.log('[BattleModal] Updating monster card for:', updatedMonster);
       // Update modal with new monster data
       showBattleModal(updatedMonster);
+        updateMonsterDamageUI(monsterId, updatedMonster.damageDone || 0);
   // Ensure hotkey overlays are re-applied after modal rerender
   try { setTimeout(addBattleAttackHotkeyOverlays, 150); } catch {}
       // Update monster card UI with new data
@@ -14621,6 +14717,7 @@ window.toggleSection = function(header) {
     initContinueBattleFirst();   
     initImprovedWaveButtons();   
     initMonsterStatOverlay();    
+    initContinueDamageTracking();
     initMonsterLootPreview(); 
     initMonsterSorting();      
     loadInstaLoot();             
@@ -14753,7 +14850,8 @@ window.toggleSection = function(header) {
         }
         .monster-overlay .atk,
         .monster-overlay .def,
-        .monster-overlay .players {
+        .monster-overlay .players,
+        .monster-overlay .damage {
           background: rgba(0,0,0,0.7);
           color: #fff;
           border-radius: 6px;
@@ -14773,6 +14871,10 @@ window.toggleSection = function(header) {
         }
         .monster-overlay .players::before {
           content: "👥";
+          margin-right: 4px;
+        }
+        .monster-overlay .damage::before {
+          content: "💥";
           margin-right: 4px;
         }
       `;
