@@ -33,3 +33,27 @@
     <img width="124" height="144" alt="image" src="https://github.com/user-attachments/assets/f61ec1da-026e-4414-9716-f7f6edf81b3e" />
 
   
+  - Guild Dungeon loot and filer buttons
+
+  
+   <img width="1227" height="157" alt="image" src="https://github.com/karneKami/ui-addon/blob/main/icon%201227.png" />
+
+  
+  - Mob drop type and chance view on battle page
+
+  
+   <img width="264" height="398" alt="image" src="https://github.com/karneKami/ui-addon/blob/main/264.png?raw=true" />
+
+  
+  - Dungeon mob stats view
+
+  
+    <img width="1088" height="539" alt="image" src="https://github.com/karneKami/ui-addon/blob/main/1008.png?raw=true" />
+
+  
+  - function
+
+  
+   <img width="" height="" alt="image" src="link" />
+
+  
