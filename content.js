@@ -20252,7 +20252,7 @@ window.toggleSection = function(header) {
           showNotification(msg || 'Unknown response', ok ? 'success' : 'error');
           if (ok) {
             // Redirect to the dungeon battle page for that monster
-            const target = `dungeon_battle.php?dgmid=${encodeURIComponent(dgmid)}&instance_id=${encodeURIComponent(instance_id)}`;
+            const target = `battle.php?dgmid=${encodeURIComponent(dgmid)}&instance_id=${encodeURIComponent(instance_id)}`;
             setTimeout(() => { window.location.href = target; }, 800);
             return;
           }
