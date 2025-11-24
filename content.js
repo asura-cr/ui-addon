@@ -2607,7 +2607,16 @@ function parseAttackLogs(html) {
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
-        #modal-player-info .hp-bar { position: relative; }
+        /* Container for HP / MP bars inside modal */
+        #modal-player-info .hp-bar { 
+          position: relative; 
+          height: 28px; 
+          border-radius: 6px; 
+          overflow: hidden;
+          background: rgba(255,255,255,0.02);
+        }
+
+        /* Numeric HP overlay centered on the HP bar */
         #modal-player-info .hp-numbers-player.card-sub {
           position: absolute;
           left: 0; top: 0; width: 100%;
@@ -2619,10 +2628,35 @@ function parseAttackLogs(html) {
           color: white;
           text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         }
+
+        /* HP fill (keeps existing appearance) */
         #modal-player-info .hp-fill.hp-fill--player {
           position: relative;
           z-index: 1;
           height: 28px;
+        }
+
+        /* Mana fill: blue gradient */
+        #modal-player-info .hp-fill.mana-fill--player {
+          position: relative;
+          z-index: 1;
+          height: 20px;
+          background: linear-gradient(90deg, #4ea8ff 0%, #2b6df6 100%);
+          border-radius: 6px;
+        }
+
+        /* Place the mana text visually on top of the mana bar by pulling it up
+           (keeps DOM changes minimal). This targets the common modal mana text id. */
+        #modal-player-info #pManaText {
+          margin-top: -32px;
+          position: relative;
+          z-index: 2;
+          text-align: center;
+          color: #ffffff;
+          pointer-events: none;
+          font-size: 13px;
+          line-height: 20px;
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
         }
       `;
       document.head.appendChild(style);
