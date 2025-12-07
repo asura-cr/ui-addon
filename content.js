@@ -13998,6 +13998,15 @@ function createFilterUI(monsterList, settings) {
         <input type="text" id="monster-name-filter" placeholder="Filter by name"
                style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 150px;">
         
+        <div style="position: relative; display: inline-block;">
+          <button id="monster-type-toggle" style="padding: 5px 10px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; cursor: pointer; min-width: 120px; text-align: left;">
+            Monster Types ▼
+          </button>
+          <div id="monster-type-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 4px; padding: 10px; z-index: 1000; min-width: 200px; max-height: 300px; overflow-y: auto;">
+            ${monsterCheckboxesHtml}
+          </div>
+        </div>
+        
         <select id="hp-filter" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 100px;">
           <option value="">All HP</option>
           <option value="low">Low HP (&lt;50%)</option>
@@ -14012,16 +14021,6 @@ function createFilterUI(monsterList, settings) {
           <option value="few">Few (&lt;10 players)</option>
           <option value="many">Many (&gt;20 players)</option>
           <option value="full">Full (30 players)</option>
-        </select>
-        
-        <select id="monster-type-sort" style="padding: 5px; background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; min-width: 120px;">
-          <option value="">Sort by Type</option>
-          <option value="Dragon">Dragon First</option>
-          <option value="Demon">Demon First</option>
-          <option value="Beast">Beast First</option>
-          <option value="Undead">Undead First</option>
-          <option value="Elemental">Elemental First</option>
-          <option value="Humanoid">Humanoid First</option>
         </select>
         
         <!-- Hidden select kept for backwards compatibility; its value will be updated by the ranked UI -->
@@ -14913,7 +14912,47 @@ function createFilterUI(monsterList, settings) {
   }
 
   // Monster type dropdown functionality
-  // Monster type filter removed
+  const monsterTypeToggle = document.getElementById('monster-type-toggle');
+  const monsterTypeDropdown = document.getElementById('monster-type-dropdown');
+
+  if (monsterTypeToggle && monsterTypeDropdown) {
+    monsterTypeToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      monsterTypeDropdown.style.display = monsterTypeDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+      monsterTypeDropdown.style.display = 'none';
+    });
+
+    // Monster type checkbox listeners
+    document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', applyMonsterFilters);
+    });
+
+    // Select all and clear buttons for monster types
+    const selectAllBtn = document.getElementById('select-all-monsters');
+    const clearBtn = document.getElementById('clear-monsters');
+    
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+          checkbox.checked = true;
+        });
+        applyMonsterFilters();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        document.querySelectorAll('.monster-type-checkbox').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+        applyMonsterFilters();
+      });
+    }
+  }
 
   // Initialize filter values from settings
   if (settings.nameFilter) document.getElementById('monster-name-filter').value = settings.nameFilter;
@@ -14987,6 +15026,21 @@ function applyMonsterFilters() {
   const battleLimitAlarm = document.getElementById('battle-limit-alarm').checked;
   const battleLimitAlarmSound = document.getElementById('battle-limit-alarm-sound').checked;
   const battleLimitAlarmVolume = parseInt(document.getElementById('battle-limit-alarm-volume').value, 10);
+
+  // Get selected monster types
+  const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value.toLowerCase());
+
+  // Update monster type button text
+  const monsterTypeToggle = document.getElementById('monster-type-toggle');
+  if (monsterTypeToggle) {
+    if (selectedMonsterTypes.length === 0) {
+      monsterTypeToggle.textContent = 'Monster Types ▼';
+    } else if (selectedMonsterTypes.length === 1) {
+      monsterTypeToggle.textContent = `${selectedMonsterTypes[0]} ▼`;
+    } else {
+      monsterTypeToggle.textContent = `${selectedMonsterTypes.length} Types ▼`;
+    }
+  }
 
   if (battleLimitAlarm) {
     alarmInterval = setInterval(() => {
@@ -15307,6 +15361,11 @@ function applyMonsterFilters() {
     }
 
     // Wave filter (removed - no longer used)
+
+    // Monster type filter
+    if (selectedMonsterTypes.length > 0 && !selectedMonsterTypes.includes(monsterName)) {
+      shouldShow = false;
+    }
 
     // HP filter
     if (hpFilter) {
