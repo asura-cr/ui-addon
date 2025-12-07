@@ -14577,7 +14577,7 @@ function createFilterUI(monsterList, settings) {
 
     // Gather current filter state
     const nameFilter = (document.getElementById('monster-name-filter')?.value || '').trim().toLowerCase();
-    // Monster types filter removed
+    const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value);
     const selectedLootItems = Array.from(document.querySelectorAll('.loot-filter-checkbox:checked')).map(cb => cb.value.toLowerCase());
     const hpFilter = document.getElementById('hp-filter')?.value || '';
     const playerCountFilter = document.getElementById('player-count-filter')?.value || '';
@@ -14708,7 +14708,14 @@ function createFilterUI(monsterList, settings) {
         const name = (card.querySelector('.monster-name, h3, h2')?.textContent || '').trim();
         const nameLower = name.toLowerCase();
         if (nameFilter && !nameLower.includes(nameFilter)) return;
-        // Monster type filter removed
+        
+        // Monster type filter
+        if (selectedMonsterTypes.length > 0) {
+          const matchesType = selectedMonsterTypes.some(type =>
+            nameLower.includes(type.toLowerCase())
+          );
+          if (!matchesType) return;
+        }
 
         const hpPct = getHpPercent(card);
         if (!hpMatches(hpPct)) return;
@@ -15028,7 +15035,7 @@ function applyMonsterFilters() {
   const battleLimitAlarmVolume = parseInt(document.getElementById('battle-limit-alarm-volume').value, 10);
 
   // Get selected monster types
-  const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value.toLowerCase());
+  const selectedMonsterTypes = Array.from(document.querySelectorAll('.monster-type-checkbox:checked')).map(cb => cb.value);
 
   // Update monster type button text
   const monsterTypeToggle = document.getElementById('monster-type-toggle');
@@ -15362,9 +15369,14 @@ function applyMonsterFilters() {
 
     // Wave filter (removed - no longer used)
 
-    // Monster type filter
-    if (selectedMonsterTypes.length > 0 && !selectedMonsterTypes.includes(monsterName)) {
-      shouldShow = false;
+    // Monster type filter (multiple selection)
+    if (selectedMonsterTypes.length > 0) {
+      const matchesType = selectedMonsterTypes.some(type =>
+        monsterName.includes(type.toLowerCase())
+      );
+      if (!matchesType) {
+        shouldShow = false;
+      }
     }
 
     // HP filter
@@ -16061,8 +16073,8 @@ async function lootAll() {
   const lootAllBtn = document.getElementById('loot-all-btn');
   if (!lootAllBtn) return;
 
-  // Find all available loot buttons to get count
-  const lootButtons = document.querySelectorAll('.join-btn');
+  // Find all available loot buttons from visible/filtered monsters only
+  const lootButtons = document.querySelectorAll('.monster-card:not([style*="display: none"]) .join-btn, tbody tr:not([style*="display: none"]) .join-btn');
   const availableLootButtons = Array.from(lootButtons).filter(btn =>
     btn.innerText.includes('💰 Loot Instantly') && !btn.disabled
   );
