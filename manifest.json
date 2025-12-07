@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Ui-Addon",
-  "version": "2.1",
-  "description": "Enhanced UI-Addon",
+  "version": "3",
+  "description": "Addon",
   "permissions": [
     "activeTab",
     "storage"
@@ -23,4 +23,3 @@
     "128": "icon128.png"
   }
 }
-
