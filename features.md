@@ -12,4 +12,7 @@
 > - Add Custom amt of stat
 <img width="144" height="172" alt="image" src="https://github.com/user-attachments/assets/4cd3e1e6-8536-4109-9499-7390ba8c19c5" />
 
+> - View all d2 miniboss in 1 page
+<img width="615" height="265" alt="image" src="https://github.com/user-attachments/assets/fd4f1477-253c-4a21-ba02-98cde79ce9db" />
+
 > - uh idk rest just lmk and ill update
