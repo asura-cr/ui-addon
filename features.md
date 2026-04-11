@@ -1,28 +1,43 @@
-## Features
+> [!NOTE]
+> This is not completed and still has a lot left.
+
+# Features
 
 ### 1. Gribble Limiter
-<img src="https://github.com/user-attachments/assets/797a6f0b-4bef-4f5a-b0a2-7b00b01f22fb" width="500" height="250" />
-Only displays the Slash and Power Slash buttons on Gribble pages.
+<img width="381" height="104" alt="image" src="https://github.com/user-attachments/assets/f6a78cba-2ddc-43ad-8bf2-2b37145a4612" />
+
+Shows only power slash and slash for gribbles.
 
 ---
 
 ### 2. Attack till x dmg
-<img src="https://github.com/user-attachments/assets/f7d84424-4702-4ca5-8bc5-51580ff2c75d" width="500" height="250" />
-Attack up to a specified damage limit, capping at your desired value.
+<img width="682" height="166" alt="image" src="https://github.com/user-attachments/assets/f7d84424-4702-4ca5-8bc5-51580ff2c75d" />
+
+Attack up to a specified damage limit.
 
 ---
 
 ### 3. Hit All Gribbles for 1M Damage
-<img src="https://github.com/user-attachments/assets/2499b26a-0044-4672-b1b4-5bc44c9216c3" width="500" height="250" />
-Deals 1 million damage to all Gribbles on the screen.
+<img width="374" height="692" alt="image" src="https://github.com/user-attachments/assets/2499b26a-0044-4672-b1b4-5bc44c9216c3" />
+
+Deals 1 million damage to all gribbles at once.
 
 ---
 
 ### 4. Add Custom Amount of Stat
-<img src="https://github.com/user-attachments/assets/4cd3e1e6-8536-4109-9499-7390ba8c19c5" width="500" height="250" />
-Customize and adjust specific stats as per your preference.
+<img width="144" height="172" alt="image" src="https://github.com/user-attachments/assets/4cd3e1e6-8536-4109-9499-7390ba8c19c5" />
+
+Allows customization of specific stats instead of +50 / + 100.
 
 ---
 
 ### 5. View All D2 Minibosses in One Page
-<div class="dungeon-monster-container" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; padding: 12px; background: rgba(30, 30, 46, 0.8); border: 1px solid rgb(69, 71, 90); border-radius: 8px;"><div class="dungeon-monster-card" data-monster-name="the goblin royal vizier" data-atk="1,200" data-def="1,200" data-players-joined="0" data-players-max="4" data-battle-url="https://demonicscans.org/battle.php?dgmid=1187175&amp;instance_id=5964" data-monster-id="1187175"><div style="position: relative; width: 100%;"><img src="https://demonicscans.org/images/monsters/monster_692e21b75d0be3.70405879.webp" class="dungeon-monster-img" alt="The Goblin Royal Vizier"><div class="monster-badges-container" style="position: absolute; top: 8px; left: 8px; display: flex; flex-direction: row; gap: 4px; z-index: 1;"><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">⚔ 1,200</span><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">🛡 1,200</span><span class="players-badge-overlay" style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">👥 0/4</span></div></div><div class="dungeon-monster-info"><h3>The Goblin Royal Vizier</h3><div class="dungeon-hp-bar"><div class="dungeon-hp-fill" style="width: 51.4998%;"></div></div><div style="font-size: 14px; margin-top: 8px;">123,599,592,780 / 240,000,000,000 HP</div></div><div style="display: flex; gap: 8px; margin-top: 12px;"><button class="dungeon-join-btn" style="flex: 1 1 0%; background: rgb(255, 211, 105); color: rgb(30, 30, 46);">⚔️ Continue</button><button class="dungeon-btn" style="flex: 1 1 0%;">👁️ View</button></div></div><div class="dungeon-monster-card" data-monster-name="vorrak the bloodbound berserker" data-atk="800" data-def="800" data-players-joined="0" data-players-max="4" data-battle-url="https://demonicscans.org/battle.php?dgmid=1187176&amp;instance_id=5964" data-monster-id="1187176"><div style="position: relative; width: 100%;"><img src="https://demonicscans.org/images/monsters/monster_692e3284f2ab86.29760805.webp" class="dungeon-monster-img" alt="Vorrak the Bloodbound Berserker"><div class="monster-badges-container" style="position: absolute; top: 8px; left: 8px; display: flex; flex-direction: row; gap: 4px; z-index: 1;"><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">⚔ 800</span><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">🛡 800</span><span class="players-badge-overlay" style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">👥 0/4</span></div></div><div class="dungeon-monster-info"><h3>Vorrak the Bloodbound Berserker</h3><div class="dungeon-hp-bar"><div class="dungeon-hp-fill" style="width: 50.5756%;"></div></div><div style="font-size: 14px; margin-top: 8px;">121,381,493,963 / 240,000,000,000 HP</div></div><div style="display: flex; gap: 8px; margin-top: 12px;"><button class="dungeon-join-btn" style="flex: 1 1 0%; background: rgb(255, 211, 105); color: rgb(30, 30, 46);">⚔️ Continue</button><button class="dungeon-btn" style="flex: 1 1 0%;">👁️ View</button></div></div><div class="dungeon-monster-card" data-monster-name="grimgrowl the chimera" data-atk="600" data-def="600" data-players-joined="0" data-players-max="4" data-battle-url="https://demonicscans.org/battle.php?dgmid=1187177&amp;instance_id=5964" data-monster-id="1187177"><div style="position: relative; width: 100%;"><img src="https://demonicscans.org/images/monsters/monster_692e33fd4a1621.58845438.webp" class="dungeon-monster-img" alt="Grimgrowl the Chimera"><div class="monster-badges-container" style="position: absolute; top: 8px; left: 8px; display: flex; flex-direction: row; gap: 4px; z-index: 1;"><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">⚔ 600</span><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">🛡 600</span><span class="players-badge-overlay" style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">👥 0/4</span></div></div><div class="dungeon-monster-info"><h3>Grimgrowl the Chimera</h3><div class="dungeon-hp-bar"><div class="dungeon-hp-fill" style="width: 51.5371%;"></div></div><div style="font-size: 14px; margin-top: 8px;">123,689,105,550 / 240,000,000,000 HP</div></div><div style="display: flex; gap: 8px; margin-top: 12px;"><button class="dungeon-join-btn" style="flex: 1 1 0%; background: rgb(255, 211, 105); color: rgb(30, 30, 46);">⚔️ Continue</button><button class="dungeon-btn" style="flex: 1 1 0%;">👁️ View</button></div></div><div class="dungeon-monster-card" data-monster-name="drazhul the broken crown" data-atk="1,500" data-def="1,500" data-players-joined="0" data-players-max="4" data-battle-url="https://demonicscans.org/battle.php?dgmid=1187178&amp;instance_id=5964" data-monster-id="1187178"><div style="position: relative; width: 100%;"><img src="https://demonicscans.org/images/monsters/monster_692e4fb3784133.50322690.webp" class="dungeon-monster-img" alt="Drazhul The Broken Crown"><div class="monster-badges-container" style="position: absolute; top: 8px; left: 8px; display: flex; flex-direction: row; gap: 4px; z-index: 1;"><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">⚔ 1,500</span><span style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">🛡 1,500</span><span class="players-badge-overlay" style="background: rgba(0, 0, 0, 0.75); color: white; padding: 6px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(8px); box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 6px; min-width: 32px; text-align: center; display: flex; align-items: center; justify-content: center;">👥 0/4</span></div></div><div class="dungeon-monster-info"><h3>Drazhul The Broken Crown</h3><div class="dungeon-hp-bar"><div class="dungeon-hp-fill" style="width: 52.7633%;"></div></div><div style="font-size: 14px; margin-top: 8px;">126,631,954,767 / 240,000,000,000 HP</div></div><div style="display: flex; gap: 8px; margin-top: 12px;"><button class="dungeon-join-btn" style="flex: 1 1 0%; background: rgb(255, 211, 105); color: rgb(30, 30, 46);">⚔️ Continue</button><button class="dungeon-btn" style="flex: 1 1 0%;">👁️ View</button></div></div></div>
+<img width="615" height="265" alt="image" src="https://github.com/user-attachments/assets/fd4f1477-253c-4a21-ba02-98cde79ce9db" />
+
+See all minibosses from D2 on a single page .
+
+---
+
+### 6. (TBD)
+Let me know if there's anything else you need added! I'll update as necessary.
+
